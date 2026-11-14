@@ -1,0 +1,413 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight, Check, Copy, Mail, MessageSquare } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { PROFILE } from '../data/portfolio';
+import { ARTCRAFT_EASE, SectionChoreoHeader } from './MotionPrimitives';
+
+interface ContactAndFooterProps {
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}
+
+interface FormErrors {
+  name?: string;
+  email?: string;
+  message?: string;
+}
+
+export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
+  theme,
+  onToggleTheme,
+}) => {
+  const prefersReducedMotion = useReducedMotion();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [sentNotice, setSentNotice] = useState<string | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
+  const validate = (): boolean => {
+    const nextErrors: FormErrors = {};
+    if (!name.trim()) nextErrors.name = 'Please enter your name.';
+    if (!email.trim()) {
+      nextErrors.email = 'Please enter your email address.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = 'Please enter a valid email address.';
+    }
+    if (!message.trim()) nextErrors.message = 'Please share a brief note about your project.';
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleCopyEmail = async () => {
+    let copied = false;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(PROFILE.email);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+
+    if (!copied) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = PROFILE.email;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch {
+        copied = false;
+      }
+    }
+
+    if (copied) {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      setCopiedEmail(true);
+      copyTimerRef.current = window.setTimeout(() => {
+        setCopiedEmail(false);
+        copyTimerRef.current = null;
+      }, 2400);
+    }
+  };
+
+  const handleSubmitEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const subject = encodeURIComponent(`Portfolio Inquiry from ${name.trim()}`);
+    const body = encodeURIComponent(
+      `Hi Aadesh,\n\nName: ${name.trim()}\nEmail: ${email.trim()}\n\n${message.trim()}`
+    );
+
+    window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${body}`;
+    setSentNotice('Opened your default email client with your prepared inquiry.');
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!validate()) return;
+    const text = encodeURIComponent(
+      `Hi Aadesh, I'm ${name.trim()} (${email.trim()}). ${message.trim()}`
+    );
+    window.location.href = `${PROFILE.whatsappHref}?text=${text}`;
+    setSentNotice('Redirecting to WhatsApp with your message.');
+  };
+
+  return (
+    <>
+      <section id="contact" className="py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
+            {/* Left Column: Direct Channels */}
+            <motion.div
+              initial={
+                prefersReducedMotion
+                  ? false
+                  : { opacity: 0, y: 24, filter: 'blur(8px)' }
+              }
+              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.75, ease: ARTCRAFT_EASE }}
+              className="lg:col-span-5 space-y-6 sm:space-y-8"
+            >
+              <div className="space-y-3 sm:space-y-4">
+                <SectionChoreoHeader eyebrow="04. Connection">
+                  <h2
+                    className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
+                    style={{ textWrap: 'balance' }}
+                  >
+                    Let&apos;s build something{' '}
+                    <span className="font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]">
+                      meaningful
+                    </span>{' '}
+                    together.
+                  </h2>
+                </SectionChoreoHeader>
+                <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                  Have a web application, brand system, or applied electronics collaboration in
+                  mind? Reach out directly via email or WhatsApp.
+                </p>
+              </div>
+
+              <div className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]">
+                <div className="py-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Email</p>
+                    <a
+                      href={`mailto:${PROFILE.email}`}
+                      className="font-medium text-sm sm:text-base text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate block"
+                    >
+                      {PROFILE.email}
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyEmail}
+                    aria-label="Copy email address"
+                    className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                  >
+                    {copiedEmail ? (
+                      <>
+                        <Check size={14} className="text-[#C94B00] dark:text-[#FF721A]" aria-hidden="true" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} aria-hidden="true" />
+                        <span>Copy Email</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <a
+                  href={PROFILE.whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-4 flex items-center justify-between gap-4 group"
+                >
+                  <div>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">WhatsApp</p>
+                    <p className="font-mono text-sm sm:text-base tabular-nums font-medium text-[#0A0A0A] dark:text-white group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] transition-colors">
+                      {PROFILE.whatsappDisplay}
+                    </p>
+                  </div>
+                  <ArrowUpRight
+                    size={16}
+                    className="text-[#525252] dark:text-[#A3A3A3] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A]"
+                    aria-hidden="true"
+                  />
+                </a>
+              </div>
+            </motion.div>
+
+            {/* Right Column: Interactive Inquiry Composer */}
+            <motion.div
+              initial={
+                prefersReducedMotion
+                  ? false
+                  : { opacity: 0, y: 24, filter: 'blur(8px)' }
+              }
+              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.78, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
+              className="lg:col-span-7"
+            >
+              <form
+                onSubmit={handleSubmitEmail}
+                noValidate
+                className="p-5 sm:p-7 lg:p-9 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-5 sm:space-y-6"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="contact-name"
+                      className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
+                    >
+                      Your Name
+                    </label>
+                    <input
+                      id="contact-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                      }}
+                      placeholder="Aarav Menon"
+                      className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors ${
+                        errors.name
+                          ? 'border-red-600 dark:border-red-500'
+                          : 'border-[#E5E5E5] dark:border-[#262626]'
+                      }`}
+                    />
+                    {errors.name && (
+                      <p className="text-xs text-red-600 dark:text-red-400">{errors.name}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="contact-email"
+                      className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      id="contact-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                      }}
+                      placeholder="you@example.com"
+                      className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors ${
+                        errors.email
+                          ? 'border-red-600 dark:border-red-500'
+                          : 'border-[#E5E5E5] dark:border-[#262626]'
+                      }`}
+                    />
+                    {errors.email && (
+                      <p className="text-xs text-red-600 dark:text-red-400">{errors.email}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="contact-message"
+                    className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
+                  >
+                    Project Brief
+                  </label>
+                  <textarea
+                    id="contact-message"
+                    rows={4}
+                    value={message}
+                    onChange={(e) => {
+                      setMessage(e.target.value);
+                      if (errors.message) setErrors((prev) => ({ ...prev, message: undefined }));
+                    }}
+                    placeholder="Share your goals, timeline, or hardware/software requirements..."
+                    className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors resize-y ${
+                      errors.message
+                        ? 'border-red-600 dark:border-red-500'
+                        : 'border-[#E5E5E5] dark:border-[#262626]'
+                    }`}
+                  />
+                  {errors.message && (
+                    <p className="text-xs text-red-600 dark:text-red-400">{errors.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 pt-1">
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                  >
+                    <Mail size={16} aria-hidden="true" />
+                    <span>Compose Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendWhatsApp}
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                  >
+                    <MessageSquare size={16} aria-hidden="true" />
+                    <span>Send via WhatsApp</span>
+                  </button>
+                </div>
+
+                {sentNotice && (
+                  <p
+                    role="status"
+                    className="text-xs font-medium text-[#0A0A0A] dark:text-white pt-1"
+                  >
+                    {sentNotice}
+                  </p>
+                )}
+              </form>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Quiet Editorial Footer with bottom clearance for floating Back-to-Top button */}
+      <footer className="pt-10 pb-20 sm:pb-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-xs text-[#525252] dark:text-[#A3A3A3]">
+          <div className="flex flex-wrap items-center gap-4">
+            <a href="#top" aria-label={PROFILE.name} className="inline-flex items-center shrink-0">
+              <img
+                src="/assets/aistudio/Black_Blue_and_White_Gradient_Modern_Business_LinkedIn_Banner__3__1be4a1fb.png"
+                alt={PROFILE.name}
+                referrerPolicy="no-referrer"
+                className="h-8 w-auto object-contain select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
+              />
+            </a>
+            <span aria-hidden="true">·</span>
+            <p>
+              © 2026{' '}
+              <strong className="font-bold text-[#0A0A0A] dark:text-white">
+                Aadesh PS
+              </strong>
+              . Crafted with precision.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-6">
+            <a
+              href={PROFILE.linkedinHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
+            >
+              LinkedIn
+            </a>
+            <a
+              href={PROFILE.instagramHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
+            >
+              Instagram
+            </a>
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
+            >
+              {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      {/* Brief 'Copied!' Toast Notification */}
+      <AnimatePresence>
+        {copiedEmail && (
+          <motion.div
+            key="email-copied-toast"
+            role="status"
+            aria-live="polite"
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-4 left-4 right-16 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:bottom-6 z-40 pointer-events-none flex justify-start sm:justify-center"
+          >
+            <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] border border-[#262626] dark:border-[#E5E5E5] shadow-lg text-xs font-semibold">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-[#FF721A] text-[#0A0A0A] shrink-0">
+                <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+              </span>
+              <span>Copied!</span>
+              <span className="text-[#A3A3A3] dark:text-[#525252] font-mono font-normal truncate max-w-[200px] sm:max-w-none">
+                {PROFILE.email}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};

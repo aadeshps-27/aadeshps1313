@@ -1,0 +1,655 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
+import {
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+} from 'motion/react';
+import {
+  CREATIVE_CASE_STUDY,
+  GEOLOCATION_CASE_STUDY,
+  PROJECTS,
+  ProjectId,
+  ROBOT_CASE_STUDY,
+  getProjectReadingTime,
+} from '../data/portfolio';
+import { SafeImage } from './SafeImage';
+
+interface CaseStudyModalProps {
+  projectId: ProjectId | null;
+  onClose: () => void;
+  onSelectProject: (id: ProjectId) => void;
+}
+
+export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
+  projectId,
+  onClose,
+  onSelectProject,
+}) => {
+  const prefersReducedMotion = useReducedMotion();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [readPercent, setReadPercent] = useState(0);
+
+  const { scrollYProgress } = useScroll({
+    container: scrollContainerRef,
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 260,
+    damping: 32,
+    restDelta: 0.001,
+  });
+
+  useMotionValueEvent(scrollYProgress, 'change', (latest) => {
+    const next = Math.min(100, Math.max(0, Math.round(latest * 100)));
+    setReadPercent(next);
+  });
+
+  // Interactive RSSI estimator state for Geo-Location monograph
+  const [distanceMeters, setDistanceMeters] = useState<number>(18);
+  const [pathLossN, setPathLossN] = useState<number>(2.7);
+  const rssiZero = -42; // Reference RSSI at 1m in dBm
+  const estimatedRssi = rssiZero - 10 * pathLossN * Math.log10(Math.max(1, distanceMeters));
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+    setReadPercent(0);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [projectId, onClose]);
+
+  if (!projectId) return null;
+
+  const currentIndex = PROJECTS.findIndex((p) => p.id === projectId);
+  const project = PROJECTS[currentIndex] ?? PROJECTS[0];
+  const prevProject = PROJECTS[(currentIndex - 1 + PROJECTS.length) % PROJECTS.length];
+  const nextProject = PROJECTS[(currentIndex + 1) % PROJECTS.length];
+  const readingTime = getProjectReadingTime(project.id);
+  const ringProgress = prefersReducedMotion ? scrollYProgress : smoothProgress;
+
+  return (
+    <motion.div
+      ref={scrollContainerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="case-study-title"
+      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
+      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black text-[#0A0A0A] dark:text-white"
+    >
+      {/* Top Sticky Monograph Bar */}
+      <div className="sticky top-0 z-20 border-b border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-black/95 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-[#525252] dark:text-[#A3A3A3] min-w-0">
+            <span className="font-mono tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] shrink-0">
+              Case Study {project.indexNumber}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate font-semibold text-[#0A0A0A] dark:text-white">
+              {project.title}
+            </span>
+            <span aria-hidden="true" className="hidden sm:inline">·</span>
+            <span className="hidden sm:inline font-mono tabular-nums text-xs shrink-0">
+              {readingTime}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Circular Reading Depth Indicator */}
+            <div
+              role="progressbar"
+              aria-label="Case study reading progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={readPercent}
+              title={`Reading progress: ${readPercent}%`}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                className="shrink-0"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="text-[#E5E5E5] dark:text-[#262626]"
+                />
+                <motion.circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="#FF721A"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  transform="rotate(-90 12 12)"
+                  style={{ pathLength: ringProgress }}
+                />
+              </svg>
+              <span className="font-mono text-[11px] tabular-nums font-medium text-[#525252] dark:text-[#A3A3A3] min-w-[2.1rem] text-right">
+                {readPercent}%
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close case study"
+              className="inline-flex items-center gap-2 min-h-[40px] px-3.5 sm:px-4 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+            >
+              <span>Close</span>
+              <X size={15} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Monograph Body */}
+      <article className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16 space-y-10 sm:space-y-14">
+        {/* Header & Hero Image */}
+        <header className="space-y-8">
+          <div className="space-y-4">
+            <p className="text-xs font-mono tabular-nums text-[#525252] dark:text-[#A3A3A3]">
+              {project.discipline} · {project.year} ·{' '}
+              <span className="text-[#0A0A0A] dark:text-white font-semibold">{readingTime}</span>
+            </p>
+            <h1
+              id="case-study-title"
+              className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
+              style={{ textWrap: 'balance' }}
+            >
+              {project.title}
+            </h1>
+            <p className="font-serif italic text-xl text-[#525252] dark:text-[#A3A3A3]">
+              {project.subtitle}
+            </p>
+          </div>
+
+          <div className="rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#F5F5F5] dark:bg-[#141414] aspect-[16/9]">
+            <SafeImage
+              src={project.image}
+              alt={project.imageAlt}
+              fallbackLabel={project.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* 3-Column Spec Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-6 border-y border-[#E5E5E5] dark:border-[#262626]">
+            {project.metrics.map((metric) => (
+              <div key={metric.label}>
+                <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">{metric.label}</p>
+                <p className="mt-1 font-display text-lg font-semibold text-[#0A0A0A] dark:text-white">
+                  {metric.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </header>
+
+        {/* Project-Specific Rich Content */}
+        {project.id === 'creative' && (
+          <div className="space-y-14">
+            <section className="space-y-6">
+              <h2 className="font-display text-2xl font-bold">01. Creative Methodology</h2>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3] max-w-3xl">
+                Merging the analytical approach of applied electronics engineering with the
+                expressive freedom of visual design. Every project begins on a structural grid
+                before introducing organic typography and motion.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {CREATIVE_CASE_STUDY.pillars.map((pillar, idx) => (
+                  <div
+                    key={pillar.title}
+                    className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3"
+                  >
+                    <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      0{idx + 1}
+                    </span>
+                    <h3 className="font-display text-lg font-bold">{pillar.title}</h3>
+                    <p className="text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                      {pillar.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="p-8 sm:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-6">
+              <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                02. Core Philosophy
+              </p>
+              <h2 className="font-display text-3xl font-bold">
+                {CREATIVE_CASE_STUDY.philosophyTitle}
+              </h2>
+              <blockquote className="font-serif italic text-xl sm:text-2xl leading-relaxed text-[#0A0A0A] dark:text-white">
+                &ldquo;{CREATIVE_CASE_STUDY.philosophyStatement}&rdquo;
+              </blockquote>
+              <p className="text-xs font-mono text-[#525252] dark:text-[#A3A3A3]">
+                Guiding Pillars: {CREATIVE_CASE_STUDY.values.join(' · ')}
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="font-display text-2xl font-bold">03. Studio Craft &amp; Toolkit</h2>
+              <div className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]">
+                {CREATIVE_CASE_STUDY.craftNotes.map((note) => (
+                  <div
+                    key={note.label}
+                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  >
+                    <span className="text-sm font-medium text-[#525252] dark:text-[#A3A3A3]">
+                      {note.label}
+                    </span>
+                    <span className="text-sm font-semibold text-[#0A0A0A] dark:text-white">
+                      {note.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {project.id === 'robot' && (
+          <div className="space-y-14">
+            <section className="space-y-4">
+              <h2 className="font-display text-2xl font-bold">01. Abstract &amp; Context</h2>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {ROBOT_CASE_STUDY.abstract}
+              </p>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {ROBOT_CASE_STUDY.introduction}
+              </p>
+
+              <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {ROBOT_CASE_STUDY.subsystems.map((sub) => (
+                  <div
+                    key={sub.name}
+                    className="p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]"
+                  >
+                    <h3 className="font-display text-base font-bold">{sub.name}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                      {sub.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="font-display text-2xl font-bold">02. Mission Objectives</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {ROBOT_CASE_STUDY.objectives.map((obj, idx) => (
+                  <div
+                    key={obj}
+                    className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] flex items-start gap-3"
+                  >
+                    <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] pt-0.5">
+                      0{idx + 1}
+                    </span>
+                    <p className="text-sm text-[#0A0A0A] dark:text-white">{obj}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
+                <h2 className="font-display text-xl font-bold">03. Hardware Stack</h2>
+                <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {ROBOT_CASE_STUDY.hardwareComponents.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
+                <h2 className="font-display text-xl font-bold">04. Software &amp; Telemetry</h2>
+                <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {ROBOT_CASE_STUDY.softwareComponents.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            {/* Clean Architectural Block Flow */}
+            <section className="p-5 sm:p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-6">
+              <h2 className="font-display text-xl sm:text-2xl font-bold">05. System Architecture &amp; Signal Flow</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center text-center">
+                <div className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
+                  <p className="font-mono text-xs text-[#525252] dark:text-[#A3A3A3]">Operator Console</p>
+                  <p className="mt-1 font-display font-semibold">Remote Controller / Laptop</p>
+                </div>
+                <div className="p-4 rounded-xl border border-[#FF721A] bg-white dark:bg-[#141414]">
+                  <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">Wireless RF / Wi-Fi Link</p>
+                  <p className="mt-1 font-display font-semibold">Microcontroller / Raspberry Pi</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
+                    <p className="font-display text-xs font-semibold">Motors</p>
+                    <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">L298N</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
+                    <p className="font-display text-xs font-semibold">Camera</p>
+                    <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">Stream</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
+                    <p className="font-display text-xs font-semibold">Sensors</p>
+                    <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">US / IR</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#E5E5E5] dark:border-[#262626] space-y-3">
+                <h3 className="font-display text-lg font-semibold">Working Principle</h3>
+                <ol className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {ROBOT_CASE_STUDY.workingSteps.map((step, i) => (
+                    <li key={step} className="flex items-start gap-3">
+                      <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] pt-0.5">
+                        0{i + 1}.
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {ROBOT_CASE_STUDY.quadrants.map((quad) => (
+                <div
+                  key={quad.title}
+                  className="p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3"
+                >
+                  <h3 className="font-display text-base font-bold">{quad.title}</h3>
+                  <ul className="space-y-1.5 text-xs text-[#525252] dark:text-[#A3A3A3]">
+                    {quad.items.map((item) => (
+                      <li key={item}>· {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
+
+            <section className="p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
+              <h2 className="font-display text-xl font-bold">Conclusion</h2>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {ROBOT_CASE_STUDY.conclusion}
+              </p>
+            </section>
+          </div>
+        )}
+
+        {project.id === 'geolocation' && (
+          <div className="space-y-14">
+            <section className="space-y-4">
+              <h2 className="font-display text-2xl font-bold">01. Research Abstract</h2>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {GEOLOCATION_CASE_STUDY.abstract}
+              </p>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {GEOLOCATION_CASE_STUDY.introduction}
+              </p>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
+                <h2 className="font-display text-xl font-bold">02. Limitations of Satellite GPS</h2>
+                <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {GEOLOCATION_CASE_STUDY.gpsLimitations.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
+                <h2 className="font-display text-xl font-bold">03. Proposed RF Architecture</h2>
+                <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {GEOLOCATION_CASE_STUDY.rfCapabilities.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            {/* Operational Flow */}
+            <section className="space-y-4">
+              <h2 className="font-display text-xl sm:text-2xl font-bold">04. Localization Pipeline</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {GEOLOCATION_CASE_STUDY.operationalFlow.map((item) => (
+                  <div
+                    key={item.step}
+                    className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-2"
+                  >
+                    <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      {item.step}
+                    </span>
+                    <p className="text-xs leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Mathematical Model + Interactive Estimator */}
+            <section className="p-5 sm:p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-xl sm:text-2xl font-bold">
+                    05. Logarithmic Path-Loss Model
+                  </h2>
+                  <p className="mt-1 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                    Interactive signal attenuation explorer based on SX1278 LoRa RSSI calibration.
+                  </p>
+                </div>
+                <div className="px-4 py-2.5 rounded-lg bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] font-mono text-xs sm:text-sm tabular-nums text-[#0A0A0A] dark:text-white self-start md:self-auto">
+                  RSSI = RSSI₀ − 10n log₁₀(d)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-[#E5E5E5] dark:border-[#262626]">
+                <label className="block space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-[#525252] dark:text-[#A3A3A3]">
+                      Anchor Distance (d)
+                    </span>
+                    <span className="font-mono tabular-nums font-semibold">
+                      {distanceMeters} m
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={150}
+                    step={1}
+                    value={distanceMeters}
+                    onChange={(e) => setDistanceMeters(Number(e.target.value))}
+                    className="w-full h-6 cursor-pointer accent-[#FF721A]"
+                  />
+                </label>
+
+                <label className="block space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-[#525252] dark:text-[#A3A3A3]">
+                      Environment Exponent (n)
+                    </span>
+                    <span className="font-mono tabular-nums font-semibold">
+                      {pathLossN.toFixed(1)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={2.0}
+                    max={4.0}
+                    step={0.1}
+                    value={pathLossN}
+                    onChange={(e) => setPathLossN(Number(e.target.value))}
+                    className="w-full h-6 cursor-pointer accent-[#FF721A]"
+                  />
+                </label>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Predicted RSSI</p>
+                    <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">
+                      RSSI₀ = −42 dBm @ 1 m
+                    </p>
+                  </div>
+                  <span className="font-mono text-2xl font-bold tabular-nums text-[#C94B00] dark:text-[#FF721A]">
+                    {estimatedRssi.toFixed(1)} dBm
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Hardware Stack Table */}
+            <section className="space-y-4">
+              <h2 className="font-display text-xl sm:text-2xl font-bold">06. Hardware &amp; Software Stack</h2>
+              <div className="overflow-x-auto rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]">
+                <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E5E5E5] dark:border-[#262626] text-xs text-[#525252] dark:text-[#A3A3A3]">
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">Subsystem</th>
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">Component Model</th>
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold">Role in Architecture</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5E5E5] dark:divide-[#262626]">
+                    {GEOLOCATION_CASE_STUDY.hardwareTable.map((row) => (
+                      <tr key={row.component}>
+                        <td className="py-3 px-3.5 sm:px-5 font-medium whitespace-nowrap">{row.component}</td>
+                        <td className="py-3 px-3.5 sm:px-5 font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A] whitespace-nowrap">
+                          {row.model}
+                        </td>
+                        <td className="py-3 px-3.5 sm:px-5 text-[#525252] dark:text-[#A3A3A3]">
+                          {row.purpose}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs font-mono text-[#525252] dark:text-[#A3A3A3]">
+                Software Toolchain: {GEOLOCATION_CASE_STUDY.softwareTools.join(' · ')}
+              </p>
+            </section>
+
+            {/* Applications, Advantages & Roadmap */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
+                <h3 className="font-display text-lg font-bold">Applications</h3>
+                <ul className="space-y-2 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {GEOLOCATION_CASE_STUDY.applications.map((item) => (
+                    <li key={item}>· {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
+                <h3 className="font-display text-lg font-bold">System Advantages</h3>
+                <ul className="space-y-2 text-sm text-[#525252] dark:text-[#A3A3A3]">
+                  {GEOLOCATION_CASE_STUDY.advantages.map((item) => (
+                    <li key={item}>· {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
+                <h3 className="font-display text-lg font-bold">Future Roadmap</h3>
+                <div className="space-y-2.5 text-sm">
+                  {GEOLOCATION_CASE_STUDY.roadmap.map((item) => (
+                    <div key={item.title}>
+                      <p className="font-semibold text-[#0A0A0A] dark:text-white">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
+              <h2 className="font-display text-xl font-bold">Conclusion</h2>
+              <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {GEOLOCATION_CASE_STUDY.conclusion}
+              </p>
+            </section>
+          </div>
+        )}
+
+        {/* Next / Previous Monograph Navigation */}
+        <footer className="pt-8 border-t border-[#E5E5E5] dark:border-[#262626] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => onSelectProject(prevProject.id)}
+            className="inline-flex items-center gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-left"
+          >
+            <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">Previous</p>
+              <p className="text-sm font-semibold">{prevProject.title}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelectProject(nextProject.id)}
+            className="inline-flex items-center justify-between sm:justify-end gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-right"
+          >
+            <div>
+              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">Next</p>
+              <p className="text-sm font-semibold">{nextProject.title}</p>
+            </div>
+            <ArrowRight size={16} className="shrink-0" aria-hidden="true" />
+          </button>
+        </footer>
+      </article>
+    </motion.div>
+  );
+};

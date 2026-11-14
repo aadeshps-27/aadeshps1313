@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aadesh P S — Creative Developer & Applied Electronics Engineer</title>
+    <meta
+      name="description"
+      content="Portfolio of Aadesh P S: multidisciplinary creative developer, vector illustrator, and applied electronics engineer based in Kerala, India."
+    />
+    <meta property="og:title" content="Aadesh P S — Creative Developer & Applied Electronics Engineer" />
+    <meta
+      property="og:description"
+      content="Portfolio of Aadesh P S: multidisciplinary creative developer, vector illustrator, and applied electronics engineer based in Kerala, India."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('aadesh-theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (saved === 'dark' || (!saved && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-white text-[#0A0A0A] dark:bg-black dark:text-white antialiased selection:bg-[#FF721A] selection:text-[#0A0A0A]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
