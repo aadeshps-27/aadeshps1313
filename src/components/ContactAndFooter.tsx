@@ -335,8 +335,8 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
 
       {/* Quiet Editorial Footer with bottom clearance for floating Back-to-Top button */}
       <footer className="pt-10 pb-20 sm:pb-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-xs text-[#525252] dark:text-[#A3A3A3]">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-center sm:text-left text-[#525252] dark:text-[#A3A3A3]">
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-4">
             <a href="#top" aria-label={PROFILE.name} className="inline-flex items-center shrink-0">
               <img
                 src="/assets/aistudio/Black_Blue_and_White_Gradient_Modern_Business_LinkedIn_Banner__3__1be4a1fb.png"
@@ -345,7 +345,6 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
                 className="h-8 w-auto object-contain select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
               />
             </a>
-            <span aria-hidden="true">·</span>
             <p>
               © 2026{' '}
               <strong className="font-bold text-[#0A0A0A] dark:text-white">
@@ -355,7 +354,7 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-6">
             <a
               href={PROFILE.linkedinHref}
               target="_blank"
