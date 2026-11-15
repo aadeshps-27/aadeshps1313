@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { ScrollProgressBar } from './components/ScrollProgressBar';
 import { CustomCursor } from './components/CustomCursor';
+import { Preloader } from './components/Preloader';
 import { Hero } from './components/Hero';
 import { WorksSection } from './components/WorksSection';
 import { AboutAndExperience } from './components/AboutAndExperience';
@@ -19,6 +20,7 @@ export default function App() {
     return 'light';
   });
 
+  const [isPreloading, setIsPreloading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<ProjectCategory>('all');
   const [selectedProject, setSelectedProject] = useState<ProjectId | null>(null);
 
@@ -40,10 +42,20 @@ export default function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  const handlePreloaderComplete = useCallback(() => {
+    setIsPreloading(false);
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+      <AnimatePresence>
+        {isPreloading && (
+          <Preloader key="site-preloader" onComplete={handlePreloaderComplete} />
+        )}
+      </AnimatePresence>
+
       <CustomCursor />
-      <ScrollProgressBar isModalOpen={selectedProject !== null} />
+      <ScrollProgressBar isModalOpen={selectedProject !== null || isPreloading} />
       <Navbar />
 
       <main id="main">
