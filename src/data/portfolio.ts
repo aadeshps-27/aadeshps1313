@@ -39,7 +39,7 @@ export const PROFILE = {
   location: 'Kerala, India',
   role: 'Creative Developer & Applied Electronics Engineer',
   education: "Master's in Applied Electronics",
-  availability: 'Available for collaborations & product roles',
+  availability: 'Open for select commissions & product teams',
   email: 'aadeshps2015@gmail.com',
   whatsappDisplay: '+91 88938 09997',
   whatsappHref: 'https://wa.me/918893809997',

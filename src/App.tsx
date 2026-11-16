@@ -56,12 +56,10 @@ export default function App() {
 
       <CustomCursor />
       <ScrollProgressBar isModalOpen={selectedProject !== null || isPreloading} />
-      <Navbar />
+      <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
       <main id="main">
         <Hero
-          theme={theme}
-          onToggleTheme={toggleTheme}
           onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
         />
 

@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, Moon, Sun, X } from 'lucide-react';
 import { PROFILE } from '../data/portfolio';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
@@ -58,8 +63,28 @@ export const Navbar: React.FC = () => {
           ))}
         </nav>
 
-        {/* Zone 3: Single primary action on tablet/desktop, mobile toggle on narrow screens */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Theme switcher + primary CTA on desktop, theme switcher + menu on mobile */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            className="invert-block inline-flex items-center justify-center gap-2 min-h-[40px] min-w-[40px] px-2.5 lg:px-3.5 py-2 text-xs font-medium rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#0A0A0A] dark:text-white hover:bg-[#0A0A0A] hover:text-white dark:hover:bg-white dark:hover:text-[#0A0A0A] hover:border-[#0A0A0A] dark:hover:border-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun size={15} aria-hidden="true" />
+                <span className="hidden lg:inline">Light Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon size={15} aria-hidden="true" />
+                <span className="hidden lg:inline">Dark Mode</span>
+              </>
+            )}
+          </button>
+
           <a
             href="#contact"
             className="hidden md:inline-flex items-center justify-center px-4 lg:px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"

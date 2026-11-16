@@ -1,6 +1,12 @@
-import React, { useRef } from 'react';
-import { ArrowUpRight, Moon, Sun } from 'lucide-react';
-import { motion, useMotionValue, useReducedMotion, useSpring } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from 'motion/react';
 import { DISCIPLINES, PROFILE, ProjectCategory } from '../data/portfolio';
 import { SafeImage } from './SafeImage';
 import {
@@ -13,8 +19,6 @@ import {
 } from './MotionPrimitives';
 
 interface HeroProps {
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
   onSelectDisciplineFilter: (filter: Exclude<ProjectCategory, 'all'>) => void;
 }
 
@@ -26,21 +30,55 @@ const HERO_HEADLINE_TOKENS = [
   { text: 'craft.' },
 ];
 
-export const Hero: React.FC<HeroProps> = ({
-  theme,
-  onToggleTheme,
-  onSelectDisciplineFilter,
-}) => {
-  const prefersReducedMotion = useReducedMotion();
+export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const [pointerFine, setPointerFine] = useState(false);
+  const heroSectionRef = useRef<HTMLElement | null>(null);
   const figureRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(pointer: fine)');
+    const sync = () => setPointerFine(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  const allowDynamicMotion = pointerFine && !prefersReducedMotion;
 
   const rawRotateX = useMotionValue(0);
   const rawRotateY = useMotionValue(0);
   const rotateX = useSpring(rawRotateX, { stiffness: 220, damping: 24 });
   const rotateY = useSpring(rawRotateY, { stiffness: 220, damping: 24 });
 
+  // Normalized hero pointer offsets [-0.5, 0.5] for dynamic headline skew
+  const rawHeroX = useMotionValue(0);
+  const rawHeroY = useMotionValue(0);
+  const smoothHeroX = useSpring(rawHeroX, { stiffness: 200, damping: 24, mass: 0.5 });
+  const smoothHeroY = useSpring(rawHeroY, { stiffness: 200, damping: 24, mass: 0.5 });
+
+  const headingSkewX = useTransform(smoothHeroX, [-0.5, 0.5], [2.4, -2.4]);
+  const headingSkewY = useTransform(smoothHeroY, [-0.5, 0.5], [-0.85, 0.85]);
+  const headingShiftX = useTransform(smoothHeroX, [-0.5, 0.5], [-4, 4]);
+
+  const handleHeroPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (!allowDynamicMotion || !heroSectionRef.current) return;
+    const rect = heroSectionRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const nx = Math.max(-0.5, Math.min(0.5, (e.clientX - rect.left) / rect.width - 0.5));
+    const ny = Math.max(-0.5, Math.min(0.5, (e.clientY - rect.top) / rect.height - 0.5));
+    rawHeroX.set(nx);
+    rawHeroY.set(ny);
+  };
+
+  const handleHeroPointerLeave = () => {
+    rawHeroX.set(0);
+    rawHeroY.set(0);
+  };
+
   const handleFrameMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (prefersReducedMotion || !figureRef.current) return;
+    if (!allowDynamicMotion || !figureRef.current) return;
     const rect = figureRef.current.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width - 0.5;
     const py = (e.clientY - rect.top) / rect.height - 0.5;
@@ -55,53 +93,14 @@ export const Hero: React.FC<HeroProps> = ({
 
   return (
     <section
+      ref={heroSectionRef}
       id="top"
+      onPointerMove={handleHeroPointerMove}
+      onPointerLeave={handleHeroPointerLeave}
+      onPointerCancel={handleHeroPointerLeave}
       className="border-b border-[#E5E5E5] dark:border-[#262626]"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-6 pb-10 sm:pt-10 sm:pb-12 lg:pt-16 lg:pb-16">
-        {/* Workspace Utility Toolbar (above the fold, outside Top Bar) */}
-        <div className="mb-6 sm:mb-8">
-          <motion.div
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-6 sm:pb-8"
-          >
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-[#525252] dark:text-[#A3A3A3]">
-              <RegistrationTick onMount delay={0.1} />
-              <span className="font-semibold text-[#0A0A0A] dark:text-white">
-                {PROFILE.location}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>{PROFILE.education}</span>
-              <span aria-hidden="true" className="hidden sm:inline">·</span>
-              <span className="w-full sm:w-auto">{PROFILE.availability}</span>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-                className="invert-block inline-flex items-center gap-2 min-h-[40px] px-3.5 py-2 text-xs font-medium rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#0A0A0A] dark:text-white hover:bg-[#0A0A0A] hover:text-white dark:hover:bg-white dark:hover:text-[#0A0A0A] hover:border-[#0A0A0A] dark:hover:border-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-              >
-                {theme === 'dark' ? (
-                  <>
-                    <Sun size={14} aria-hidden="true" />
-                    <span>Light Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon size={14} aria-hidden="true" />
-                    <span>Dark Mode</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
-          <DrawRule onMount delay={0.08} />
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 sm:pt-12 sm:pb-12 lg:pt-16 lg:pb-16">
         {/* 2-Column Equal-Height Split Hero */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-12 items-stretch">
           <div className="lg:col-span-7 flex flex-col justify-between gap-7 sm:gap-8">
@@ -114,11 +113,25 @@ export const Hero: React.FC<HeroProps> = ({
                 Graphics Design · Web Engineering · Robotics
               </DrawEyebrow>
 
-              <StaggeredHeadline
-                tokens={HERO_HEADLINE_TOKENS}
-                className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.15rem,5.5vw,4.5rem)] leading-[1.05]"
-                style={{ textWrap: 'balance' }}
-              />
+              <motion.div
+                style={
+                  allowDynamicMotion
+                    ? {
+                        skewX: headingSkewX,
+                        skewY: headingSkewY,
+                        x: headingShiftX,
+                        transformOrigin: 'left center',
+                        willChange: 'transform',
+                      }
+                    : undefined
+                }
+              >
+                <StaggeredHeadline
+                  tokens={HERO_HEADLINE_TOKENS}
+                  className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.15rem,5.5vw,4.5rem)] leading-[1.05]"
+                  style={{ textWrap: 'balance' }}
+                />
+              </motion.div>
 
               <BlurSlideReveal onMount delay={0.28} distance={20}>
                 <p className="text-sm sm:text-base lg:text-lg leading-relaxed text-[#525252] dark:text-[#A3A3A3] max-w-xl">
