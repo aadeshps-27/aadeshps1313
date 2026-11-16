@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { ScrollProgressBar } from './components/ScrollProgressBar';
@@ -13,6 +14,13 @@ import { BackToTopButton } from './components/BackToTopButton';
 import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { InteractiveDotGrid } from './components/InteractiveDotGrid';
 import { ProjectCategory, ProjectId } from './data/portfolio';
+
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (updateCallback: () => void) => {
+    ready: Promise<void>;
+    finished: Promise<void>;
+  };
+};
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -40,8 +48,77 @@ export default function App() {
     }
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const applyThemeDom = (nextTheme: 'light' | 'dark') => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', nextTheme === 'dark');
+    try {
+      localStorage.setItem('aadesh-theme', nextTheme);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const toggleTheme = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    const nextTheme: 'light' | 'dark' = theme === 'dark' ? 'light' : 'dark';
+    const root = document.documentElement;
+    const doc = document as DocumentWithViewTransition;
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (
+      reduceMotion ||
+      typeof doc.startViewTransition !== 'function' ||
+      typeof root.animate !== 'function'
+    ) {
+      applyThemeDom(nextTheme);
+      setTheme(nextTheme);
+      return;
+    }
+
+    const rect = event?.currentTarget?.getBoundingClientRect();
+    const originX = rect ? rect.left + rect.width / 2 : window.innerWidth - 72;
+    const originY = rect ? rect.top + rect.height / 2 : 32;
+    const maxRadius = Math.hypot(
+      Math.max(originX, window.innerWidth - originX),
+      Math.max(originY, window.innerHeight - originY)
+    );
+
+    root.classList.add('theme-animating');
+    const transition = doc.startViewTransition(() => {
+      applyThemeDom(nextTheme);
+      flushSync(() => {
+        setTheme(nextTheme);
+      });
+    });
+
+    transition.ready
+      .then(() => {
+        root.animate(
+          {
+            clipPath: [
+              `circle(0px at ${originX}px ${originY}px)`,
+              `circle(${maxRadius}px at ${originX}px ${originY}px)`,
+            ],
+          },
+          {
+            duration: 640,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            pseudoElement: '::view-transition-new(root)',
+          }
+        );
+      })
+      .catch(() => {
+        // Fallback silently if view transition is interrupted
+      });
+
+    transition.finished
+      .finally(() => {
+        root.classList.remove('theme-animating');
+      })
+      .catch(() => {
+        root.classList.remove('theme-animating');
+      });
   };
 
   const handlePreloaderComplete = useCallback(() => {

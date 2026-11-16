@@ -1,14 +1,100 @@
-import React, { useEffect, useState } from 'react';
-import { Menu, Moon, Sun, X } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { PROFILE } from '../data/portfolio';
+import { ARTCRAFT_EASE } from './MotionPrimitives';
 
 interface NavbarProps {
   theme: 'light' | 'dark';
-  onToggleTheme: () => void;
+  onToggleTheme: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
+const SUN_RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
+
+const AnimatedThemeIcon: React.FC<{ isDark: boolean }> = ({ isDark }) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const maskId = useId();
+
+  return (
+    <motion.svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      animate={prefersReducedMotion ? undefined : { rotate: isDark ? 40 : 90 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+    >
+      <mask id={maskId}>
+        <rect x="0" y="0" width="24" height="24" fill="white" />
+        <motion.circle
+          cx="12"
+          cy="12"
+          r="9"
+          fill="black"
+          initial={false}
+          animate={{
+            cx: isDark ? 12 : 24,
+            cy: isDark ? 4 : 0,
+            r: isDark ? 6.5 : 0,
+          }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { type: 'spring', stiffness: 280, damping: 24 }
+          }
+        />
+      </mask>
+
+      <motion.circle
+        cx="12"
+        cy="12"
+        fill="currentColor"
+        stroke="none"
+        mask={`url(#${maskId})`}
+        initial={false}
+        animate={{ r: isDark ? 8.2 : 4.8 }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { type: 'spring', stiffness: 280, damping: 22 }
+        }
+      />
+
+      <motion.g
+        initial={false}
+        animate={{
+          opacity: isDark ? 0 : 1,
+          scale: isDark ? 0.4 : 1,
+        }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { duration: 0.25, ease: ARTCRAFT_EASE }
+        }
+        style={{ transformOrigin: '12px 12px' }}
+      >
+        {SUN_RAY_ANGLES.map((deg) => {
+          const rad = (deg * Math.PI) / 180;
+          const x1 = 12 + Math.cos(rad) * 7.8;
+          const y1 = 12 + Math.sin(rad) * 7.8;
+          const x2 = 12 + Math.cos(rad) * 10.2;
+          const y2 = 12 + Math.sin(rad) * 10.2;
+          return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} />;
+        })}
+      </motion.g>
+    </motion.svg>
+  );
+};
+
 export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isDark = theme === 'dark';
 
   const navLinks = [
     { label: 'Work', href: '#work' },
@@ -63,27 +149,35 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
           ))}
         </nav>
 
-        {/* Zone 3: Theme switcher + primary CTA on desktop, theme switcher + menu on mobile */}
+        {/* Zone 3: Animated Morphing Theme Toggle + CTA */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          <button
+          <motion.button
             type="button"
             onClick={onToggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
+            aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+            title={isDark ? 'Light Mode' : 'Dark Mode'}
             className="invert-block inline-flex items-center justify-center gap-2 min-h-[40px] min-w-[40px] px-2.5 lg:px-3.5 py-2 text-xs font-medium rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#0A0A0A] dark:text-white hover:bg-[#0A0A0A] hover:text-white dark:hover:bg-white dark:hover:text-[#0A0A0A] hover:border-[#0A0A0A] dark:hover:border-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
           >
-            {theme === 'dark' ? (
-              <>
-                <Sun size={15} aria-hidden="true" />
-                <span className="hidden lg:inline">Light Mode</span>
-              </>
-            ) : (
-              <>
-                <Moon size={15} aria-hidden="true" />
-                <span className="hidden lg:inline">Dark Mode</span>
-              </>
-            )}
-          </button>
+            <AnimatedThemeIcon isDark={isDark} />
+            <span className="hidden lg:inline-flex items-center h-4 overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={theme}
+                  initial={
+                    prefersReducedMotion ? false : { y: 10, opacity: 0 }
+                  }
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={
+                    prefersReducedMotion ? { opacity: 0 } : { y: -10, opacity: 0 }
+                  }
+                  transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
+                >
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                </motion.span>
+              </AnimatePresence>
+            </span>
+          </motion.button>
 
           <a
             href="#contact"
