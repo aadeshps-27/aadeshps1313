@@ -10,6 +10,7 @@ import { AboutAndExperience } from './components/AboutAndExperience';
 import { ContactAndFooter } from './components/ContactAndFooter';
 import { CaseStudyModal } from './components/CaseStudyModal';
 import { BackToTopButton } from './components/BackToTopButton';
+import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { ProjectCategory, ProjectId } from './data/portfolio';
 
 export default function App() {
@@ -85,6 +86,12 @@ export default function App() {
             onClose={() => setSelectedProject(null)}
             onSelectProject={(id) => setSelectedProject(id)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!isPreloading && selectedProject === null && (
+          <AiCharacterMotion key="ai-character-motion" />
         )}
       </AnimatePresence>
 
