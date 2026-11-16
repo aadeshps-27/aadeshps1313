@@ -50,7 +50,7 @@ export const PROFILE = {
   heroImage: heroAbstractImg,
   heroImageAlt:
     'Abstract modernist geometric composition of sweeping obsidian, travertine, and cinnabar arcs',
-  portraitImage: '/assets/aistudio/image_ee2c247f.png',
+  portraitImage: '/assets/aistudio/file_00000000e600820bbd42f9184960f74d_24f90d41.png',
   portraitImageAlt:
     'Stylized geometric vector portrait illustration of Aadesh P S surrounded by concentric orbital lines',
 };

@@ -232,7 +232,7 @@ export const AboutAndExperience: React.FC = () => {
                 </div>
 
                 {/* Desktop Floating Stylized Engineer Portrait (centered cleanly & elevated above neighbor column) */}
-                <div className="hidden md:block pointer-events-none absolute top-1/2 -translate-y-1/2 left-[calc(100%-3rem)] lg:left-[calc(100%-2.25rem)] z-40 w-44 lg:w-52">
+                <div className="hidden md:block pointer-events-none absolute top-1/2 -translate-y-1/2 left-[calc(100%-3rem)] lg:left-[calc(100%-2.25rem)] z-40 w-48 lg:w-56">
                   <AnimatePresence>
                     {aboutHovered && (
                       <motion.div
@@ -266,7 +266,7 @@ export const AboutAndExperience: React.FC = () => {
                         }
                         className="w-full rounded-2xl border border-[#FF721A]/85 bg-white dark:bg-[#0A0A0A] shadow-2xl overflow-hidden"
                       >
-                        <div className="aspect-[3/4] overflow-hidden bg-[#FAFAFA] dark:bg-[#141414]">
+                        <div className="aspect-square overflow-hidden bg-[#FAFAFA] dark:bg-[#141414]">
                           <motion.div
                             className="w-full h-full"
                             initial={prefersReducedMotion ? false : { scale: 1.08 }}
@@ -277,7 +277,7 @@ export const AboutAndExperience: React.FC = () => {
                               src={PROFILE.portraitImage}
                               alt={PROFILE.portraitImageAlt}
                               fallbackLabel={PROFILE.name}
-                              className="w-full h-full object-cover object-center"
+                              className="w-full h-full object-cover object-top"
                             />
                           </motion.div>
                         </div>
@@ -300,7 +300,7 @@ export const AboutAndExperience: React.FC = () => {
                   transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
                   className="md:hidden mt-5 pt-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center gap-3.5"
                 >
-                  <div className="w-16 aspect-[3/4] rounded-xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#141414] shrink-0">
+                  <div className="w-16 aspect-square rounded-xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#141414] shrink-0">
                     <SafeImage
                       src={PROFILE.portraitImage}
                       alt={PROFILE.portraitImageAlt}
