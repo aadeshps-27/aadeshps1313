@@ -503,6 +503,9 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
       ? PROJECTS
       : PROJECTS.filter((project) => project.filterCategory === activeFilter);
 
+  const activeFilterLabel =
+    FILTER_OPTIONS.find((option) => option.id === activeFilter)?.label ?? 'All Works';
+
   const allowParallax = pointerFine && !prefersReducedMotion;
   const shouldAnimateImmediately = hasSwitchedFilter || hasSwitchedView;
 
@@ -620,9 +623,10 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
         <AnimatePresence mode="wait" initial={false}>
           {viewMode === 'timeline' ? (
             <ProjectTimelineChart
-              key={`timeline-${activeFilter}`}
+              key="works-timeline-view"
               projects={filteredProjects}
               onOpenProject={onOpenProject}
+              activeFilterLabel={activeFilterLabel}
             />
           ) : (
             <motion.div
