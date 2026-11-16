@@ -4,6 +4,7 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
+  useScroll,
   useSpring,
   useTransform,
 } from 'motion/react';
@@ -15,6 +16,8 @@ import {
   BlurSlideReveal,
   DrawEyebrow,
   DrawRule,
+  PARALLAX_SPRING,
+  ParallaxLayer,
   RegistrationTick,
   StaggeredHeadline,
 } from './MotionPrimitives';
@@ -63,6 +66,17 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
   const headingSkewY = useTransform(smoothHeroY, [-0.5, 0.5], [-0.85, 0.85]);
   const headingShiftX = useTransform(smoothHeroX, [-0.5, 0.5], [-4, 4]);
 
+  // Multi-plane vertical scroll parallax across the hero split
+  const { scrollYProgress } = useScroll({
+    target: heroSectionRef,
+    offset: ['start start', 'end start'],
+  });
+  const smoothScroll = useSpring(scrollYProgress, PARALLAX_SPRING);
+  const heroCopyY = useTransform(smoothScroll, [0, 1], [0, -24]);
+  const heroMediaCardY = useTransform(smoothScroll, [0, 1], [0, 22]);
+  const heroImageY = useTransform(smoothScroll, [0, 1], ['-4%', '9%']);
+  const heroImageScale = useTransform(smoothScroll, [0, 1], [1.1, 1.16]);
+
   const handleHeroPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (!allowDynamicMotion || !heroSectionRef.current) return;
     const rect = heroSectionRef.current.getBoundingClientRect();
@@ -99,12 +113,19 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
       onPointerMove={handleHeroPointerMove}
       onPointerLeave={handleHeroPointerLeave}
       onPointerCancel={handleHeroPointerLeave}
-      className="border-b border-[#E5E5E5] dark:border-[#262626]"
+      className="overflow-x-clip border-b border-[#E5E5E5] dark:border-[#262626]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 sm:pt-12 sm:pb-12 lg:pt-16 lg:pb-16">
         {/* 2-Column Equal-Height Split Hero */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-12 items-stretch">
-          <div className="lg:col-span-7 flex flex-col justify-between gap-7 sm:gap-8">
+          <motion.div
+            style={
+              prefersReducedMotion
+                ? undefined
+                : { y: heroCopyY, willChange: 'transform' }
+            }
+            className="lg:col-span-7 flex flex-col justify-between gap-7 sm:gap-8"
+          >
             <div className="space-y-4 sm:space-y-6">
               <DrawEyebrow
                 onMount
@@ -168,35 +189,56 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
                 Read Practice &amp; Ethos
               </a>
             </BlurSlideReveal>
-          </div>
+          </motion.div>
 
           <motion.div
-            ref={figureRef}
-            onMouseMove={handleFrameMouseMove}
-            onMouseLeave={handleFrameMouseLeave}
-            initial={
-              prefersReducedMotion
-                ? false
-                : { opacity: 0, y: 24, scale: 0.98, filter: 'blur(8px)' }
-            }
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.8, delay: 0.18, ease: ARTCRAFT_EASE }}
             style={
               prefersReducedMotion
                 ? undefined
-                : { rotateX, rotateY, transformPerspective: 900 }
+                : { y: heroMediaCardY, willChange: 'transform' }
             }
             className="lg:col-span-5 flex flex-col"
           >
-            <figure className="flex-1 flex flex-col rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]">
-              <div className="relative flex-1 aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[420px] overflow-hidden">
-                <SafeImage
-                  src={PROFILE.heroImage}
-                  alt={PROFILE.heroImageAlt}
-                  fallbackLabel="Abstract Geometric Study"
-                  className="w-full h-full lg:h-full object-cover object-center"
-                />
-              </div>
+            <motion.div
+              ref={figureRef}
+              onMouseMove={handleFrameMouseMove}
+              onMouseLeave={handleFrameMouseLeave}
+              initial={
+                prefersReducedMotion
+                  ? false
+                  : { opacity: 0, y: 24, scale: 0.98, filter: 'blur(8px)' }
+              }
+              animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.8, delay: 0.18, ease: ARTCRAFT_EASE }}
+              style={
+                prefersReducedMotion
+                  ? undefined
+                  : { rotateX, rotateY, transformPerspective: 900 }
+              }
+              className="flex-1 flex flex-col"
+            >
+              <figure className="flex-1 flex flex-col rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]">
+                <div className="relative flex-1 aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[420px] overflow-hidden">
+                  <motion.div
+                    style={
+                      prefersReducedMotion
+                        ? undefined
+                        : {
+                            y: heroImageY,
+                            scale: heroImageScale,
+                            willChange: 'transform',
+                          }
+                    }
+                    className="w-full h-full"
+                  >
+                    <SafeImage
+                      src={PROFILE.heroImage}
+                      alt={PROFILE.heroImageAlt}
+                      fallbackLabel="Abstract Geometric Study"
+                      className="w-full h-full lg:h-full object-cover object-center"
+                    />
+                  </motion.div>
+                </div>
               <figcaption className="px-4 sm:px-5 py-3 border-t border-[#E5E5E5] dark:border-[#262626] flex flex-wrap items-center justify-between gap-2 text-xs text-[#525252] dark:text-[#A3A3A3]">
                 <span className="inline-flex items-center gap-2">
                   <RegistrationTick onMount delay={0.4} />
@@ -208,7 +250,8 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
                   <LiveClock className="text-[#0A0A0A] dark:text-white" />
                 </span>
               </figcaption>
-            </figure>
+              </figure>
+            </motion.div>
           </motion.div>
         </div>
 
@@ -220,48 +263,53 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-6"
           >
             {DISCIPLINES.map((item, idx) => (
-              <motion.button
+              <ParallaxLayer
                 key={item.number}
-                type="button"
-                data-reveal=""
-                initial={
-                  prefersReducedMotion
-                    ? false
-                    : { opacity: 0, y: 20, filter: 'blur(6px)' }
-                }
-                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                viewport={{ once: true, amount: 0.2 }}
-                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
-                transition={{
-                  duration: 0.65,
-                  delay: prefersReducedMotion ? 0 : idx * 0.065,
-                  ease: ARTCRAFT_EASE,
-                }}
-                onClick={() => {
-                  onSelectDisciplineFilter(item.filter);
-                  const el = document.getElementById('work');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="group rule-reveal overflow-hidden text-left p-4 sm:p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                speed={idx % 2 === 0 ? 7 : 15}
+                className="h-full"
               >
-                <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-                  <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                    {item.number}
-                  </span>
-                  <ArrowUpRight
-                    size={15}
-                    className="text-[#737373] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"
-                    aria-hidden="true"
-                  />
-                </div>
-                <h2 className="font-display text-base font-semibold text-[#0A0A0A] dark:text-white">
-                  {item.title}
-                </h2>
-                <p className="mt-1 text-xs text-[#525252] dark:text-[#A3A3A3]">
-                  {item.detail}
-                </p>
-              </motion.button>
+                <motion.button
+                  type="button"
+                  data-reveal=""
+                  initial={
+                    prefersReducedMotion
+                      ? false
+                      : { opacity: 0, y: 20, filter: 'blur(6px)' }
+                  }
+                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
+                  transition={{
+                    duration: 0.65,
+                    delay: prefersReducedMotion ? 0 : idx * 0.065,
+                    ease: ARTCRAFT_EASE,
+                  }}
+                  onClick={() => {
+                    onSelectDisciplineFilter(item.filter);
+                    const el = document.getElementById('work');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full h-full group rule-reveal overflow-hidden text-left p-4 sm:p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                >
+                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                    <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      {item.number}
+                    </span>
+                    <ArrowUpRight
+                      size={15}
+                      className="text-[#737373] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <h2 className="font-display text-base font-semibold text-[#0A0A0A] dark:text-white">
+                    {item.title}
+                  </h2>
+                  <p className="mt-1 text-xs text-[#525252] dark:text-[#A3A3A3]">
+                    {item.detail}
+                  </p>
+                </motion.button>
+              </ParallaxLayer>
             ))}
           </div>
         </div>

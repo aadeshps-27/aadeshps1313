@@ -4,11 +4,13 @@ import {
   useMotionTemplate,
   useMotionValue,
   useReducedMotion,
+  useScroll,
   useSpring,
   useTransform,
 } from 'motion/react';
 
 const GRID_SPRING = { stiffness: 140, damping: 24, mass: 0.8 };
+const SCROLL_SPRING = { stiffness: 120, damping: 26, mass: 0.5 };
 const SPOTLIGHT_SPRING = { stiffness: 220, damping: 28, mass: 0.45 };
 
 export const InteractiveDotGrid: React.FC = () => {
@@ -16,16 +18,26 @@ export const InteractiveDotGrid: React.FC = () => {
   const [pointerFine, setPointerFine] = useState(false);
   const [cursorActive, setCursorActive] = useState(false);
 
-  // Normalized viewport offset [-0.5, 0.5] for subtle depth parallax
+  // Page-level vertical scroll parallax for spatial blueprint depth
+  const { scrollYProgress } = useScroll();
+  const smoothScrollProgress = useSpring(scrollYProgress, SCROLL_SPRING);
+  const scrollShiftY = useTransform(smoothScrollProgress, [0, 1], [0, -112]);
+
+  // Normalized viewport offset [-0.5, 0.5] for subtle mouse parallax
   const normX = useMotionValue(0);
   const normY = useMotionValue(0);
   const smoothNormX = useSpring(normX, GRID_SPRING);
   const smoothNormY = useSpring(normY, GRID_SPRING);
 
   const gridShiftX = useTransform(smoothNormX, [-0.5, 0.5], [10, -10]);
-  const gridShiftY = useTransform(smoothNormY, [-0.5, 0.5], [10, -10]);
+  const mouseShiftY = useTransform(smoothNormY, [-0.5, 0.5], [10, -10]);
 
-  // Smooth cursor pixel coordinates for local #FF721A registration illumination
+  const combinedY = useTransform(
+    [mouseShiftY, scrollShiftY],
+    ([mouse, scroll]: number[]) => mouse + scroll
+  );
+
+  // Smooth cursor pixel coordinates in viewport space for local #FF721A illumination
   const rawPointerX = useMotionValue(-400);
   const rawPointerY = useMotionValue(-400);
   const glowX = useSpring(rawPointerX, SPOTLIGHT_SPRING);
@@ -60,9 +72,8 @@ export const InteractiveDotGrid: React.FC = () => {
       normX.set(Math.max(-0.5, Math.min(0.5, e.clientX / vw - 0.5)));
       normY.set(Math.max(-0.5, Math.min(0.5, e.clientY / vh - 0.5)));
 
-      // Offset coordinates slightly to account for the -24px inset bleed on the oversized layer
-      rawPointerX.set(e.clientX + 24);
-      rawPointerY.set(e.clientY + 24);
+      rawPointerX.set(e.clientX);
+      rawPointerY.set(e.clientY);
     };
 
     const handlePointerLeave = () => {
@@ -84,33 +95,40 @@ export const InteractiveDotGrid: React.FC = () => {
       aria-hidden="true"
       className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none"
     >
-      {/* Base architectural drafting dot-grid plane with subtle mouse parallax */}
+      {/* Base architectural drafting dot-grid plane with mouse + scroll parallax */}
       <motion.div
         style={
-          allowInteractive
-            ? {
-                x: gridShiftX,
-                y: gridShiftY,
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: allowInteractive ? gridShiftX : 0,
+                y: allowInteractive ? combinedY : scrollShiftY,
                 willChange: 'transform',
               }
-            : undefined
         }
-        className="absolute -inset-6 dot-grid-base"
+        className="absolute -inset-36 dot-grid-base"
       />
 
-      {/* Reactive #FF721A dot illumination following cursor position */}
+      {/* Reactive #FF721A dot illumination anchored in viewport space around pointer */}
       {allowInteractive && (
         <motion.div
           style={{
-            x: gridShiftX,
-            y: gridShiftY,
             maskImage: spotlightMask,
             WebkitMaskImage: spotlightMask,
             opacity: cursorActive ? 1 : 0,
-            willChange: 'transform, opacity',
+            willChange: 'opacity',
           }}
-          className="absolute -inset-6 dot-grid-accent transition-opacity duration-300"
-        />
+          className="fixed inset-0 overflow-hidden transition-opacity duration-300"
+        >
+          <motion.div
+            style={{
+              x: gridShiftX,
+              y: combinedY,
+              willChange: 'transform',
+            }}
+            className="absolute -inset-36 dot-grid-accent"
+          />
+        </motion.div>
       )}
     </div>
   );

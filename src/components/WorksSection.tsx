@@ -20,6 +20,8 @@ import {
   BlurSlideReveal,
   DrawEyebrow,
   DrawRule,
+  ParallaxLayer,
+  ParallaxMediaAperture,
 } from './MotionPrimitives';
 
 interface WorksSectionProps {
@@ -147,27 +149,37 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
     pointerY.set(0);
   };
 
+  const columnParallaxSpeed = isLeadFeatured
+    ? 8
+    : index % 2 === 0
+      ? 10
+      : 22;
+
   return (
-    <motion.div
-      data-reveal=""
-      initial={
-        prefersReducedMotion
-          ? false
-          : { opacity: 0, y: 32, scale: 0.985, filter: 'blur(8px)' }
-      }
-      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      viewport={{ once: true, amount: 'some', margin: '0px 0px -48px 0px' }}
-      transition={{
-        duration: 0.78,
-        delay: prefersReducedMotion ? 0 : index * 0.09,
-        ease: ARTCRAFT_EASE,
-      }}
+    <ParallaxLayer
+      speed={columnParallaxSpeed}
       className={
         isLeadFeatured
           ? 'md:col-span-2 lg:col-span-12'
           : 'lg:col-span-6'
       }
     >
+      <motion.div
+        data-reveal=""
+        initial={
+          prefersReducedMotion
+            ? false
+            : { opacity: 0, y: 32, scale: 0.985, filter: 'blur(8px)' }
+        }
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+        viewport={{ once: true, amount: 'some', margin: '0px 0px -48px 0px' }}
+        transition={{
+          duration: 0.78,
+          delay: prefersReducedMotion ? 0 : index * 0.09,
+          ease: ARTCRAFT_EASE,
+        }}
+        className="h-full"
+      >
       <motion.article
         ref={cardRef}
         data-cursor="project"
@@ -207,29 +219,31 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
               : 'aspect-[4/3]'
           }`}
         >
-          <motion.div
-            className="w-full h-full"
-            style={
-              allowParallax
-                ? {
-                    x: mediaX,
-                    y: mediaY,
-                    willChange: isHovered ? 'transform' : 'auto',
-                  }
-                : undefined
-            }
-            animate={{
-              scale: !prefersReducedMotion && isHovered ? 1.05 : 1,
-            }}
-            transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
-          >
-            <SafeImage
-              src={project.image}
-              alt={project.imageAlt}
-              fallbackLabel={project.title}
-              className="w-full h-full object-cover"
-            />
-          </motion.div>
+          <ParallaxMediaAperture shiftPercent={7} overscanScale={1.14}>
+            <motion.div
+              className="w-full h-full"
+              style={
+                allowParallax
+                  ? {
+                      x: mediaX,
+                      y: mediaY,
+                      willChange: isHovered ? 'transform' : 'auto',
+                    }
+                  : undefined
+              }
+              animate={{
+                scale: !prefersReducedMotion && isHovered ? 1.05 : 1,
+              }}
+              transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
+            >
+              <SafeImage
+                src={project.image}
+                alt={project.imageAlt}
+                fallbackLabel={project.title}
+                className="w-full h-full object-cover"
+              />
+            </motion.div>
+          </ParallaxMediaAperture>
         </motion.div>
 
         {/* Editorial Content Container with subtle counter-parallax */}
@@ -296,6 +310,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
       </motion.div>
     </motion.article>
   </motion.div>
+  </ParallaxLayer>
   );
 };
 

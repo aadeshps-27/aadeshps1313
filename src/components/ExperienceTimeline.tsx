@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Briefcase, GraduationCap, MapPin } from 'lucide-react';
 import { motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { ExperienceItem } from '../data/portfolio';
+import { ParallaxLayer } from './MotionPrimitives';
 
 type TimelineFilter = 'all' | 'role' | 'education';
 
@@ -127,9 +128,12 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
           const stepNumber = String(idx + 1).padStart(2, '0');
 
           return (
-            <motion.article
+            <ParallaxLayer
               key={`${item.index}-${chronologicalAsc ? 'asc' : 'desc'}`}
-              data-reveal=""
+              speed={idx % 2 === 0 ? 8 : 14}
+            >
+              <motion.article
+                data-reveal=""
               initial={
                 prefersReducedMotion
                   ? false
@@ -241,6 +245,7 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                 )}
               </div>
             </motion.article>
+            </ParallaxLayer>
           );
         })}
       </div>

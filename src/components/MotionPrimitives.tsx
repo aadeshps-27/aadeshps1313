@@ -1,7 +1,14 @@
-import React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import React, { useRef } from 'react';
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from 'motion/react';
 
 export const ARTCRAFT_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+export const PARALLAX_SPRING = { stiffness: 150, damping: 26, mass: 0.45 };
 
 interface DrawRuleProps {
   className?: string;
@@ -271,5 +278,111 @@ export const StaggeredHeadline: React.FC<StaggeredHeadlineProps> = ({
         </React.Fragment>
       ))}
     </h1>
+  );
+};
+
+interface ParallaxLayerProps {
+  children: React.ReactNode;
+  className?: string;
+  speed?: number;
+  axis?: 'y' | 'x';
+  scaleRange?: [number, number];
+}
+
+/**
+ * Spring-smoothed scroll parallax wrapper using GPU-only transforms.
+ */
+export const ParallaxLayer: React.FC<ParallaxLayerProps> = ({
+  children,
+  className = '',
+  speed = 20,
+  axis = 'y',
+  scaleRange,
+}) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start end', 'end start'],
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, PARALLAX_SPRING);
+  const delta = useTransform(smoothProgress, [0, 1], [speed, -speed]);
+  const scale = useTransform(
+    smoothProgress,
+    [0, 1],
+    scaleRange ?? [1, 1]
+  );
+
+  if (prefersReducedMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <div ref={containerRef} className={className}>
+      <motion.div
+        style={{
+          y: axis === 'y' ? delta : 0,
+          x: axis === 'x' ? delta : 0,
+          scale: scaleRange ? scale : undefined,
+          willChange: 'transform',
+        }}
+        className="h-full"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+};
+
+interface ParallaxMediaApertureProps {
+  children: React.ReactNode;
+  className?: string;
+  shiftPercent?: number;
+  overscanScale?: number;
+}
+
+/**
+ * Scrubs media smoothly inside an overflow-hidden aperture as the frame traverses the viewport.
+ */
+export const ParallaxMediaAperture: React.FC<ParallaxMediaApertureProps> = ({
+  children,
+  className = '',
+  shiftPercent = 7,
+  overscanScale = 1.14,
+}) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const apertureRef = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: apertureRef,
+    offset: ['start end', 'end start'],
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, PARALLAX_SPRING);
+  const mediaY = useTransform(
+    smoothProgress,
+    [0, 1],
+    [`-${shiftPercent}%`, `${shiftPercent}%`]
+  );
+
+  return (
+    <div ref={apertureRef} className={`w-full h-full ${className}`}>
+      <motion.div
+        style={
+          prefersReducedMotion
+            ? undefined
+            : {
+                y: mediaY,
+                scale: overscanScale,
+                willChange: 'transform',
+              }
+        }
+        className="w-full h-full"
+      >
+        {children}
+      </motion.div>
+    </div>
   );
 };

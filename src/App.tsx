@@ -139,7 +139,7 @@ export default function App() {
       <ScrollProgressBar isModalOpen={selectedProject !== null || isPreloading} />
       <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
-      <main id="main" className="relative z-[1]">
+      <main id="main" className="relative z-[1] overflow-x-clip">
         <Hero
           onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
         />

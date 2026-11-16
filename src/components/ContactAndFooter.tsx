@@ -8,7 +8,7 @@ import {
   useSpring,
 } from 'motion/react';
 import { PROFILE } from '../data/portfolio';
-import { ARTCRAFT_EASE, SectionChoreoHeader } from './MotionPrimitives';
+import { ARTCRAFT_EASE, ParallaxLayer, SectionChoreoHeader } from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
 
 interface FormErrors {
@@ -183,17 +183,18 @@ export const ContactAndFooter: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             {/* Left Column: Direct Channels */}
-            <motion.div
-              initial={
-                prefersReducedMotion
-                  ? false
-                  : { opacity: 0, y: 24, filter: 'blur(8px)' }
-              }
-              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              viewport={{ once: true, amount: 0.15 }}
-              transition={{ duration: 0.75, ease: ARTCRAFT_EASE }}
-              className="lg:col-span-5 space-y-6 sm:space-y-8"
-            >
+            <ParallaxLayer speed={10} className="lg:col-span-5">
+              <motion.div
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : { opacity: 0, y: 24, filter: 'blur(8px)' }
+                }
+                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.75, ease: ARTCRAFT_EASE }}
+                className="space-y-6 sm:space-y-8"
+              >
               <div className="space-y-3 sm:space-y-4">
                 <SectionChoreoHeader eyebrow="04. Connection">
                   <h2
@@ -275,20 +276,21 @@ export const ContactAndFooter: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </motion.div>
+              </motion.div>
+            </ParallaxLayer>
 
             {/* Right Column: Interactive Inquiry Composer */}
-            <motion.div
-              initial={
-                prefersReducedMotion
-                  ? false
-                  : { opacity: 0, y: 24, filter: 'blur(8px)' }
-              }
-              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              viewport={{ once: true, amount: 0.15 }}
-              transition={{ duration: 0.78, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
-              className="lg:col-span-7"
-            >
+            <ParallaxLayer speed={20} className="lg:col-span-7">
+              <motion.div
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : { opacity: 0, y: 24, filter: 'blur(8px)' }
+                }
+                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.78, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
+              >
               <form
                 onSubmit={handleSubmitEmail}
                 noValidate
@@ -405,7 +407,8 @@ export const ContactAndFooter: React.FC = () => {
                   </p>
                 )}
               </form>
-            </motion.div>
+              </motion.div>
+            </ParallaxLayer>
           </div>
         </div>
       </section>
