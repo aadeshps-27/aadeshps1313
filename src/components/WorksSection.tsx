@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import {
+  AnimatePresence,
+  LayoutGroup,
+  Variants,
   motion,
   useMotionValue,
   useReducedMotion,
@@ -37,51 +40,51 @@ const FILTER_OPTIONS: { id: ProjectCategory; label: string }[] = [
   { id: 'rf', label: 'RF Systems' },
 ];
 
-const ProjectCardSkeleton: React.FC<{ isLeadFeatured: boolean }> = ({
-  isLeadFeatured,
-}) => (
-  <div
-    aria-hidden="true"
-    className={`rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col ${
-      isLeadFeatured
-        ? 'md:col-span-2 md:grid md:grid-cols-12 lg:col-span-12'
-        : 'lg:col-span-6'
-    }`}
-  >
-    <div
-      className={`bg-[#ECECEC] dark:bg-[#161616] shimmer-block ${
-        isLeadFeatured
-          ? 'md:col-span-6 lg:col-span-7 aspect-[4/3] md:aspect-auto md:min-h-[340px] lg:min-h-[400px]'
-          : 'aspect-[4/3]'
-      }`}
-    />
-    <div
-      className={`p-5 sm:p-7 flex flex-col justify-between gap-5 sm:gap-6 ${
-        isLeadFeatured
-          ? 'md:col-span-6 lg:col-span-5 md:p-8 lg:p-10'
-          : 'lg:p-8'
-      }`}
-    >
-      <div className="space-y-4">
-        <div className="h-3.5 w-44 rounded bg-[#E6E6E6] dark:bg-[#1C1C1C] shimmer-block" />
-        <div className="space-y-2">
-          <div className="h-7 w-4/5 rounded bg-[#E6E6E6] dark:bg-[#1C1C1C] shimmer-block" />
-          <div className="h-4 w-3/5 rounded bg-[#ECECEC] dark:bg-[#181818] shimmer-block" />
-        </div>
-        <div className="space-y-2 pt-1">
-          <div className="h-4 w-full rounded bg-[#ECECEC] dark:bg-[#181818] shimmer-block" />
-          <div className="h-4 w-11/12 rounded bg-[#ECECEC] dark:bg-[#181818] shimmer-block" />
-          <div className="h-4 w-2/3 rounded bg-[#ECECEC] dark:bg-[#181818] shimmer-block" />
-        </div>
-      </div>
+const GRID_STAGGER_VARIANTS: Variants = {
+  hidden: {},
+  visible: (prefersReduced: boolean) => ({
+    transition: prefersReduced
+      ? { staggerChildren: 0 }
+      : {
+          staggerChildren: 0.11,
+          delayChildren: 0.04,
+        },
+  }),
+  exit: (prefersReduced: boolean) => ({
+    transition: prefersReduced
+      ? { staggerChildren: 0 }
+      : {
+          staggerChildren: 0.05,
+          staggerDirection: -1,
+        },
+  }),
+};
 
-      <div className="space-y-5 pt-4 border-t border-[#E5E5E5] dark:border-[#262626]">
-        <div className="h-3.5 w-52 rounded bg-[#ECECEC] dark:bg-[#181818] shimmer-block" />
-        <div className="h-11 w-full sm:w-44 rounded-lg bg-[#E6E6E6] dark:bg-[#1C1C1C] shimmer-block" />
-      </div>
-    </div>
-  </div>
-);
+const CARD_REVEAL_VARIANTS: Variants = {
+  hidden: (prefersReduced: boolean) =>
+    prefersReduced
+      ? { opacity: 1 }
+      : { opacity: 0, y: 28, scale: 0.975, filter: 'blur(8px)' },
+  visible: (prefersReduced: boolean) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: prefersReduced
+      ? { duration: 0 }
+      : { duration: 0.65, ease: ARTCRAFT_EASE },
+  }),
+  exit: (prefersReduced: boolean) =>
+    prefersReduced
+      ? { opacity: 0, transition: { duration: 0 } }
+      : {
+          opacity: 0,
+          y: -16,
+          scale: 0.98,
+          filter: 'blur(6px)',
+          transition: { duration: 0.22, ease: ARTCRAFT_EASE },
+        },
+};
 
 interface MagneticProjectCardProps {
   project: ProjectSummary;
@@ -104,6 +107,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
 }) => {
   const cardRef = useRef<HTMLElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Normalized pointer offset inside the card bounds [-0.5, 0.5]
   const pointerX = useMotionValue(0);
@@ -149,39 +153,38 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
     pointerY.set(0);
   };
 
-  const columnParallaxSpeed = isLeadFeatured
+  const isWideLayout = isLeadFeatured || isExpanded;
+  const columnParallaxSpeed = isWideLayout
     ? 8
     : index % 2 === 0
       ? 10
       : 22;
 
+  const layoutTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.48, ease: ARTCRAFT_EASE };
+
   return (
-    <ParallaxLayer
-      speed={columnParallaxSpeed}
+    <motion.div
+      data-reveal=""
+      custom={prefersReducedMotion}
+      variants={CARD_REVEAL_VARIANTS}
+      layout={!prefersReducedMotion}
+      transition={{ layout: layoutTransition }}
       className={
-        isLeadFeatured
+        isWideLayout
           ? 'md:col-span-2 lg:col-span-12'
           : 'lg:col-span-6'
       }
     >
-      <motion.div
-        data-reveal=""
-        initial={
-          prefersReducedMotion
-            ? false
-            : { opacity: 0, y: 32, scale: 0.985, filter: 'blur(8px)' }
-        }
-        whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-        viewport={{ once: true, amount: 'some', margin: '0px 0px -48px 0px' }}
-        transition={{
-          duration: 0.78,
-          delay: prefersReducedMotion ? 0 : index * 0.09,
-          ease: ARTCRAFT_EASE,
-        }}
+      <ParallaxLayer
+        speed={columnParallaxSpeed}
+        layout={!prefersReducedMotion}
         className="h-full"
       >
       <motion.article
         ref={cardRef}
+        layout={!prefersReducedMotion}
         data-cursor="project"
         onPointerMove={handlePointerMove}
         onPointerEnter={handlePointerEnter}
@@ -195,26 +198,31 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                 rotateX,
                 rotateY,
                 transformPerspective: 1100,
+                borderRadius: 16,
                 willChange: isHovered ? 'transform' : 'auto',
               }
-            : undefined
+            : { borderRadius: 16 }
         }
-        className={`h-full group rule-reveal rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-colors duration-200 hover:border-[#FF721A] ${
-          isLeadFeatured ? 'md:grid md:grid-cols-12' : ''
-        }`}
+        transition={{ layout: layoutTransition }}
+        className={`h-full group rule-reveal rounded-2xl border bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-colors duration-200 ${
+          isExpanded
+            ? 'border-[#FF721A]'
+            : 'border-[#E5E5E5] dark:border-[#262626] hover:border-[#FF721A]'
+        } ${isWideLayout ? 'md:grid md:grid-cols-12' : ''}`}
       >
         {/* Media Container with scroll settle & inner depth parallax */}
         <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.04 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, amount: 'some' }}
+          layout={!prefersReducedMotion}
+          initial={prefersReducedMotion ? false : { scale: 1.04 }}
+          animate={{ scale: 1 }}
           transition={{
-            duration: 0.85,
-            delay: prefersReducedMotion ? 0 : index * 0.09 + 0.06,
+            duration: 0.72,
+            delay: prefersReducedMotion ? 0 : index * 0.08 + 0.06,
             ease: ARTCRAFT_EASE,
+            layout: layoutTransition,
           }}
           className={`relative overflow-hidden bg-[#F5F5F5] dark:bg-[#141414] ${
-            isLeadFeatured
+            isWideLayout
               ? 'md:col-span-6 lg:col-span-7 aspect-[4/3] md:aspect-auto md:min-h-[340px] lg:min-h-[400px]'
               : 'aspect-[4/3]'
           }`}
@@ -248,6 +256,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
 
         {/* Editorial Content Container with subtle counter-parallax */}
         <motion.div
+          layout={prefersReducedMotion ? false : 'position'}
           style={
             allowParallax
               ? {
@@ -256,8 +265,9 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                 }
               : undefined
           }
+          transition={{ layout: layoutTransition }}
           className={`p-5 sm:p-7 flex flex-col justify-between gap-5 sm:gap-6 ${
-            isLeadFeatured ? 'md:col-span-6 lg:col-span-5 md:p-8 lg:p-10' : 'lg:p-8'
+            isWideLayout ? 'md:col-span-6 lg:col-span-5 md:p-8 lg:p-10' : 'lg:p-8'
           }`}
         >
         <div className="space-y-3 sm:space-y-4">
@@ -296,7 +306,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             {project.tools.join(' · ')}
           </p>
 
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
             <button
               type="button"
               onClick={() => onOpenProject(project.id)}
@@ -305,12 +315,145 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
               <span>Read Case Study</span>
               <ArrowUpRight size={16} aria-hidden="true" />
             </button>
+
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              aria-controls={`project-expanded-${project.id}`}
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className={`w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+                isExpanded
+                  ? 'border-[#FF721A] bg-[#FF721A] text-[#0A0A0A]'
+                  : 'border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:border-[#FF721A]'
+              }`}
+            >
+              <span>{isExpanded ? 'Hide Specs' : 'Expand Specs'}</span>
+              <motion.span
+                aria-hidden="true"
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.25, ease: ARTCRAFT_EASE }
+                }
+                className="inline-flex items-center"
+              >
+                <ChevronDown size={15} />
+              </motion.span>
+            </button>
           </div>
         </div>
       </motion.div>
+
+        {/* Expanded Technical Specifications & Project Constraints Drawer */}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              id={`project-expanded-${project.id}`}
+              key={`expanded-${project.id}`}
+              layout={prefersReducedMotion ? false : 'position'}
+              initial={
+                prefersReducedMotion
+                  ? { opacity: 1 }
+                  : { opacity: 0, height: 0, filter: 'blur(6px)' }
+              }
+              animate={{ opacity: 1, height: 'auto', filter: 'blur(0px)' }}
+              exit={
+                prefersReducedMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, height: 0, filter: 'blur(4px)' }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.42, ease: ARTCRAFT_EASE }
+              }
+              className="md:col-span-12 overflow-hidden border-t border-[#E5E5E5] dark:border-[#262626] bg-white/75 dark:bg-black/45"
+            >
+              <div className="p-5 sm:p-7 lg:p-9 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+                {/* Technical Specifications Grid */}
+                <div className="lg:col-span-6 space-y-3.5">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E5E5E5] dark:border-[#262626]">
+                    <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      Technical Specifications
+                    </p>
+                    <span className="font-mono text-[11px] tabular-nums text-[#737373]">
+                      {String(project.specs.length).padStart(2, '0')} Parameters
+                    </span>
+                  </div>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    {project.specs.map((spec, specIdx) => (
+                      <motion.div
+                        key={spec.label}
+                        initial={
+                          prefersReducedMotion
+                            ? false
+                            : { opacity: 0, y: 10 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.35,
+                          delay: prefersReducedMotion ? 0 : 0.08 + specIdx * 0.04,
+                          ease: ARTCRAFT_EASE,
+                        }}
+                        className="pb-3 border-b border-[#E5E5E5]/80 dark:border-[#262626]/80 space-y-1"
+                      >
+                        <dt className="font-mono text-[11px] text-[#525252] dark:text-[#A3A3A3]">
+                          {spec.label}
+                        </dt>
+                        <dd className="text-sm font-semibold text-[#0A0A0A] dark:text-white">
+                          {spec.value}
+                        </dd>
+                      </motion.div>
+                    ))}
+                  </dl>
+                </div>
+
+                {/* Engineering & Design Constraints List */}
+                <div className="lg:col-span-6 space-y-3.5">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E5E5E5] dark:border-[#262626]">
+                    <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      Project Constraints
+                    </p>
+                    <span className="font-mono text-[11px] tabular-nums text-[#737373]">
+                      {String(project.constraints.length).padStart(2, '0')} Boundaries
+                    </span>
+                  </div>
+                  <ul className="divide-y divide-[#E5E5E5] dark:divide-[#262626]">
+                    {project.constraints.map((constraint, cIdx) => (
+                      <motion.li
+                        key={constraint}
+                        initial={
+                          prefersReducedMotion
+                            ? false
+                            : { opacity: 0, y: 10 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.35,
+                          delay: prefersReducedMotion ? 0 : 0.12 + cIdx * 0.05,
+                          ease: ARTCRAFT_EASE,
+                        }}
+                        className="py-3 first:pt-1 last:pb-0 flex items-start gap-3 text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]"
+                      >
+                        <span className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] shrink-0">
+                          <span className="w-1.5 h-1.5 bg-[#FF721A]" aria-hidden="true" />
+                          {String(cIdx + 1).padStart(2, '0')}
+                        </span>
+                        <span className="text-[#0A0A0A] dark:text-[#E5E5E5]">
+                          {constraint}
+                        </span>
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </motion.article>
+    </ParallaxLayer>
   </motion.div>
-  </ParallaxLayer>
   );
 };
 
@@ -321,8 +464,8 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
 }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const [hasSwitchedFilter, setHasSwitchedFilter] = useState(false);
+  const prevFilterRef = useRef<ProjectCategory>(activeFilter);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -334,31 +477,16 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+    if (prevFilterRef.current !== activeFilter) {
+      prevFilterRef.current = activeFilter;
+      setHasSwitchedFilter(true);
+    }
+  }, [activeFilter]);
 
   const handleFilterClick = (nextFilter: ProjectCategory) => {
     if (nextFilter === activeFilter) return;
-
+    setHasSwitchedFilter(true);
     onChangeFilter(nextFilter);
-
-    if (prefersReducedMotion) {
-      setIsProcessing(false);
-      return;
-    }
-
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-    }
-    setIsProcessing(true);
-    timerRef.current = window.setTimeout(() => {
-      setIsProcessing(false);
-      timerRef.current = null;
-    }, 220);
   };
 
   const filteredProjects =
@@ -434,20 +562,26 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Bento / Editorial Grid with Shimmer Skeletons */}
-        <div
-          data-reveal-group=""
-          aria-busy={isProcessing}
-          className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
-        >
-          {isProcessing
-            ? filteredProjects.map((project, index) => (
-                <ProjectCardSkeleton
-                  key={`skeleton-${activeFilter}-${project.id}`}
-                  isLeadFeatured={activeFilter === 'all' && index === 0}
-                />
-              ))
-            : filteredProjects.map((project, index) => (
+        {/* Dynamic Bento / Editorial Grid with Staggered Category Transitions & Layout Reflow */}
+        <LayoutGroup id="works-cards-layout">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeFilter}
+              data-reveal-group=""
+              custom={prefersReducedMotion}
+              variants={GRID_STAGGER_VARIANTS}
+              initial="hidden"
+              animate={hasSwitchedFilter ? 'visible' : undefined}
+              whileInView={hasSwitchedFilter ? undefined : 'visible'}
+              exit="exit"
+              viewport={
+                hasSwitchedFilter
+                  ? undefined
+                  : { once: true, amount: 'some', margin: '0px 0px -48px 0px' }
+              }
+              className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
+            >
+              {filteredProjects.map((project, index) => (
                 <MagneticProjectCard
                   key={`${activeFilter}-${project.id}`}
                   project={project}
@@ -458,7 +592,9 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                   onOpenProject={onOpenProject}
                 />
               ))}
-        </div>
+            </motion.div>
+          </AnimatePresence>
+        </LayoutGroup>
       </div>
     </section>
   );

@@ -20,6 +20,8 @@ export interface ProjectSummary {
   image: string;
   imageAlt: string;
   metrics: { label: string; value: string }[];
+  specs: { label: string; value: string }[];
+  constraints: string[];
 }
 
 export interface ExperienceItem {
@@ -105,6 +107,17 @@ export const PROJECTS: ProjectSummary[] = [
       { label: 'Primary Suite', value: 'Illustrator & Affinity' },
       { label: 'Focus', value: 'Human-First Systems' },
     ],
+    specs: [
+      { label: 'Vector Pipeline', value: 'Bezier Node Architecture' },
+      { label: 'Frontend Stack', value: 'React · TypeScript · Tailwind' },
+      { label: 'Motion Engine', value: 'GPU-Composited Transforms' },
+      { label: 'Compliance', value: 'WCAG AA · Reduced Motion' },
+    ],
+    constraints: [
+      'Maintain strict 60/30/10 visual budget without ornamental UI noise',
+      'Prioritize human intuition over technical complexity across interactions',
+      'Preserve optical hierarchy and balanced whitespace on all viewports',
+    ],
   },
   {
     id: 'robot',
@@ -125,6 +138,17 @@ export const PROJECTS: ProjectSummary[] = [
       { label: 'Sensors', value: 'Night Vision & Ultrasonic' },
       { label: 'Control', value: 'Remote Wireless Link' },
     ],
+    specs: [
+      { label: 'Compute Core', value: 'Arduino / Raspberry Pi' },
+      { label: 'Actuation', value: 'L298N H-Bridge Dual PWM' },
+      { label: 'Sensor Array', value: 'Night Vision · Ultrasonic · IR' },
+      { label: 'Telemetry', value: 'Dual RF & Wi-Fi Video Link' },
+    ],
+    constraints: [
+      'Finite battery endurance under simultaneous traction and live optics load',
+      'RF line-of-sight range and multipath signal attenuation inside tunnels',
+      'Compact payload weight ceiling across rugged suspension kinematics',
+    ],
   },
   {
     id: 'geolocation',
@@ -144,6 +168,17 @@ export const PROJECTS: ProjectSummary[] = [
       { label: 'Transceiver', value: 'SX1278 LoRa' },
       { label: 'Filtering', value: 'Kalman Trajectory' },
       { label: 'Dependency', value: 'Zero GPS Required' },
+    ],
+    specs: [
+      { label: 'Controller & RF', value: 'ESP32 · SX1278 Sub-GHz' },
+      { label: 'Inertial Fusion', value: 'MPU6050 + HMC5883L' },
+      { label: 'Positioning', value: 'RSSI Log-Loss + Trilateration' },
+      { label: 'Display', value: '0.96" OLED Local Telemetry' },
+    ],
+    constraints: [
+      'Zero dependency on GPS satellites or cellular network backhaul',
+      'Indoor multipath RSSI variance smoothed via Kalman trajectory fusion',
+      'Low-power duty cycling required for sustained remote anchor nodes',
     ],
   },
 ];

@@ -287,6 +287,7 @@ interface ParallaxLayerProps {
   speed?: number;
   axis?: 'y' | 'x';
   scaleRange?: [number, number];
+  layout?: boolean | 'position' | 'size';
 }
 
 /**
@@ -298,6 +299,7 @@ export const ParallaxLayer: React.FC<ParallaxLayerProps> = ({
   speed = 20,
   axis = 'y',
   scaleRange,
+  layout = false,
 }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -320,7 +322,16 @@ export const ParallaxLayer: React.FC<ParallaxLayerProps> = ({
   }
 
   return (
-    <div ref={containerRef} className={className}>
+    <motion.div
+      ref={containerRef}
+      layout={layout}
+      transition={
+        layout
+          ? { layout: { duration: 0.45, ease: ARTCRAFT_EASE } }
+          : undefined
+      }
+      className={className}
+    >
       <motion.div
         style={{
           y: axis === 'y' ? delta : 0,
@@ -332,7 +343,7 @@ export const ParallaxLayer: React.FC<ParallaxLayerProps> = ({
       >
         {children}
       </motion.div>
-    </div>
+    </motion.div>
   );
 };
 
