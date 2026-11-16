@@ -154,3 +154,45 @@ html[data-ruler="on"]::-webkit-scrollbar {
   display: block;
 }
 
+/* Subtle architectural drafting dot-grid layers */
+.dot-grid-base {
+  background-image: radial-gradient(
+    circle,
+    rgba(10, 10, 10, 0.085) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+.dark .dot-grid-base {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.09) 1px,
+    transparent 1px
+  );
+}
+
+.dot-grid-accent {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 114, 26, 0.36) 1.25px,
+    transparent 1.25px
+  );
+  background-size: 24px 24px;
+}
+
+.dark .dot-grid-accent {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 114, 26, 0.42) 1.25px,
+    transparent 1.25px
+  );
+}
+
+@media (min-width: 768px) {
+  .dot-grid-base,
+  .dot-grid-accent {
+    background-size: 28px 28px;
+  }
+}
+

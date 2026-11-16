@@ -9,6 +9,7 @@ import {
 } from 'motion/react';
 import { DISCIPLINES, PROFILE, ProjectCategory } from '../data/portfolio';
 import { SafeImage } from './SafeImage';
+import { LiveClock } from './LiveClock';
 import {
   ARTCRAFT_EASE,
   BlurSlideReveal,
@@ -196,12 +197,16 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
                   className="w-full h-full lg:h-full object-cover object-center"
                 />
               </div>
-              <figcaption className="px-4 sm:px-5 py-3 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-4 text-xs text-[#525252] dark:text-[#A3A3A3]">
+              <figcaption className="px-4 sm:px-5 py-3 border-t border-[#E5E5E5] dark:border-[#262626] flex flex-wrap items-center justify-between gap-2 text-xs text-[#525252] dark:text-[#A3A3A3]">
                 <span className="inline-flex items-center gap-2">
                   <RegistrationTick onMount delay={0.4} />
                   <span>Abstract Study · Form &amp; Geometry</span>
                 </span>
-                <span className="font-mono tabular-nums">Kerala, IN</span>
+                <span className="inline-flex items-center gap-1.5 font-mono tabular-nums">
+                  <span>Kerala, IN</span>
+                  <span aria-hidden="true" className="text-[#C94B00] dark:text-[#FF721A]">·</span>
+                  <LiveClock className="text-[#0A0A0A] dark:text-white" />
+                </span>
               </figcaption>
             </figure>
           </motion.div>

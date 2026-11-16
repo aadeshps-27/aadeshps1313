@@ -11,17 +11,30 @@ import {
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 
-type MoodMode = 'tracking' | 'happy' | 'curious' | 'scan' | 'wink' | 'excited';
+type MoodMode =
+  | 'tracking'
+  | 'happy'
+  | 'curious'
+  | 'scan'
+  | 'wink'
+  | 'excited'
+  | 'dance'
+  | 'radar'
+  | 'sleep';
 
 const TRACK_SPRING = { stiffness: 280, damping: 24, mass: 0.45 };
+const IDLE_SLEEP_MS = 14000;
 
 const SECTION_PROMPTS: Record<string, { line: string; target: string; cta: string }> = {
-  top: { line: 'Drag me or click to react', target: '#work', cta: 'View Works' },
-  work: { line: 'Scanning case studies', target: '#about', cta: 'Read About' },
-  about: { line: 'Hardware meets web craft', target: '#experience', cta: 'Timeline' },
-  experience: { line: 'Tracing the journey', target: '#contact', cta: 'Get in Touch' },
-  contact: { line: 'Ready when you are', target: '#top', cta: 'Back to Top' },
+  top: { line: 'Drag, double-click, or explore', target: '#work', cta: 'Works ↓' },
+  work: { line: 'Inspecting projects & RF craft', target: '#about', cta: 'About ↓' },
+  about: { line: 'Electronics meets software', target: '#experience', cta: 'Journey ↓' },
+  experience: { line: 'Tracing roles & research', target: '#contact', cta: 'Contact ↓' },
+  contact: { line: 'Ready to collaborate', target: '#top', cta: 'Top ↑' },
 };
+
+const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
+const DANCE_BARS = [0, 1, 2, 3, 4];
 
 export const AiCharacterMotion: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -36,6 +49,7 @@ export const AiCharacterMotion: React.FC = () => {
   const [mood, setMood] = useState<MoodMode>('tracking');
   const [pulseKey, setPulseKey] = useState(0);
   const [spinCount, setSpinCount] = useState(0);
+  const [radarActive, setRadarActive] = useState(false);
   const [danceActive, setDanceActive] = useState(false);
 
   // Global cursor vector normalized relative to character center [-1, 1]
@@ -97,6 +111,52 @@ export const AiCharacterMotion: React.FC = () => {
     return () => window.removeEventListener('scroll', detectSection);
   }, []);
 
+  // Celebrate Dark / Light theme switches cleanly
+  useEffect(() => {
+    if (typeof document === 'undefined' || prefersReducedMotion) return;
+    let firstSnapshot = true;
+    const observer = new MutationObserver(() => {
+      if (firstSnapshot) {
+        firstSnapshot = false;
+        return;
+      }
+      setMood('happy');
+      setPulseKey((k) => k + 1);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    firstSnapshot = false;
+    return () => observer.disconnect();
+  }, [prefersReducedMotion]);
+
+  // Drift into gentle sleep if idle for 14s; wake up immediately on activity
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    let idleTimer: number | null = null;
+
+    const resetIdle = () => {
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+      setMood((prev) => (prev === 'sleep' ? 'excited' : prev));
+      idleTimer = window.setTimeout(() => {
+        setMood((prev) => (prev === 'tracking' ? 'sleep' : prev));
+      }, IDLE_SLEEP_MS);
+    };
+
+    resetIdle();
+    window.addEventListener('pointermove', resetIdle, { passive: true });
+    window.addEventListener('scroll', resetIdle, { passive: true });
+    window.addEventListener('keydown', resetIdle, { passive: true });
+
+    return () => {
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+      window.removeEventListener('pointermove', resetIdle);
+      window.removeEventListener('scroll', resetIdle);
+      window.removeEventListener('keydown', resetIdle);
+    };
+  }, [prefersReducedMotion]);
+
   // Global cursor tracking, proximity magnetic pull, and element-context reactions
   useEffect(() => {
     if (!pointerFine || prefersReducedMotion) return;
@@ -128,12 +188,14 @@ export const AiCharacterMotion: React.FC = () => {
     };
 
     const handlePointerOver = (e: PointerEvent) => {
-      if (isDragging) return;
+      if (isDragging || danceActive || radarActive) return;
       const target = e.target as HTMLElement | null;
       if (!target) return;
       if (target.closest('[data-cursor="project"]')) {
         setMood((prev) => (prev === 'tracking' ? 'scan' : prev));
-      } else if (target.closest('a[href^="mailto:"], a[href*="wa.me"], button[type="submit"]')) {
+      } else if (
+        target.closest('a[href^="mailto:"], a[href*="wa.me"], button[type="submit"]')
+      ) {
         setMood((prev) => (prev === 'tracking' ? 'wink' : prev));
       } else {
         setMood((prev) => (prev === 'scan' || prev === 'wink' ? 'tracking' : prev));
@@ -156,27 +218,61 @@ export const AiCharacterMotion: React.FC = () => {
       window.removeEventListener('pointerover', handlePointerOver);
       document.removeEventListener('mouseleave', handlePointerLeave);
     };
-  }, [pointerFine, prefersReducedMotion, isDragging, rawLookX, rawLookY, rawAttractX, rawAttractY]);
+  }, [
+    pointerFine,
+    prefersReducedMotion,
+    isDragging,
+    danceActive,
+    radarActive,
+    rawLookX,
+    rawLookY,
+    rawAttractX,
+    rawAttractY,
+  ]);
 
-  // Auto-settle temporary manual click moods back to live tracking
+  // Auto-settle temporary click / theme / wake moods back to live tracking
   useEffect(() => {
-    if (mood === 'tracking' || mood === 'scan' || mood === 'wink' || isDragging) return;
+    if (
+      mood === 'tracking' ||
+      mood === 'scan' ||
+      mood === 'wink' ||
+      mood === 'sleep' ||
+      isDragging ||
+      danceActive ||
+      radarActive
+    ) {
+      return;
+    }
     const timer = window.setTimeout(() => {
       setMood('tracking');
     }, 2000);
     return () => window.clearTimeout(timer);
-  }, [mood, isDragging]);
+  }, [mood, isDragging, danceActive, radarActive]);
 
   useEffect(() => {
     if (!danceActive) return;
-    const timer = window.setTimeout(() => setDanceActive(false), 1600);
+    const timer = window.setTimeout(() => {
+      setDanceActive(false);
+      setMood('tracking');
+    }, 2100);
     return () => window.clearTimeout(timer);
   }, [danceActive]);
 
+  useEffect(() => {
+    if (!radarActive) return;
+    const timer = window.setTimeout(() => {
+      setRadarActive(false);
+      setMood('tracking');
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [radarActive]);
+
   const triggerReaction = () => {
     setPulseKey((k) => k + 1);
+    setDanceActive(false);
+    setRadarActive(false);
     setMood((prev) => {
-      if (prev === 'tracking' || prev === 'scan' || prev === 'wink') return 'happy';
+      if (prev === 'tracking' || prev === 'scan' || prev === 'sleep') return 'happy';
       if (prev === 'happy') return 'curious';
       if (prev === 'curious') return 'wink';
       return 'tracking';
@@ -188,14 +284,24 @@ export const AiCharacterMotion: React.FC = () => {
 
   const triggerSpin = () => {
     setPulseKey((k) => k + 1);
+    setDanceActive(false);
+    setRadarActive(false);
     setSpinCount((c) => c + 1);
     setMood('excited');
   };
 
   const triggerDance = () => {
     setPulseKey((k) => k + 1);
+    setRadarActive(false);
     setDanceActive(true);
-    setMood('happy');
+    setMood('dance');
+  };
+
+  const triggerRadar = () => {
+    setPulseKey((k) => k + 1);
+    setDanceActive(false);
+    setRadarActive(true);
+    setMood('radar');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -205,7 +311,13 @@ export const AiCharacterMotion: React.FC = () => {
     }
   };
 
-  const activeMood: MoodMode = isDragging ? 'excited' : mood;
+  const activeMood: MoodMode = isDragging
+    ? 'excited'
+    : danceActive
+      ? 'dance'
+      : radarActive
+        ? 'radar'
+        : mood;
   const promptInfo = SECTION_PROMPTS[activeSection] ?? SECTION_PROMPTS.top;
   const controlsVisible = isHovered || showControls;
 
@@ -237,7 +349,7 @@ export const AiCharacterMotion: React.FC = () => {
       <motion.div
         role="button"
         tabIndex={0}
-        aria-label="Interactive robotic companion — click to react or drag to move"
+        aria-label="Interactive robotic companion — click to react, double-click to spin, or drag to move"
         onKeyDown={handleKeyDown}
         drag={!prefersReducedMotion}
         dragSnapToOrigin
@@ -245,6 +357,8 @@ export const AiCharacterMotion: React.FC = () => {
         dragTransition={{ bounceStiffness: 320, bounceDamping: 20 }}
         onDragStart={() => {
           setIsDragging(true);
+          setDanceActive(false);
+          setRadarActive(false);
           setPulseKey((k) => k + 1);
         }}
         onDragEnd={() => {
@@ -271,14 +385,93 @@ export const AiCharacterMotion: React.FC = () => {
         <AnimatePresence>
           {pulseKey > 0 && !prefersReducedMotion && (
             <motion.span
-              key={pulseKey}
+              key={`pulse-${pulseKey}`}
               aria-hidden="true"
-              initial={{ scale: 0.55, opacity: 0.7 }}
-              animate={{ scale: 1.55, opacity: 0 }}
+              initial={{ scale: 0.55, opacity: 0.72 }}
+              animate={{ scale: 1.65, opacity: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.65, ease: ARTCRAFT_EASE }}
               className="pointer-events-none absolute top-3 w-14 h-14 rounded-full border border-[#FF721A]"
             />
+          )}
+        </AnimatePresence>
+
+        {/* RF Radar Mode: Concentric Signal Wave Rings */}
+        <AnimatePresence>
+          {radarActive && !prefersReducedMotion && (
+            <motion.div
+              key="radar-waves"
+              aria-hidden="true"
+              className="pointer-events-none absolute top-2 w-16 h-16 flex items-center justify-center"
+            >
+              {[0, 1, 2].map((waveIdx) => (
+                <motion.span
+                  key={waveIdx}
+                  initial={{ scale: 0.5, opacity: 0.7 }}
+                  animate={{ scale: 2.3, opacity: 0 }}
+                  transition={{
+                    duration: 1.4,
+                    delay: waveIdx * 0.35,
+                    repeat: Infinity,
+                    ease: 'easeOut',
+                  }}
+                  className="absolute inset-0 rounded-full border border-[#FF721A]"
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Double-Click Barrel Spin Geometric Spark Burst */}
+        <AnimatePresence>
+          {spinCount > 0 && !prefersReducedMotion && (
+            <div
+              key={`burst-${spinCount}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2"
+            >
+              {SPARK_ANGLES.map((angle) => {
+                const rad = (angle * Math.PI) / 180;
+                const tx = Math.cos(rad) * 34;
+                const ty = Math.sin(rad) * 34;
+                return (
+                  <motion.span
+                    key={angle}
+                    initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+                    animate={{ x: tx, y: ty, scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.58, ease: ARTCRAFT_EASE }}
+                    className="absolute block w-1.5 h-1.5 bg-[#FF721A] rounded-[2px]"
+                  />
+                );
+              })}
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Gentle Sleep 'z' Floating Glyphs */}
+        <AnimatePresence>
+          {activeMood === 'sleep' && !prefersReducedMotion && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-2 right-0 flex flex-col items-end font-mono font-bold text-[#C94B00] dark:text-[#FF721A]"
+            >
+              {[0, 1].map((zIdx) => (
+                <motion.span
+                  key={zIdx}
+                  initial={{ opacity: 0, y: 6, scale: 0.7 }}
+                  animate={{ opacity: [0, 0.9, 0], y: -12, scale: [0.75, 1, 0.85] }}
+                  transition={{
+                    duration: 2.2,
+                    delay: zIdx * 0.9,
+                    repeat: Infinity,
+                    ease: 'easeOut',
+                  }}
+                  className="text-[10px] leading-none"
+                >
+                  z
+                </motion.span>
+              ))}
+            </div>
           )}
         </AnimatePresence>
 
@@ -294,29 +487,33 @@ export const AiCharacterMotion: React.FC = () => {
           }
           className="relative flex flex-col items-center"
         >
-          {/* Celebration spin / hover / dance / idle levitation wrapper */}
+          {/* Spin / Dance / Idle Levitation Wrapper */}
           <motion.div
             animate={
               prefersReducedMotion
                 ? undefined
                 : {
                     y: danceActive
-                      ? [0, -11, 0, -9, 0]
-                      : isDragging
-                        ? -4
-                        : [0, -5, 0],
+                      ? [0, -10, 0, -8, 0]
+                      : activeMood === 'sleep'
+                        ? [0, -2, 0]
+                        : isDragging
+                          ? -4
+                          : [0, -5, 0],
                     rotate: danceActive
-                      ? [0, -9, 9, -6, 0]
+                      ? [0, -9, 9, -7, 0]
                       : spinCount * 360,
                     scale: isHovered || isNearPointer ? 1.06 : 1,
                   }
             }
             transition={{
               y: danceActive
-                ? { duration: 0.8, repeat: 1, ease: 'easeInOut' }
-                : { duration: 3.1, repeat: Infinity, ease: 'easeInOut' },
+                ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
+                : activeMood === 'sleep'
+                  ? { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
+                  : { duration: 3.1, repeat: Infinity, ease: 'easeInOut' },
               rotate: danceActive
-                ? { duration: 0.8, repeat: 1, ease: 'easeInOut' }
+                ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.75, ease: ARTCRAFT_EASE },
               scale: { duration: 0.22, ease: ARTCRAFT_EASE },
             }}
@@ -329,7 +526,7 @@ export const AiCharacterMotion: React.FC = () => {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               style={
-                prefersReducedMotion
+                prefersReducedMotion || activeMood === 'sleep'
                   ? undefined
                   : {
                       x: headX,
@@ -347,10 +544,12 @@ export const AiCharacterMotion: React.FC = () => {
                 stroke="#FF721A"
                 strokeWidth="1"
                 strokeDasharray="4 4"
-                strokeOpacity={isHovered || isDragging ? 0.85 : 0.45}
+                strokeOpacity={
+                  radarActive || isHovered || isDragging ? 0.9 : activeMood === 'sleep' ? 0.2 : 0.45
+                }
                 animate={prefersReducedMotion ? undefined : { rotate: 360 }}
                 transition={{
-                  duration: isHovered || isDragging ? 8 : 22,
+                  duration: radarActive ? 3 : isHovered || isDragging ? 8 : 22,
                   repeat: Infinity,
                   ease: 'linear',
                 }}
@@ -365,13 +564,17 @@ export const AiCharacterMotion: React.FC = () => {
                     : {
                         rotate: isDragging
                           ? [-12, 12, -12]
-                          : isHovered
-                            ? [-8, 8, -4, 0]
-                            : [-3, 3, -3],
+                          : radarActive
+                            ? [-14, 14, -14]
+                            : isHovered
+                              ? [-8, 8, -4, 0]
+                              : activeMood === 'sleep'
+                                ? -8
+                                : [-3, 3, -3],
                       }
                 }
                 transition={
-                  isDragging
+                  isDragging || radarActive
                     ? { duration: 0.35, repeat: Infinity, ease: 'easeInOut' }
                     : isHovered
                       ? { duration: 0.55, ease: ARTCRAFT_EASE }
@@ -389,10 +592,22 @@ export const AiCharacterMotion: React.FC = () => {
                   strokeLinecap="round"
                   className="text-[#0A0A0A] dark:text-white"
                 />
-                <circle cx="30" cy="7.5" r="3" fill="#FF721A" />
+                <motion.circle
+                  cx="30"
+                  cy="7.5"
+                  r="3"
+                  fill="#FF721A"
+                  animate={
+                    radarActive && !prefersReducedMotion
+                      ? { scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }
+                      : undefined
+                  }
+                  transition={{ duration: 0.6, repeat: Infinity }}
+                  style={{ transformOrigin: '30px 7.5px', transformBox: 'view-box' }}
+                />
               </motion.g>
 
-              {/* Left stabilizer wing (flaps during drag or dance) */}
+              {/* Left stabilizer wing */}
               <motion.rect
                 x="4"
                 y="26"
@@ -411,13 +626,13 @@ export const AiCharacterMotion: React.FC = () => {
                 }
                 transition={{
                   duration: isDragging || danceActive ? 0.5 : 1.8,
-                  repeat: isDragging || danceActive ? Infinity : Infinity,
+                  repeat: Infinity,
                   ease: 'easeInOut',
                 }}
                 style={{ transformOrigin: '9px 32px', transformBox: 'view-box' }}
               />
 
-              {/* Right stabilizer wing (waves on hover, flaps on drag/dance) */}
+              {/* Right stabilizer wing */}
               <motion.rect
                 x="51"
                 y="26"
@@ -468,7 +683,10 @@ export const AiCharacterMotion: React.FC = () => {
               {/* Expressive Visor Optics */}
               <motion.g
                 style={
-                  prefersReducedMotion
+                  prefersReducedMotion ||
+                  activeMood === 'dance' ||
+                  activeMood === 'radar' ||
+                  activeMood === 'sleep'
                     ? undefined
                     : {
                         x: eyeX,
@@ -478,7 +696,10 @@ export const AiCharacterMotion: React.FC = () => {
               >
                 <motion.g
                   animate={
-                    prefersReducedMotion
+                    prefersReducedMotion ||
+                    activeMood === 'dance' ||
+                    activeMood === 'radar' ||
+                    activeMood === 'sleep'
                       ? undefined
                       : { scaleY: [1, 1, 1, 0.08, 1, 1] }
                   }
@@ -490,7 +711,82 @@ export const AiCharacterMotion: React.FC = () => {
                   }}
                   style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
                 >
-                  {activeMood === 'happy' ? (
+                  {activeMood === 'dance' ? (
+                    // 5-bar animated equalizer visor while dancing
+                    DANCE_BARS.map((barIdx) => (
+                      <motion.rect
+                        key={barIdx}
+                        x={18 + barIdx * 5}
+                        y={27}
+                        width="3"
+                        height="10"
+                        rx="1.5"
+                        fill="#FF721A"
+                        animate={
+                          prefersReducedMotion
+                            ? undefined
+                            : { scaleY: [0.35, 1.1, 0.45, 0.95, 0.35] }
+                        }
+                        transition={{
+                          duration: 0.55,
+                          delay: barIdx * 0.09,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                        style={{
+                          transformOrigin: `${19.5 + barIdx * 5}px 37px`,
+                          transformBox: 'view-box',
+                        }}
+                      />
+                    ))
+                  ) : activeMood === 'radar' ? (
+                    // Radar crosshair + rotating beam inside visor
+                    <g>
+                      <circle
+                        cx="30"
+                        cy="32"
+                        r="7"
+                        stroke="#FF721A"
+                        strokeWidth="1.2"
+                        strokeOpacity="0.45"
+                      />
+                      <circle cx="30" cy="32" r="2" fill="#FF721A" />
+                      <motion.line
+                        x1="30"
+                        y1="32"
+                        x2="30"
+                        y2="25"
+                        stroke="#FF721A"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        animate={prefersReducedMotion ? undefined : { rotate: 360 }}
+                        transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                        style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
+                      />
+                    </g>
+                  ) : activeMood === 'sleep' ? (
+                    // Resting closed eyelids
+                    <>
+                      <line
+                        x1="20"
+                        y1="32.5"
+                        x2="25.5"
+                        y2="32.5"
+                        stroke="#FF721A"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="34.5"
+                        y1="32.5"
+                        x2="40"
+                        y2="32.5"
+                        stroke="#FF721A"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                      />
+                    </>
+                  ) : activeMood === 'happy' ? (
                     <>
                       <path
                         d="M20 33.5C21.2 30.2 24.8 30.2 26 33.5"
@@ -622,7 +918,7 @@ export const AiCharacterMotion: React.FC = () => {
         />
       </motion.div>
 
-      {/* Interactive Contextual Popover & Quick Actions on Hover/Tap */}
+      {/* Interactive Contextual Popover & Kinetic Tricks Menu on Hover/Tap */}
       <AnimatePresence>
         {controlsVisible && !isDragging && (
           <motion.div
@@ -639,18 +935,25 @@ export const AiCharacterMotion: React.FC = () => {
                 : { opacity: 0, x: -6, scale: 0.96, filter: 'blur(4px)' }
             }
             transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
-            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2 min-w-[164px]"
+            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2"
           >
             <p className="text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3] px-1">
               {promptInfo.line}
             </p>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={triggerDance}
                 className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
                 Dance
+              </button>
+              <button
+                type="button"
+                onClick={triggerRadar}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
+              >
+                Radar
               </button>
               <button
                 type="button"

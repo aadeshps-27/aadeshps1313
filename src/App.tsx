@@ -11,6 +11,7 @@ import { ContactAndFooter } from './components/ContactAndFooter';
 import { CaseStudyModal } from './components/CaseStudyModal';
 import { BackToTopButton } from './components/BackToTopButton';
 import { AiCharacterMotion } from './components/AiCharacterMotion';
+import { InteractiveDotGrid } from './components/InteractiveDotGrid';
 import { ProjectCategory, ProjectId } from './data/portfolio';
 
 export default function App() {
@@ -48,7 +49,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+    <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+      <InteractiveDotGrid />
+
       <AnimatePresence>
         {isPreloading && (
           <Preloader key="site-preloader" onComplete={handlePreloaderComplete} />
@@ -59,7 +62,7 @@ export default function App() {
       <ScrollProgressBar isModalOpen={selectedProject !== null || isPreloading} />
       <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
-      <main id="main">
+      <main id="main" className="relative z-[1]">
         <Hero
           onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
         />
@@ -72,10 +75,7 @@ export default function App() {
 
         <AboutAndExperience />
 
-        <ContactAndFooter
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
+        <ContactAndFooter />
       </main>
 
       <AnimatePresence>

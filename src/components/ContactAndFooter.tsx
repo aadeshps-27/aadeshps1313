@@ -9,11 +9,7 @@ import {
 } from 'motion/react';
 import { PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE, SectionChoreoHeader } from './MotionPrimitives';
-
-interface ContactAndFooterProps {
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
-}
+import { LiveClock } from './LiveClock';
 
 interface FormErrors {
   name?: string;
@@ -75,10 +71,7 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
   );
 };
 
-export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
-  theme,
-  onToggleTheme,
-}) => {
+export const ContactAndFooter: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
   const [name, setName] = useState('');
@@ -269,6 +262,18 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
                     aria-hidden="true"
                   />
                 </a>
+
+                <div className="py-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">
+                      Local Time · {PROFILE.location}
+                    </p>
+                    <LiveClock className="text-sm sm:text-base font-medium text-[#0A0A0A] dark:text-white" />
+                  </div>
+                  <span className="font-mono text-xs text-[#C94B00] dark:text-[#FF721A]">
+                    UTC+5:30
+                  </span>
+                </div>
               </div>
             </motion.div>
 
@@ -443,13 +448,6 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
               <span>Instagram</span>
               <ArrowUpRight size={12} aria-hidden="true" />
             </MagneticLink>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
-            >
-              {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
-            </button>
           </div>
         </div>
       </footer>

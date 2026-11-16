@@ -148,91 +148,104 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
   };
 
   return (
-    <motion.article
-      ref={cardRef}
-      data-cursor="project"
+    <motion.div
       data-reveal=""
-      onPointerMove={handlePointerMove}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
-      onPointerCancel={handlePointerLeave}
       initial={
         prefersReducedMotion
           ? false
-          : { opacity: 0, y: 28, filter: 'blur(8px)' }
+          : { opacity: 0, y: 32, scale: 0.985, filter: 'blur(8px)' }
       }
-      whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      viewport={{ once: true, amount: 0.12 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      viewport={{ once: true, amount: 'some', margin: '0px 0px -48px 0px' }}
       transition={{
-        duration: 0.8,
-        delay: prefersReducedMotion ? 0 : index * 0.08,
+        duration: 0.78,
+        delay: prefersReducedMotion ? 0 : index * 0.09,
         ease: ARTCRAFT_EASE,
       }}
-      style={
-        allowParallax
-          ? {
-              x: cardX,
-              y: cardY,
-              rotateX,
-              rotateY,
-              transformPerspective: 1100,
-              willChange: isHovered ? 'transform' : 'auto',
-            }
-          : undefined
-      }
-      className={`group rule-reveal rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-colors duration-200 hover:border-[#FF721A] ${
+      className={
         isLeadFeatured
-          ? 'md:col-span-2 md:grid md:grid-cols-12 lg:col-span-12'
+          ? 'md:col-span-2 lg:col-span-12'
           : 'lg:col-span-6'
-      }`}
+      }
     >
-      {/* Media Container with inner depth parallax */}
-      <div
-        className={`relative overflow-hidden bg-[#F5F5F5] dark:bg-[#141414] ${
-          isLeadFeatured
-            ? 'md:col-span-6 lg:col-span-7 aspect-[4/3] md:aspect-auto md:min-h-[340px] lg:min-h-[400px]'
-            : 'aspect-[4/3]'
-        }`}
-      >
-        <motion.div
-          className="w-full h-full"
-          style={
-            allowParallax
-              ? {
-                  x: mediaX,
-                  y: mediaY,
-                  willChange: isHovered ? 'transform' : 'auto',
-                }
-              : undefined
-          }
-          animate={{
-            scale: !prefersReducedMotion && isHovered ? 1.05 : 1,
-          }}
-          transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
-        >
-          <SafeImage
-            src={project.image}
-            alt={project.imageAlt}
-            fallbackLabel={project.title}
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
-      </div>
-
-      {/* Editorial Content Container with subtle counter-parallax */}
-      <motion.div
+      <motion.article
+        ref={cardRef}
+        data-cursor="project"
+        onPointerMove={handlePointerMove}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onPointerCancel={handlePointerLeave}
         style={
           allowParallax
             ? {
-                x: contentX,
-                y: contentY,
+                x: cardX,
+                y: cardY,
+                rotateX,
+                rotateY,
+                transformPerspective: 1100,
+                willChange: isHovered ? 'transform' : 'auto',
               }
             : undefined
         }
-        className={`p-5 sm:p-7 flex flex-col justify-between gap-5 sm:gap-6 ${
-          isLeadFeatured ? 'md:col-span-6 lg:col-span-5 md:p-8 lg:p-10' : 'lg:p-8'
+        className={`h-full group rule-reveal rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-colors duration-200 hover:border-[#FF721A] ${
+          isLeadFeatured ? 'md:grid md:grid-cols-12' : ''
         }`}
       >
+        {/* Media Container with scroll settle & inner depth parallax */}
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.04 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 'some' }}
+          transition={{
+            duration: 0.85,
+            delay: prefersReducedMotion ? 0 : index * 0.09 + 0.06,
+            ease: ARTCRAFT_EASE,
+          }}
+          className={`relative overflow-hidden bg-[#F5F5F5] dark:bg-[#141414] ${
+            isLeadFeatured
+              ? 'md:col-span-6 lg:col-span-7 aspect-[4/3] md:aspect-auto md:min-h-[340px] lg:min-h-[400px]'
+              : 'aspect-[4/3]'
+          }`}
+        >
+          <motion.div
+            className="w-full h-full"
+            style={
+              allowParallax
+                ? {
+                    x: mediaX,
+                    y: mediaY,
+                    willChange: isHovered ? 'transform' : 'auto',
+                  }
+                : undefined
+            }
+            animate={{
+              scale: !prefersReducedMotion && isHovered ? 1.05 : 1,
+            }}
+            transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
+          >
+            <SafeImage
+              src={project.image}
+              alt={project.imageAlt}
+              fallbackLabel={project.title}
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+        </motion.div>
+
+        {/* Editorial Content Container with subtle counter-parallax */}
+        <motion.div
+          style={
+            allowParallax
+              ? {
+                  x: contentX,
+                  y: contentY,
+                }
+              : undefined
+          }
+          className={`p-5 sm:p-7 flex flex-col justify-between gap-5 sm:gap-6 ${
+            isLeadFeatured ? 'md:col-span-6 lg:col-span-5 md:p-8 lg:p-10' : 'lg:p-8'
+          }`}
+        >
         <div className="space-y-3 sm:space-y-4">
           {/* Clean unboxed metadata row */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#525252] dark:text-[#A3A3A3]">
@@ -282,6 +295,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
         </div>
       </motion.div>
     </motion.article>
+  </motion.div>
   );
 };
 
