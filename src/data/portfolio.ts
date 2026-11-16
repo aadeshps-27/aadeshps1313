@@ -22,6 +22,14 @@ export interface ProjectSummary {
   metrics: { label: string; value: string }[];
   specs: { label: string; value: string }[];
   constraints: string[];
+  timeline: {
+    startDate: string;
+    endDate: string;
+    isOngoing?: boolean;
+    durationMonths: number;
+    durationLabel: string;
+    stackLayers: { layer: string; detail: string }[];
+  };
 }
 
 export interface ExperienceItem {
@@ -118,6 +126,19 @@ export const PROJECTS: ProjectSummary[] = [
       'Prioritize human intuition over technical complexity across interactions',
       'Preserve optical hierarchy and balanced whitespace on all viewports',
     ],
+    timeline: {
+      startDate: '2024-03',
+      endDate: '2026-11',
+      isOngoing: true,
+      durationMonths: 32,
+      durationLabel: '32 mos · Ongoing',
+      stackLayers: [
+        { layer: 'Identity & Grids', detail: 'Typographic & Editorial Systems' },
+        { layer: 'Vector Art', detail: 'Adobe Illustrator & Affinity Suite' },
+        { layer: 'Web Frontend', detail: 'React · TypeScript · Tailwind CSS' },
+        { layer: 'Motion & A11y', detail: 'GPU Transforms · WCAG AA Compliance' },
+      ],
+    },
   },
   {
     id: 'robot',
@@ -149,6 +170,19 @@ export const PROJECTS: ProjectSummary[] = [
       'RF line-of-sight range and multipath signal attenuation inside tunnels',
       'Compact payload weight ceiling across rugged suspension kinematics',
     ],
+    timeline: {
+      startDate: '2023-01',
+      endDate: '2023-06',
+      durationMonths: 6,
+      durationLabel: '6 mos',
+      stackLayers: [
+        { layer: 'Compute Core', detail: 'Arduino / Raspberry Pi Edge Runtime' },
+        { layer: 'Motor Control', detail: 'L298N H-Bridge Dual PWM Drive' },
+        { layer: 'Night Vision', detail: 'Low-Light Optical Video Stream' },
+        { layer: 'Proximity Array', detail: 'Ultrasonic & IR Obstacle Sensing' },
+        { layer: 'Telemetry Link', detail: 'Dual RF & Wi-Fi Command Channel' },
+      ],
+    },
   },
   {
     id: 'geolocation',
@@ -180,6 +214,20 @@ export const PROJECTS: ProjectSummary[] = [
       'Indoor multipath RSSI variance smoothed via Kalman trajectory fusion',
       'Low-power duty cycling required for sustained remote anchor nodes',
     ],
+    timeline: {
+      startDate: '2023-07',
+      endDate: '2024-02',
+      durationMonths: 8,
+      durationLabel: '8 mos',
+      stackLayers: [
+        { layer: 'Edge MCU', detail: 'ESP32 Compute & Telemetry Host' },
+        { layer: 'Sub-GHz Radio', detail: 'SX1278 LoRa RSSI Packet Exchange' },
+        { layer: 'Inertial Unit', detail: 'MPU6050 Gyro/Accel + HMC5883L Heading' },
+        { layer: 'Path-Loss Model', detail: 'Logarithmic Distance & 2D Trilateration' },
+        { layer: 'Kalman Filter', detail: 'Multipath Smoothing & Trajectory Fusion' },
+        { layer: 'Calibration & UI', detail: 'MATLAB · Python · 0.96" OLED Readout' },
+      ],
+    },
   },
 ];
 

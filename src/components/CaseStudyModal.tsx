@@ -6,6 +6,7 @@ import {
   useReducedMotion,
   useScroll,
   useSpring,
+  useTransform,
 } from 'motion/react';
 import {
   CREATIVE_CASE_STUDY,
@@ -23,6 +24,46 @@ interface CaseStudyModalProps {
   onSelectProject: (id: ProjectId) => void;
 }
 
+interface ModalTitleParallaxProps {
+  children: React.ReactNode;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  range?: [number, number];
+  className?: string;
+}
+
+const MODAL_PARALLAX_SPRING = { stiffness: 160, damping: 28, mass: 0.45 };
+
+const ModalTitleParallax: React.FC<ModalTitleParallaxProps> = ({
+  children,
+  containerRef,
+  range = [-8, 12],
+  className = '',
+}) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const titleRef = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: titleRef,
+    container: containerRef,
+    offset: ['start end', 'end start'],
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, MODAL_PARALLAX_SPRING);
+  const y = useTransform(smoothProgress, [0, 1], range);
+
+  return (
+    <div ref={titleRef} className={className}>
+      <motion.div
+        style={
+          prefersReducedMotion ? undefined : { y, willChange: 'transform' }
+        }
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+};
+
 export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
   projectId,
   onClose,
@@ -32,7 +73,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [readPercent, setReadPercent] = useState(0);
 
-  const { scrollYProgress } = useScroll({
+  const { scrollY, scrollYProgress } = useScroll({
     container: scrollContainerRef,
   });
 
@@ -40,6 +81,20 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
     stiffness: 260,
     damping: 32,
     restDelta: 0.001,
+  });
+
+  const smoothModalScrollY = useSpring(scrollY, MODAL_PARALLAX_SPRING);
+  const heroEyebrowY = useTransform(smoothModalScrollY, [0, 340], [0, 34], {
+    clamp: true,
+  });
+  const heroTitleY = useTransform(smoothModalScrollY, [0, 340], [0, 24], {
+    clamp: true,
+  });
+  const heroSubtitleY = useTransform(smoothModalScrollY, [0, 340], [0, 14], {
+    clamp: true,
+  });
+  const heroTitleOpacity = useTransform(smoothModalScrollY, [0, 340], [1, 0.72], {
+    clamp: true,
   });
 
   useMotionValueEvent(scrollYProgress, 'change', (latest) => {
@@ -176,27 +231,53 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
       </div>
 
       {/* Monograph Body */}
-      <article className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16 space-y-10 sm:space-y-14">
-        {/* Header & Hero Image */}
+      <article
+        key={project.id}
+        className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 lg:py-16 space-y-10 sm:space-y-14"
+      >
+        {/* Header & Hero Image with scroll-linked slower project title depth */}
         <header className="space-y-8">
-          <div className="space-y-4">
-            <p className="text-xs font-mono tabular-nums text-[#525252] dark:text-[#A3A3A3]">
+          <div className="relative z-0 space-y-4">
+            <motion.p
+              style={
+                prefersReducedMotion
+                  ? undefined
+                  : { y: heroEyebrowY, opacity: heroTitleOpacity, willChange: 'transform' }
+              }
+              className="text-xs font-mono tabular-nums text-[#525252] dark:text-[#A3A3A3]"
+            >
               {project.discipline} · {project.year} ·{' '}
               <span className="text-[#0A0A0A] dark:text-white font-semibold">{readingTime}</span>
-            </p>
-            <h1
+            </motion.p>
+            <motion.h1
               id="case-study-title"
+              style={
+                prefersReducedMotion
+                  ? { textWrap: 'balance' }
+                  : {
+                      textWrap: 'balance',
+                      y: heroTitleY,
+                      opacity: heroTitleOpacity,
+                      willChange: 'transform',
+                    }
+              }
               className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
-              style={{ textWrap: 'balance' }}
             >
               {project.title}
-            </h1>
-            <p className="font-serif italic text-xl text-[#525252] dark:text-[#A3A3A3]">
+            </motion.h1>
+            <motion.p
+              style={
+                prefersReducedMotion
+                  ? undefined
+                  : { y: heroSubtitleY, opacity: heroTitleOpacity, willChange: 'transform' }
+              }
+              className="font-serif italic text-xl text-[#525252] dark:text-[#A3A3A3]"
+            >
               {project.subtitle}
-            </p>
+            </motion.p>
           </div>
 
-          <div className="rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#F5F5F5] dark:bg-[#141414] aspect-[16/9]">
+          <div className="relative z-10 rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#F5F5F5] dark:bg-[#141414] aspect-[16/9]">
             <SafeImage
               src={project.image}
               alt={project.imageAlt}
@@ -222,7 +303,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
         {project.id === 'creative' && (
           <div className="space-y-14">
             <section className="space-y-6">
-              <h2 className="font-display text-2xl font-bold">01. Creative Methodology</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-2xl font-bold">01. Creative Methodology</h2>
+              </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3] max-w-3xl">
                 Merging the analytical approach of applied electronics engineering with the
                 expressive freedom of visual design. Every project begins on a structural grid
@@ -251,9 +334,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
                 02. Core Philosophy
               </p>
-              <h2 className="font-display text-3xl font-bold">
-                {CREATIVE_CASE_STUDY.philosophyTitle}
-              </h2>
+              <ModalTitleParallax containerRef={scrollContainerRef} range={[-6, 10]}>
+                <h2 className="font-display text-3xl font-bold">
+                  {CREATIVE_CASE_STUDY.philosophyTitle}
+                </h2>
+              </ModalTitleParallax>
               <blockquote className="font-serif italic text-xl sm:text-2xl leading-relaxed text-[#0A0A0A] dark:text-white">
                 &ldquo;{CREATIVE_CASE_STUDY.philosophyStatement}&rdquo;
               </blockquote>
@@ -263,7 +348,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </section>
 
             <section className="space-y-4">
-              <h2 className="font-display text-2xl font-bold">03. Studio Craft &amp; Toolkit</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-2xl font-bold">03. Studio Craft &amp; Toolkit</h2>
+              </ModalTitleParallax>
               <div className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]">
                 {CREATIVE_CASE_STUDY.craftNotes.map((note) => (
                   <div
@@ -286,7 +373,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
         {project.id === 'robot' && (
           <div className="space-y-14">
             <section className="space-y-4">
-              <h2 className="font-display text-2xl font-bold">01. Abstract &amp; Context</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-2xl font-bold">01. Abstract &amp; Context</h2>
+              </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                 {ROBOT_CASE_STUDY.abstract}
               </p>
@@ -310,7 +399,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </section>
 
             <section className="space-y-4">
-              <h2 className="font-display text-2xl font-bold">02. Mission Objectives</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-2xl font-bold">02. Mission Objectives</h2>
+              </ModalTitleParallax>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {ROBOT_CASE_STUDY.objectives.map((obj, idx) => (
                   <div
@@ -423,7 +514,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
         {project.id === 'geolocation' && (
           <div className="space-y-14">
             <section className="space-y-4">
-              <h2 className="font-display text-2xl font-bold">01. Research Abstract</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-2xl font-bold">01. Research Abstract</h2>
+              </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                 {GEOLOCATION_CASE_STUDY.abstract}
               </p>
@@ -460,7 +553,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             {/* Operational Flow */}
             <section className="space-y-4">
-              <h2 className="font-display text-xl sm:text-2xl font-bold">04. Localization Pipeline</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-xl sm:text-2xl font-bold">04. Localization Pipeline</h2>
+              </ModalTitleParallax>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {GEOLOCATION_CASE_STUDY.operationalFlow.map((item) => (
                   <div
@@ -551,7 +646,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             {/* Hardware Stack Table */}
             <section className="space-y-4">
-              <h2 className="font-display text-xl sm:text-2xl font-bold">06. Hardware &amp; Software Stack</h2>
+              <ModalTitleParallax containerRef={scrollContainerRef}>
+                <h2 className="font-display text-xl sm:text-2xl font-bold">06. Hardware &amp; Software Stack</h2>
+              </ModalTitleParallax>
               <div className="overflow-x-auto rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]">
                 <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <thead>
