@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, BarChart3, ChevronDown, LayoutGrid } from 'lucide-react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import {
   AnimatePresence,
   LayoutGroup,
@@ -18,7 +18,6 @@ import {
   getProjectReadingTime,
 } from '../data/portfolio';
 import { SafeImage } from './SafeImage';
-import { ProjectTimelineChart } from './ProjectTimelineChart';
 import {
   ARTCRAFT_EASE,
   BlurSlideReveal,
@@ -466,8 +465,6 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
   const [hasSwitchedFilter, setHasSwitchedFilter] = useState(false);
-  const [hasSwitchedView, setHasSwitchedView] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
   const prevFilterRef = useRef<ProjectCategory>(activeFilter);
 
   useEffect(() => {
@@ -492,22 +489,12 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     onChangeFilter(nextFilter);
   };
 
-  const handleViewModeChange = (nextMode: 'grid' | 'timeline') => {
-    if (nextMode === viewMode) return;
-    setHasSwitchedView(true);
-    setViewMode(nextMode);
-  };
-
   const filteredProjects =
     activeFilter === 'all'
       ? PROJECTS
       : PROJECTS.filter((project) => project.filterCategory === activeFilter);
 
-  const activeFilterLabel =
-    FILTER_OPTIONS.find((option) => option.id === activeFilter)?.label ?? 'All Works';
-
   const allowParallax = pointerFine && !prefersReducedMotion;
-  const shouldAnimateImmediately = hasSwitchedFilter || hasSwitchedView;
 
   return (
     <section
@@ -536,131 +523,78 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
               </BlurSlideReveal>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 self-stretch lg:self-auto">
-              {/* View Switcher: Cards Grid vs. D3 Project Timeline */}
-              <div
-                role="tablist"
-                aria-label="Works display mode"
-                className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626]"
-              >
-                {[
-                  { id: 'grid' as const, label: 'Cards', Icon: LayoutGrid },
-                  { id: 'timeline' as const, label: 'Project Timeline', Icon: BarChart3 },
-                ].map(({ id, label, Icon }) => {
-                  const isModeActive = viewMode === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isModeActive}
-                      onClick={() => handleViewModeChange(id)}
-                      className={`relative min-h-[40px] inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
-                        isModeActive
-                          ? 'text-[#0A0A0A]'
-                          : 'text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white'
-                      }`}
-                    >
-                      {isModeActive && (
-                        <motion.span
-                          layoutId="works-view-mode"
-                          transition={
-                            prefersReducedMotion
-                              ? { duration: 0 }
-                              : { type: 'spring', stiffness: 420, damping: 32 }
-                          }
-                          className="absolute inset-0 rounded-lg bg-[#FF721A]"
-                        />
-                      )}
-                      <Icon size={13} className="relative z-10 shrink-0" aria-hidden="true" />
-                      <span className="relative z-10">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div
-                role="tablist"
-                aria-label="Filter projects by discipline"
-                className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] w-full sm:w-auto"
-              >
-                {FILTER_OPTIONS.map((option) => {
-                  const isSelected = activeFilter === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isSelected}
-                      onClick={() => handleFilterClick(option.id)}
-                      className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
-                        isSelected
-                          ? 'text-white dark:text-[#0A0A0A]'
-                          : 'text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white'
-                      }`}
-                    >
-                      {isSelected && (
-                        <motion.span
-                          layoutId="works-active-tab"
-                          transition={
-                            prefersReducedMotion
-                              ? { duration: 0 }
-                              : { type: 'spring', stiffness: 420, damping: 32 }
-                          }
-                          className="absolute inset-0 rounded-lg bg-[#0A0A0A] dark:bg-[#FF721A]"
-                        />
-                      )}
-                      <span className="relative z-10">{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div
+              role="tablist"
+              aria-label="Filter projects by discipline"
+              className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] self-stretch sm:self-start lg:self-auto w-full sm:w-auto"
+            >
+              {FILTER_OPTIONS.map((option) => {
+                const isSelected = activeFilter === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => handleFilterClick(option.id)}
+                    className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+                      isSelected
+                        ? 'text-white dark:text-[#0A0A0A]'
+                        : 'text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white'
+                    }`}
+                  >
+                    {isSelected && (
+                      <motion.span
+                        layoutId="works-active-tab"
+                        transition={
+                          prefersReducedMotion
+                            ? { duration: 0 }
+                            : { type: 'spring', stiffness: 420, damping: 32 }
+                        }
+                        className="absolute inset-0 rounded-lg bg-[#0A0A0A] dark:bg-[#FF721A]"
+                      />
+                    )}
+                    <span className="relative z-10">{option.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Dynamic Bento Cards Grid vs. D3 Project Timeline View */}
-        <AnimatePresence mode="wait" initial={false}>
-          {viewMode === 'timeline' ? (
-            <ProjectTimelineChart
-              key="works-timeline-view"
-              projects={filteredProjects}
-              onOpenProject={onOpenProject}
-              activeFilterLabel={activeFilterLabel}
-            />
-          ) : (
+        {/* Dynamic Bento Grid with Staggered Category Filter Transitions & Layout Expansion */}
+        <LayoutGroup id="works-cards-layout">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={`grid-${activeFilter}`}
+              key={activeFilter}
               data-reveal-group=""
               custom={prefersReducedMotion}
               variants={GRID_STAGGER_VARIANTS}
               initial="hidden"
-              animate={shouldAnimateImmediately ? 'visible' : undefined}
-              whileInView={shouldAnimateImmediately ? undefined : 'visible'}
+              animate={hasSwitchedFilter ? 'visible' : undefined}
+              whileInView={hasSwitchedFilter ? undefined : 'visible'}
               exit="exit"
               viewport={
-                shouldAnimateImmediately
+                hasSwitchedFilter
                   ? undefined
                   : { once: true, amount: 'some', margin: '0px 0px -48px 0px' }
               }
               className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
             >
-              <LayoutGroup id={`works-cards-layout-${activeFilter}`}>
-                {filteredProjects.map((project, index) => (
-                  <MagneticProjectCard
-                    key={`${activeFilter}-${project.id}`}
-                    project={project}
-                    index={index}
-                    isLeadFeatured={activeFilter === 'all' && index === 0}
-                    allowParallax={allowParallax}
-                    prefersReducedMotion={prefersReducedMotion}
-                    onOpenProject={onOpenProject}
-                  />
-                ))}
-              </LayoutGroup>
+              {filteredProjects.map((project, index) => (
+                <MagneticProjectCard
+                  key={`${activeFilter}-${project.id}`}
+                  project={project}
+                  index={index}
+                  isLeadFeatured={activeFilter === 'all' && index === 0}
+                  allowParallax={allowParallax}
+                  prefersReducedMotion={prefersReducedMotion}
+                  onOpenProject={onOpenProject}
+                />
+              ))}
             </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </LayoutGroup>
       </div>
     </section>
   );
