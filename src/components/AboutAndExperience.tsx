@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from 'motion/react';
 import {
   EXPERIENCE,
   PROCESS_PILLARS,
@@ -7,6 +14,7 @@ import {
   SKILL_MARQUEE_ITEMS,
 } from '../data/portfolio';
 import { ExperienceTimeline } from './ExperienceTimeline';
+import { SafeImage } from './SafeImage';
 import { ARTCRAFT_EASE, RegistrationTick, SectionChoreoHeader } from './MotionPrimitives';
 
 const EASE_OUT_EXPO = ARTCRAFT_EASE;
@@ -86,7 +94,34 @@ const ScrollRevealText: React.FC<RevealTextProps> = ({
 };
 
 export const AboutAndExperience: React.FC = () => {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const [aboutHovered, setAboutHovered] = useState(false);
+  const aboutBlockRef = useRef<HTMLDivElement>(null);
+
+  const hoverX = useMotionValue(0);
+  const hoverY = useMotionValue(0);
+  const smoothX = useSpring(hoverX, { stiffness: 220, damping: 24, mass: 0.5 });
+  const smoothY = useSpring(hoverY, { stiffness: 220, damping: 24, mass: 0.5 });
+
+  const portraitX = useTransform(smoothX, [-0.5, 0.5], [-12, 12]);
+  const portraitY = useTransform(smoothY, [-0.5, 0.5], [-10, 10]);
+  const portraitRotate = useTransform(smoothX, [-0.5, 0.5], [-2.2, 2.2]);
+
+  const handleAboutPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (prefersReducedMotion || !aboutBlockRef.current) return;
+    const rect = aboutBlockRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const nx = Math.max(-0.5, Math.min(0.5, (e.clientX - rect.left) / rect.width - 0.5));
+    const ny = Math.max(-0.5, Math.min(0.5, (e.clientY - rect.top) / rect.height - 0.5));
+    hoverX.set(nx);
+    hoverY.set(ny);
+  };
+
+  const handleAboutLeave = () => {
+    setAboutHovered(false);
+    hoverX.set(0);
+    hoverY.set(0);
+  };
 
   return (
     <>
@@ -126,29 +161,128 @@ export const AboutAndExperience: React.FC = () => {
                 </h2>
               </SectionChoreoHeader>
 
-              <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3] max-w-xl">
-                <ScrollRevealText as="p" delay={0.08}>
-                  I am{' '}
-                  <strong className="font-bold text-[#0A0A0A] dark:text-white">
-                    {PROFILE.name}
-                  </strong>
-                  , a creative developer and visual designer based in {PROFILE.location}. Holding
-                  a {PROFILE.education}, my work lives at the intersection of tactile hardware
-                  systems and human-centered web software.
-                </ScrollRevealText>
-                <ScrollRevealText
-                  as="p"
-                  delay={0.12}
-                  className="font-serif italic text-base sm:text-lg text-[#0A0A0A] dark:text-white"
+              {/* Interactive Primary About Text Block with Hover-Revealed Engineer Portrait */}
+              <div
+                ref={aboutBlockRef}
+                tabIndex={0}
+                onMouseEnter={() => setAboutHovered(true)}
+                onMouseLeave={handleAboutLeave}
+                onPointerMove={handleAboutPointerMove}
+                onFocus={() => setAboutHovered(true)}
+                onBlur={handleAboutLeave}
+                className="group relative max-w-xl p-4 sm:p-5 -mx-4 sm:-mx-5 rounded-2xl border border-transparent hover:border-[#E5E5E5] dark:hover:border-[#262626] hover:bg-[#FAFAFA]/80 dark:hover:bg-[#0A0A0A]/80 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                  <ScrollRevealText as="p" delay={0.08}>
+                    I am{' '}
+                    <strong className="font-bold text-[#0A0A0A] dark:text-white">
+                      {PROFILE.name}
+                    </strong>
+                    , a creative developer and visual designer based in {PROFILE.location}. Holding
+                    a {PROFILE.education}, my work lives at the intersection of tactile hardware
+                    systems and human-centered web software.
+                  </ScrollRevealText>
+                  <ScrollRevealText
+                    as="p"
+                    delay={0.12}
+                    className="font-serif italic text-base sm:text-lg text-[#0A0A0A] dark:text-white"
+                  >
+                    &ldquo;I don&apos;t just build interfaces; I construct digital architectures
+                    that prioritize human intuition over technical complexity.&rdquo;
+                  </ScrollRevealText>
+                  <ScrollRevealText as="p" delay={0.16}>
+                    Whether calibrating an RF trilateration filter on an ESP32 or refining bezier
+                    curves in Affinity and Illustrator, I bring disciplined engineering clarity to
+                    expressive creative execution.
+                  </ScrollRevealText>
+                </div>
+
+                {/* Desktop Floating Stylized Engineer Portrait (appears & scales slightly on hover/focus) */}
+                <AnimatePresence>
+                  {aboutHovered && (
+                    <motion.div
+                      key="engineer-hover-portrait"
+                      aria-hidden="true"
+                      initial={
+                        prefersReducedMotion
+                          ? { opacity: 1, scale: 1 }
+                          : { opacity: 0, scale: 0.88, filter: 'blur(8px)' }
+                      }
+                      animate={
+                        prefersReducedMotion
+                          ? { opacity: 1, scale: 1 }
+                          : { opacity: 1, scale: 1.03, filter: 'blur(0px)' }
+                      }
+                      exit={
+                        prefersReducedMotion
+                          ? { opacity: 0 }
+                          : { opacity: 0, scale: 0.92, filter: 'blur(6px)' }
+                      }
+                      transition={{ duration: 0.38, ease: EASE_OUT_EXPO }}
+                      style={
+                        prefersReducedMotion
+                          ? undefined
+                          : {
+                              x: portraitX,
+                              y: portraitY,
+                              rotate: portraitRotate,
+                            }
+                      }
+                      className="hidden md:block pointer-events-none absolute top-1/2 -translate-y-1/2 left-[calc(100%-2.25rem)] lg:left-[calc(100%-2.5rem)] z-20 w-44 lg:w-52 rounded-2xl border border-[#FF721A]/85 bg-white dark:bg-[#0A0A0A] shadow-2xl overflow-hidden"
+                    >
+                      <div className="aspect-[3/4] overflow-hidden bg-[#FAFAFA] dark:bg-[#141414]">
+                        <motion.div
+                          className="w-full h-full"
+                          initial={prefersReducedMotion ? false : { scale: 1.08 }}
+                          animate={{ scale: 1.02 }}
+                          transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
+                        >
+                          <SafeImage
+                            src={PROFILE.portraitImage}
+                            alt={PROFILE.portraitImageAlt}
+                            fallbackLabel={PROFILE.name}
+                            className="w-full h-full object-cover object-top"
+                          />
+                        </motion.div>
+                      </div>
+                      <div className="px-3.5 py-2.5 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-2 text-[11px] font-mono">
+                        <span className="font-semibold text-[#0A0A0A] dark:text-white truncate">
+                          {PROFILE.name}
+                        </span>
+                        <span className="text-[#C94B00] dark:text-[#FF721A] shrink-0">
+                          AE · SWE
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Compact Touch / Mobile Portrait Signature */}
+                <motion.div
+                  whileTap={prefersReducedMotion ? undefined : { scale: 1.03 }}
+                  transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+                  className="md:hidden mt-5 pt-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center gap-3.5"
                 >
-                  &ldquo;I don&apos;t just build interfaces; I construct digital architectures
-                  that prioritize human intuition over technical complexity.&rdquo;
-                </ScrollRevealText>
-                <ScrollRevealText as="p" delay={0.16}>
-                  Whether calibrating an RF trilateration filter on an ESP32 or refining bezier
-                  curves in Affinity and Illustrator, I bring disciplined engineering clarity to
-                  expressive creative execution.
-                </ScrollRevealText>
+                  <div className="w-16 aspect-[3/4] rounded-xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#141414] shrink-0">
+                    <SafeImage
+                      src={PROFILE.portraitImage}
+                      alt={PROFILE.portraitImageAlt}
+                      fallbackLabel={PROFILE.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                  <div className="text-xs space-y-0.5">
+                    <p className="font-semibold text-[#0A0A0A] dark:text-white">
+                      {PROFILE.name}
+                    </p>
+                    <p className="text-[#525252] dark:text-[#A3A3A3]">
+                      {PROFILE.education}
+                    </p>
+                    <p className="font-mono text-[#C94B00] dark:text-[#FF721A]">
+                      {PROFILE.location}
+                    </p>
+                  </div>
+                </motion.div>
               </div>
             </div>
 

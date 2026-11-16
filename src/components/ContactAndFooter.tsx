@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Check, Copy, Mail, MessageSquare } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+} from 'motion/react';
 import { PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE, SectionChoreoHeader } from './MotionPrimitives';
 
@@ -15,11 +21,66 @@ interface FormErrors {
   message?: string;
 }
 
+interface MagneticLinkProps {
+  href: string;
+  children: React.ReactNode;
+  allowMagnetic: boolean;
+  className?: string;
+}
+
+const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 22, mass: 0.45 };
+
+const MagneticLink: React.FC<MagneticLinkProps> = ({
+  href,
+  children,
+  allowMagnetic,
+  className = '',
+}) => {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const rawX = useMotionValue(0);
+  const rawY = useMotionValue(0);
+  const springX = useSpring(rawX, MAGNETIC_LINK_SPRING);
+  const springY = useSpring(rawY, MAGNETIC_LINK_SPRING);
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLAnchorElement>) => {
+    if (!allowMagnetic || !linkRef.current) return;
+    const rect = linkRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const deltaX = Math.max(-8, Math.min(8, (e.clientX - centerX) * 0.34));
+    const deltaY = Math.max(-6, Math.min(6, (e.clientY - centerY) * 0.34));
+    rawX.set(deltaX);
+    rawY.set(deltaY);
+  };
+
+  const handlePointerReset = () => {
+    rawX.set(0);
+    rawY.set(0);
+  };
+
+  return (
+    <motion.a
+      ref={linkRef}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerReset}
+      onPointerCancel={handlePointerReset}
+      style={allowMagnetic ? { x: springX, y: springY } : undefined}
+      className={className}
+    >
+      {children}
+    </motion.a>
+  );
+};
+
 export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
   theme,
   onToggleTheme,
 }) => {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const [pointerFine, setPointerFine] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -27,6 +88,17 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [sentNotice, setSentNotice] = useState<string | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(pointer: fine)');
+    const sync = () => setPointerFine(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  const allowMagnetic = pointerFine && !prefersReducedMotion;
 
   useEffect(() => {
     return () => {
@@ -354,23 +426,23 @@ export const ContactAndFooter: React.FC<ContactAndFooterProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-6">
-            <a
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
+            <MagneticLink
               href={PROFILE.linkedinHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
+              allowMagnetic={allowMagnetic}
+              className="inline-flex items-center gap-1 py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              LinkedIn
-            </a>
-            <a
+              <span>LinkedIn</span>
+              <ArrowUpRight size={12} aria-hidden="true" />
+            </MagneticLink>
+            <MagneticLink
               href={PROFILE.instagramHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#0A0A0A] dark:hover:text-white transition-colors whitespace-nowrap shrink-0"
+              allowMagnetic={allowMagnetic}
+              className="inline-flex items-center gap-1 py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              Instagram
-            </a>
+              <span>Instagram</span>
+              <ArrowUpRight size={12} aria-hidden="true" />
+            </MagneticLink>
             <button
               type="button"
               onClick={onToggleTheme}

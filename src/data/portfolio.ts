@@ -48,6 +48,9 @@ export const PROFILE = {
   heroImage: heroAbstractImg,
   heroImageAlt:
     'Abstract modernist geometric composition of sweeping obsidian, travertine, and cinnabar arcs',
+  portraitImage: '/assets/aistudio/image_ee2c247f.png',
+  portraitImageAlt:
+    'Stylized geometric vector portrait illustration of Aadesh P S surrounded by concentric orbital lines',
 };
 
 export const DISCIPLINES: {
@@ -149,7 +152,7 @@ export const EXPERIENCE: ExperienceItem[] = [
   {
     index: '01',
     kind: 'role',
-    role: 'Digital Marketing Specialist',
+    role: 'Creative Strategist',
     organization: 'Peoples Urban Development Group & Dashami Finance',
     location: 'Kerala, India',
     period: 'Current',
