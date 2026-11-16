@@ -27,7 +27,7 @@ export default function App() {
     if (typeof document !== 'undefined') {
       return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     }
-    return 'light';
+    return 'dark';
   });
 
   const [isPreloading, setIsPreloading] = useState(true);
@@ -41,18 +41,13 @@ export default function App() {
     } else {
       root.classList.remove('dark');
     }
-    try {
-      localStorage.setItem('aadesh-theme', theme);
-    } catch {
-      // ignore storage errors
-    }
   }, [theme]);
 
   const applyThemeDom = (nextTheme: 'light' | 'dark') => {
     const root = document.documentElement;
     root.classList.toggle('dark', nextTheme === 'dark');
     try {
-      localStorage.setItem('aadesh-theme', nextTheme);
+      localStorage.setItem('aadesh-portfolio-theme', nextTheme);
     } catch {
       // ignore storage errors
     }

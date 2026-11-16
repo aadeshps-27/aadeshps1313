@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { ArrowUpRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
@@ -22,8 +22,12 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
   onOpenProject,
 }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
+  const rawUid = useId();
+  const chartUid = rawUid.replace(/[^a-zA-Z0-9_-]/g, '');
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const onOpenProjectRef = useRef(onOpenProject);
+  onOpenProjectRef.current = onOpenProject;
 
   const [containerWidth, setContainerWidth] = useState<number>(920);
   const [selectedId, setSelectedId] = useState<ProjectId | null>(
@@ -55,14 +59,16 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
 
   useEffect(() => {
     const node = containerRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
+    if (!node) return;
 
     const updateSize = () => {
-      const nextWidth = Math.max(280, Math.floor(node.getBoundingClientRect().width));
+      const measured = node.clientWidth || Math.floor(node.getBoundingClientRect().width);
+      const nextWidth = Math.max(280, measured);
       setContainerWidth(nextWidth);
     };
 
     updateSize();
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updateSize);
     observer.observe(node);
     return () => observer.disconnect();
@@ -78,7 +84,7 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
     () =>
       isCompact
         ? { top: 38, right: 12, bottom: 24, left: 8 }
-        : { top: 44, right: 144, bottom: 28, left: 238 },
+        : { top: 44, right: 156, bottom: 28, left: 238 },
     [isCompact]
   );
 
@@ -94,6 +100,7 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
     svg.selectAll('*').interrupt();
     svg.selectAll('*').remove();
 
+    const defs = svg.append('defs');
     const innerWidth = Math.max(160, containerWidth - margin.left - margin.right);
 
     const domainStart = new Date(2022, 11, 1);
@@ -168,17 +175,18 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
 
     axisGroup
       .select('.domain')
-      .attr('class', 'text-[#E5E5E5] dark:text-[#262626]')
+      .classed('text-[#E5E5E5] dark:text-[#262626]', true)
       .attr('stroke', 'currentColor');
 
     axisGroup
       .selectAll('.tick line')
-      .attr('class', 'text-[#A3A3A3] dark:text-[#525252]')
+      .classed('text-[#A3A3A3] dark:text-[#525252]', true)
       .attr('stroke', 'currentColor');
 
     axisGroup
       .selectAll('.tick text')
-      .attr('class', 'fill-[#525252] dark:fill-[#A3A3A3]')
+      .attr('fill', null)
+      .classed('fill-[#525252] dark:fill-[#A3A3A3]', true)
       .style('font-family', 'var(--font-mono)')
       .style('font-size', '11px')
       .style('font-variant-numeric', 'tabular-nums');
@@ -243,12 +251,12 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
           guideLine.style('opacity', 0);
         })
         .on('click', () => {
-          onOpenProject(project.id);
+          onOpenProjectRef.current(project.id);
         })
         .on('keydown', (event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            onOpenProject(project.id);
+            onOpenProjectRef.current(project.id);
           }
         });
 
@@ -328,8 +336,8 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
         .attr('stroke-width', 1);
 
       // Animated Clip-Path for Horizontal Duration Growth
-      const clipId = `timeline-clip-${project.id}`;
-      const clipRect = row
+      const clipId = `timeline-clip-${chartUid}-${project.id}`;
+      const clipRect = defs
         .append('clipPath')
         .attr('id', clipId)
         .append('rect')
@@ -448,7 +456,7 @@ export const ProjectTimelineChart: React.FC<ProjectTimelineChartProps> = ({
     margin,
     isCompact,
     prefersReducedMotion,
-    onOpenProject,
+    chartUid,
   ]);
 
   // Effect 2: Instantaneous 60fps hover/selection updates without re-triggering bar reveal animation

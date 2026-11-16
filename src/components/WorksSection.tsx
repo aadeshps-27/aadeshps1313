@@ -466,6 +466,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
   const [hasSwitchedFilter, setHasSwitchedFilter] = useState(false);
+  const [hasSwitchedView, setHasSwitchedView] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
   const prevFilterRef = useRef<ProjectCategory>(activeFilter);
 
@@ -491,12 +492,19 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     onChangeFilter(nextFilter);
   };
 
+  const handleViewModeChange = (nextMode: 'grid' | 'timeline') => {
+    if (nextMode === viewMode) return;
+    setHasSwitchedView(true);
+    setViewMode(nextMode);
+  };
+
   const filteredProjects =
     activeFilter === 'all'
       ? PROJECTS
       : PROJECTS.filter((project) => project.filterCategory === activeFilter);
 
   const allowParallax = pointerFine && !prefersReducedMotion;
+  const shouldAnimateImmediately = hasSwitchedFilter || hasSwitchedView;
 
   return (
     <section
@@ -543,7 +551,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                       type="button"
                       role="tab"
                       aria-selected={isModeActive}
-                      onClick={() => setViewMode(id)}
+                      onClick={() => handleViewModeChange(id)}
                       className={`relative min-h-[40px] inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                         isModeActive
                           ? 'text-[#0A0A0A]'
@@ -617,38 +625,36 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
               onOpenProject={onOpenProject}
             />
           ) : (
-            <LayoutGroup key="grid-view-group" id="works-cards-layout">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeFilter}
-                  data-reveal-group=""
-                  custom={prefersReducedMotion}
-                  variants={GRID_STAGGER_VARIANTS}
-                  initial="hidden"
-                  animate={hasSwitchedFilter ? 'visible' : undefined}
-                  whileInView={hasSwitchedFilter ? undefined : 'visible'}
-                  exit="exit"
-                  viewport={
-                    hasSwitchedFilter
-                      ? undefined
-                      : { once: true, amount: 'some', margin: '0px 0px -48px 0px' }
-                  }
-                  className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
-                >
-                  {filteredProjects.map((project, index) => (
-                    <MagneticProjectCard
-                      key={`${activeFilter}-${project.id}`}
-                      project={project}
-                      index={index}
-                      isLeadFeatured={activeFilter === 'all' && index === 0}
-                      allowParallax={allowParallax}
-                      prefersReducedMotion={prefersReducedMotion}
-                      onOpenProject={onOpenProject}
-                    />
-                  ))}
-                </motion.div>
-              </AnimatePresence>
-            </LayoutGroup>
+            <motion.div
+              key={`grid-${activeFilter}`}
+              data-reveal-group=""
+              custom={prefersReducedMotion}
+              variants={GRID_STAGGER_VARIANTS}
+              initial="hidden"
+              animate={shouldAnimateImmediately ? 'visible' : undefined}
+              whileInView={shouldAnimateImmediately ? undefined : 'visible'}
+              exit="exit"
+              viewport={
+                shouldAnimateImmediately
+                  ? undefined
+                  : { once: true, amount: 'some', margin: '0px 0px -48px 0px' }
+              }
+              className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
+            >
+              <LayoutGroup id={`works-cards-layout-${activeFilter}`}>
+                {filteredProjects.map((project, index) => (
+                  <MagneticProjectCard
+                    key={`${activeFilter}-${project.id}`}
+                    project={project}
+                    index={index}
+                    isLeadFeatured={activeFilter === 'all' && index === 0}
+                    allowParallax={allowParallax}
+                    prefersReducedMotion={prefersReducedMotion}
+                    onOpenProject={onOpenProject}
+                  />
+                ))}
+              </LayoutGroup>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
