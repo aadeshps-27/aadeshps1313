@@ -4,7 +4,6 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
-  useScroll,
   useSpring,
   useTransform,
 } from 'motion/react';
@@ -12,13 +11,12 @@ import {
   EXPERIENCE,
   PROCESS_PILLARS,
   PROFILE,
-  SKILL_MARQUEE_ITEMS,
 } from '../data/portfolio';
 import { ExperienceTimeline } from './ExperienceTimeline';
 import { SafeImage } from './SafeImage';
+import { TechnologyCloud } from './TechnologyCloud';
 import {
   ARTCRAFT_EASE,
-  PARALLAX_SPRING,
   ParallaxLayer,
   RegistrationTick,
   SectionChoreoHeader,
@@ -104,14 +102,6 @@ export const AboutAndExperience: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [aboutHovered, setAboutHovered] = useState(false);
   const aboutBlockRef = useRef<HTMLDivElement>(null);
-  const marqueeRef = useRef<HTMLDivElement>(null);
-
-  const { scrollYProgress: marqueeProgress } = useScroll({
-    target: marqueeRef,
-    offset: ['start end', 'end start'],
-  });
-  const smoothMarquee = useSpring(marqueeProgress, PARALLAX_SPRING);
-  const marqueeParallaxX = useTransform(smoothMarquee, [0, 1], [60, -140]);
 
   const hoverX = useMotionValue(0);
   const hoverY = useMotionValue(0);
@@ -149,34 +139,10 @@ export const AboutAndExperience: React.FC = () => {
 
   return (
     <>
-      {/* Discipline Marquee Divider with Scroll-Scrubbed Horizontal Parallax */}
-      <div
-        ref={marqueeRef}
-        aria-hidden="true"
-        className="overflow-hidden border-b border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] py-3 sm:py-3.5"
-      >
-        <motion.div
-          style={
-            prefersReducedMotion
-              ? undefined
-              : { x: marqueeParallaxX, willChange: 'transform' }
-          }
-        >
-          <div className="animate-marquee text-xs font-mono text-[#525252] dark:text-[#A3A3A3]">
-            {[...SKILL_MARQUEE_ITEMS, ...SKILL_MARQUEE_ITEMS].map((item, idx) => (
-              <span key={`${item}-${idx}`} className="inline-flex items-center">
-                <span className="px-4 sm:px-5">{item}</span>
-                <span className="text-[#FF721A]">·</span>
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
       {/* Practice & Philosophy */}
       <section
         id="about"
-        className="py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+        className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
@@ -373,13 +339,15 @@ export const AboutAndExperience: React.FC = () => {
               ))}
             </div>
           </div>
+
+          <TechnologyCloud />
         </div>
       </section>
 
       {/* Experience & Academic Timeline */}
       <section
         id="experience"
-        className="py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+        className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">

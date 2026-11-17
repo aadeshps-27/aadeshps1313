@@ -1,26 +1,47 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+} from 'motion/react';
 
 interface ScrollProgressBarProps {
   isModalOpen?: boolean;
 }
 
+interface SectionAnchor {
+  id: string;
+  label: string;
+  name: string;
+}
+
 interface SectionMarker {
   id: string;
   label: string;
+  name: string;
   ratio: number;
 }
 
 const EDGE_PAD = 20;
 const RAIL_WIDTH = 34;
 const TOTAL_TICKS = 50; // Every 2% from 0% to 100%
+const SCROLL_IDLE_DELAY_MS = 1100; // > 1 second after scrolling stops
 
-const SECTION_ANCHORS: { id: string; label: string }[] = [
-  { id: 'top', label: '00' },
-  { id: 'work', label: '01' },
-  { id: 'about', label: '02' },
-  { id: 'experience', label: '03' },
-  { id: 'contact', label: '04' },
+const LABEL_SPRING = {
+  type: 'spring' as const,
+  stiffness: 380,
+  damping: 26,
+  mass: 0.6,
+};
+
+const SECTION_ANCHORS: SectionAnchor[] = [
+  { id: 'top', label: '00', name: 'Intro' },
+  { id: 'work', label: '01', name: 'Work' },
+  { id: 'about', label: '02', name: 'About' },
+  { id: 'experience', label: '03', name: 'Experience' },
+  { id: 'contact', label: '04', name: 'Contact' },
 ];
 
 export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
@@ -38,6 +59,10 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   const [percent, setPercent] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isScrollIdle, setIsScrollIdle] = useState(false);
+  const [activeSection, setActiveSection] = useState<SectionAnchor>(
+    SECTION_ANCHORS[0]
+  );
   const [ghostY, setGhostY] = useState<number | null>(null);
   const [ghostPercent, setGhostPercent] = useState<number | null>(null);
   const [sectionMarkers, setSectionMarkers] = useState<SectionMarker[]>([]);
@@ -51,6 +76,10 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   const dragStartYRef = useRef(0);
   const dragMovedRef = useRef(0);
   const rafRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const lastScrollYRef = useRef<number>(
+    typeof window !== 'undefined' ? window.scrollY : 0
+  );
 
   // Enable custom architectural ruler on tablet/desktop viewports (>= 768px)
   useEffect(() => {
@@ -76,6 +105,20 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     };
   }, [isDesktopRuler, isModalOpen]);
 
+  // Temporarily pause CSS scroll-snap during direct ruler scrubbing
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (isDragging) {
+      root.setAttribute('data-snap', 'off');
+    } else {
+      root.removeAttribute('data-snap');
+    }
+    return () => {
+      root.removeAttribute('data-snap');
+    };
+  }, [isDragging]);
+
   const measureGeometry = useCallback(() => {
     if (typeof window === 'undefined') return;
     const vh = window.innerHeight || 800;
@@ -92,19 +135,58 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     setPercent(Math.round(ratio * 100));
 
     const markers: SectionMarker[] = [];
+    const triggerLine = vh * 0.42;
+    let currentSection: SectionAnchor = SECTION_ANCHORS[0];
+
     for (const anchor of SECTION_ANCHORS) {
       const el = document.getElementById(anchor.id);
       if (el) {
-        const top = el.getBoundingClientRect().top + scrollY;
-        const clamped = Math.min(1, Math.max(0, top / maxScroll));
-        markers.push({ id: anchor.id, label: anchor.label, ratio: clamped });
+        const rectTop = el.getBoundingClientRect().top;
+        const absTop = rectTop + scrollY;
+        const clamped = Math.min(1, Math.max(0, absTop / maxScroll));
+        markers.push({
+          id: anchor.id,
+          label: anchor.label,
+          name: anchor.name,
+          ratio: clamped,
+        });
+        if (rectTop <= triggerLine) {
+          currentSection = anchor;
+        }
       }
     }
+
+    if (scrollY + vh >= docH - 48 && markers.length > 0) {
+      const last = markers[markers.length - 1];
+      currentSection = { id: last.id, label: last.label, name: last.name };
+    }
+
     setSectionMarkers(markers);
+    setActiveSection((prev) =>
+      prev.id === currentSection.id ? prev : currentSection
+    );
   }, []);
 
   useEffect(() => {
-    if (!isDesktopRuler) return;
+    if (isModalOpen) {
+      setIsScrollIdle(false);
+      if (idleTimerRef.current !== null) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      return;
+    }
+
+    const scheduleIdleReveal = () => {
+      setIsScrollIdle(false);
+      if (idleTimerRef.current !== null) {
+        window.clearTimeout(idleTimerRef.current);
+      }
+      idleTimerRef.current = window.setTimeout(() => {
+        setIsScrollIdle(true);
+        idleTimerRef.current = null;
+      }, SCROLL_IDLE_DELAY_MS);
+    };
 
     const scheduleMeasure = () => {
       if (rafRef.current !== null) return;
@@ -114,11 +196,20 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
       });
     };
 
+    const handleWindowScroll = () => {
+      scheduleMeasure();
+      const currentY = window.scrollY;
+      if (Math.abs(currentY - lastScrollYRef.current) > 0.5) {
+        lastScrollYRef.current = currentY;
+        scheduleIdleReveal();
+      }
+    };
+
     measureGeometry();
     // Re-measure shortly after load/layout shifts
     const settleTimer = window.setTimeout(measureGeometry, 350);
 
-    window.addEventListener('scroll', scheduleMeasure, { passive: true });
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
     window.addEventListener('resize', scheduleMeasure, { passive: true });
 
     const resizeObserver =
@@ -131,14 +222,18 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
     return () => {
       window.clearTimeout(settleTimer);
-      window.removeEventListener('scroll', scheduleMeasure);
+      if (idleTimerRef.current !== null) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      window.removeEventListener('scroll', handleWindowScroll);
       window.removeEventListener('resize', scheduleMeasure);
       if (rafRef.current !== null) {
         window.cancelAnimationFrame(rafRef.current);
       }
       resizeObserver?.disconnect();
     };
-  }, [isDesktopRuler, measureGeometry]);
+  }, [isModalOpen, measureGeometry]);
 
   const getClampedRatio = useCallback(
     (clientY: number) => {
@@ -171,6 +266,11 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     dragStartYRef.current = e.clientY;
     dragMovedRef.current = 0;
     setIsDragging(true);
+    setIsScrollIdle(false);
+    if (idleTimerRef.current !== null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
 
     const { ratio, clampedY } = getClampedRatio(e.clientY);
@@ -248,20 +348,47 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     return null;
   }
 
-  // Mobile fallback: crisp 2px architectural progress hairline at top edge
+  // Mobile fallback: crisp 2px architectural progress hairline at top edge + floating section label
   if (!isDesktopRuler) {
     return (
-      <div
-        aria-hidden="true"
-        className="fixed top-0 left-0 right-0 z-[45] h-[2px] bg-[#E5E5E5]/60 dark:bg-[#262626]/60 pointer-events-none"
-      >
-        <motion.div
-          style={{
-            scaleX: prefersReducedMotion ? scrollYProgress : smoothMobileProgress,
-          }}
-          className="h-full w-full origin-left bg-[#FF721A]"
-        />
-      </div>
+      <>
+        <div
+          aria-hidden="true"
+          className="fixed top-0 left-0 right-0 z-[45] h-[2px] bg-[#E5E5E5]/60 dark:bg-[#262626]/60 pointer-events-none"
+        >
+          <motion.div
+            style={{
+              scaleX: prefersReducedMotion ? scrollYProgress : smoothMobileProgress,
+            }}
+            className="h-full w-full origin-left bg-[#FF721A]"
+          />
+        </div>
+
+        <AnimatePresence>
+          {isScrollIdle && (
+            <motion.div
+              key="mobile-section-floating-label"
+              aria-live="polite"
+              initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -8, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
+              transition={prefersReducedMotion ? { duration: 0.12 } : LABEL_SPRING}
+              className="fixed top-[64px] right-3 z-[45] pointer-events-none"
+            >
+              <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white/92 dark:bg-[#0A0A0A]/92 backdrop-blur-md shadow-md">
+                <span className="w-1.5 h-1.5 bg-[#FF721A] shrink-0" aria-hidden="true" />
+                <span className="font-mono text-[10px] tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                  {activeSection.label}
+                </span>
+                <span className="h-3 w-px bg-[#E5E5E5] dark:bg-[#262626]" aria-hidden="true" />
+                <span className="text-xs font-semibold tracking-tight text-[#0A0A0A] dark:text-white whitespace-nowrap">
+                  {activeSection.name}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
     );
   }
 
@@ -279,21 +406,24 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
   const activeZoom = isHovered || isDragging;
   const nearBottom = progressRatio > 0.9;
+  const showDesktopFloatingLabel = isScrollIdle && !isDragging;
+  const labelTop = Math.min(Math.max(76, needleY - 16), Math.max(76, metrics.vh - 96));
 
   // Format 3-column odometer digits ("000" -> "100", or padded two/three digit display)
   const padded = String(percent).padStart(3, '0');
   const digitCols = [Number(padded[0]), Number(padded[1]), Number(padded[2])];
 
   return (
-    <div
-      ref={railRef}
-      role="scrollbar"
-      tabIndex={0}
-      aria-controls="main"
-      aria-orientation="vertical"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
+    <>
+      <div
+        ref={railRef}
+        role="scrollbar"
+        tabIndex={0}
+        aria-controls="main"
+        aria-orientation="vertical"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
       aria-label="Page scroll ruler"
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => {
@@ -493,5 +623,44 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
         </span>
       </div>
     </div>
+
+      {/* Floating active section label shown after scrolling stops for > 1s */}
+      <AnimatePresence>
+        {showDesktopFloatingLabel && (
+          <motion.div
+            key="desktop-section-floating-label"
+            aria-live="polite"
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, x: 12, scale: 0.94 }
+            }
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : { opacity: 0, x: 10, scale: 0.96 }
+            }
+            transition={prefersReducedMotion ? { duration: 0.12 } : LABEL_SPRING}
+            style={{
+              right: RAIL_WIDTH + 10,
+              top: labelTop,
+            }}
+            className="fixed z-[45] pointer-events-none select-none"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white/92 dark:bg-[#0A0A0A]/92 backdrop-blur-md shadow-md">
+              <span className="w-1.5 h-1.5 bg-[#FF721A] shrink-0" aria-hidden="true" />
+              <span className="font-mono text-[10px] tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                {activeSection.label}
+              </span>
+              <span className="h-3 w-px bg-[#E5E5E5] dark:bg-[#262626]" aria-hidden="true" />
+              <span className="text-xs font-semibold tracking-tight text-[#0A0A0A] dark:text-white whitespace-nowrap">
+                {activeSection.name}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };

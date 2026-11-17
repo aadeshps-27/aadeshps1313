@@ -113,7 +113,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectDisciplineFilter }) => {
       onPointerMove={handleHeroPointerMove}
       onPointerLeave={handleHeroPointerLeave}
       onPointerCancel={handleHeroPointerLeave}
-      className="overflow-x-clip border-b border-[#E5E5E5] dark:border-[#262626]"
+      className="snap-start overflow-x-clip border-b border-[#E5E5E5] dark:border-[#262626]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 sm:pt-12 sm:pb-12 lg:pt-16 lg:pb-16">
         {/* 2-Column Equal-Height Split Hero */}

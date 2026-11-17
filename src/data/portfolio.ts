@@ -242,19 +242,6 @@ export const PROCESS_PILLARS = [
   },
 ];
 
-export const SKILL_MARQUEE_ITEMS = [
-  'React',
-  'TypeScript',
-  'Node.js',
-  'Adobe Illustrator',
-  'Affinity Suite',
-  'Applied Electronics',
-  'IoT Systems',
-  'RF Geo-Location',
-  'Embedded C & Python',
-  'UI/UX Architecture',
-];
-
 export const CREATIVE_CASE_STUDY = {
   pillars: [
     {

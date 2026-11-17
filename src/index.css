@@ -16,7 +16,19 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scroll-snap-type: y proximity;
+    scroll-padding-top: 3.5rem;
     font-family: var(--font-sans);
+  }
+
+  @media (min-width: 640px) {
+    html {
+      scroll-padding-top: 4rem;
+    }
+  }
+
+  html[data-snap="off"] {
+    scroll-snap-type: none;
   }
 
   h1, h2, h3, h4 {
@@ -26,6 +38,7 @@
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
+      scroll-snap-type: none;
     }
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -33,25 +46,6 @@
       transition-duration: 0.01ms !important;
     }
   }
-}
-
-@keyframes marquee-scroll {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-marquee {
-  display: flex;
-  width: max-content;
-  animation: marquee-scroll 36s linear infinite;
-}
-
-.animate-marquee:hover {
-  animation-play-state: paused;
 }
 
 @keyframes shimmer-sweep {

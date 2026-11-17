@@ -21,53 +21,144 @@ interface MagneticLinkProps {
   href: string;
   children: React.ReactNode;
   allowMagnetic: boolean;
+  prefersReducedMotion: boolean;
+  entranceDelay?: number;
   className?: string;
+  wrapperClassName?: string;
 }
 
-const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 22, mass: 0.45 };
+const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 20, mass: 0.45 };
+const ENTRANCE_SPRING = {
+  type: 'spring' as const,
+  stiffness: 330,
+  damping: 22,
+  mass: 0.78,
+};
+const INTERACTION_SPRING = {
+  type: 'spring' as const,
+  stiffness: 460,
+  damping: 22,
+  mass: 0.5,
+};
+
+const CHANNEL_LIST_VARIANTS = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.085,
+      delayChildren: 0.08,
+    },
+  },
+};
+
+const CHANNEL_ITEM_VARIANTS = {
+  hidden: { opacity: 0, y: 26, scale: 0.96 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: ENTRANCE_SPRING,
+  },
+};
 
 const MagneticLink: React.FC<MagneticLinkProps> = ({
   href,
   children,
   allowMagnetic,
+  prefersReducedMotion,
+  entranceDelay = 0,
   className = '',
+  wrapperClassName = '',
 }) => {
   const linkRef = useRef<HTMLAnchorElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const rawX = useMotionValue(0);
   const rawY = useMotionValue(0);
+  const rawRotate = useMotionValue(0);
   const springX = useSpring(rawX, MAGNETIC_LINK_SPRING);
   const springY = useSpring(rawY, MAGNETIC_LINK_SPRING);
+  const springRotate = useSpring(rawRotate, MAGNETIC_LINK_SPRING);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLAnchorElement>) => {
     if (!allowMagnetic || !linkRef.current) return;
     const rect = linkRef.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    const deltaX = Math.max(-8, Math.min(8, (e.clientX - centerX) * 0.34));
-    const deltaY = Math.max(-6, Math.min(6, (e.clientY - centerY) * 0.34));
+    const offsetX = e.clientX - centerX;
+    const offsetY = e.clientY - centerY;
+    const deltaX = Math.max(-9, Math.min(9, offsetX * 0.34));
+    const deltaY = Math.max(-7, Math.min(7, offsetY * 0.34));
+    const tilt = Math.max(-2.5, Math.min(2.5, (offsetX / Math.max(rect.width, 1)) * 4));
     rawX.set(deltaX);
     rawY.set(deltaY);
+    rawRotate.set(tilt);
+  };
+
+  const handlePointerEnter = () => {
+    setIsHovered(true);
   };
 
   const handlePointerReset = () => {
+    setIsHovered(false);
     rawX.set(0);
     rawY.set(0);
+    rawRotate.set(0);
   };
 
   return (
-    <motion.a
-      ref={linkRef}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerReset}
-      onPointerCancel={handlePointerReset}
-      style={allowMagnetic ? { x: springX, y: springY } : undefined}
-      className={className}
+    <motion.div
+      initial={
+        prefersReducedMotion
+          ? false
+          : { opacity: 0, y: 20, scale: 0.92, rotate: -1.5 }
+      }
+      whileInView={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+      viewport={{ once: true, amount: 'some' }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : { ...ENTRANCE_SPRING, delay: entranceDelay }
+      }
+      className={`inline-block ${wrapperClassName}`}
     >
-      {children}
-    </motion.a>
+      <motion.a
+        ref={linkRef}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onPointerEnter={handlePointerEnter}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerReset}
+        onPointerCancel={handlePointerReset}
+        whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
+        whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
+        transition={INTERACTION_SPRING}
+        style={
+          allowMagnetic
+            ? { x: springX, y: springY, rotate: springRotate }
+            : undefined
+        }
+        className={className}
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <span>{children}</span>
+          <motion.span
+            aria-hidden="true"
+            animate={
+              prefersReducedMotion
+                ? undefined
+                : isHovered
+                  ? { x: 2.5, y: -2.5, scale: 1.1 }
+                  : { x: 0, y: 0, scale: 1 }
+            }
+            transition={INTERACTION_SPRING}
+            className="inline-flex items-center"
+          >
+            <ArrowUpRight size={13} />
+          </motion.span>
+        </span>
+      </motion.a>
+    </motion.div>
   );
 };
 
@@ -179,7 +270,7 @@ export const ContactAndFooter: React.FC = () => {
 
   return (
     <>
-      <section id="contact" className="py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]">
+      <section id="contact" className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             {/* Left Column: Direct Channels */}
@@ -214,41 +305,90 @@ export const ContactAndFooter: React.FC = () => {
                 </p>
               </div>
 
-              <div className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]">
-                <div className="py-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Email</p>
-                    <a
+              <motion.div
+                variants={prefersReducedMotion ? undefined : CHANNEL_LIST_VARIANTS}
+                initial={prefersReducedMotion ? false : 'hidden'}
+                whileInView="visible"
+                viewport={{ once: true, amount: 'some' }}
+                className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]"
+              >
+                <motion.div
+                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
+                  className="py-4 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <motion.span
+                        aria-hidden="true"
+                        initial={prefersReducedMotion ? false : { scale: 0 }}
+                        whileInView={{ scale: 1 }}
+                        viewport={{ once: true, amount: 'some' }}
+                        transition={{ ...ENTRANCE_SPRING, delay: 0.22 }}
+                        className="inline-block w-1.5 h-1.5 bg-[#FF721A]"
+                      />
+                      <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Email</p>
+                    </div>
+                    <motion.a
                       href={`mailto:${PROFILE.email}`}
-                      className="font-medium text-sm sm:text-base text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate block"
+                      whileHover={prefersReducedMotion ? undefined : { x: 4 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
+                      transition={INTERACTION_SPRING}
+                      className="group/email relative inline-block max-w-full font-medium text-sm sm:text-base text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate"
                     >
-                      {PROFILE.email}
-                    </a>
+                      <span>{PROFILE.email}</span>
+                      <span
+                        aria-hidden="true"
+                        className="block h-[1.5px] w-full bg-[#FF721A] origin-left scale-x-0 group-hover/email:scale-x-100 group-focus-visible/email:scale-x-100 transition-transform duration-300 ease-out"
+                      />
+                    </motion.a>
                   </div>
-                  <button
+                  <motion.button
                     type="button"
                     onClick={handleCopyEmail}
+                    whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.03 }}
+                    whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
+                    transition={INTERACTION_SPRING}
                     aria-label="Copy email address"
                     className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   >
-                    {copiedEmail ? (
-                      <>
-                        <Check size={14} className="text-[#C94B00] dark:text-[#FF721A]" aria-hidden="true" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} aria-hidden="true" />
-                        <span>Copy Email</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {copiedEmail ? (
+                        <motion.span
+                          key="copied"
+                          initial={prefersReducedMotion ? false : { scale: 0.75, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.75, opacity: 0 }}
+                          transition={INTERACTION_SPRING}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <Check size={14} className="text-[#C94B00] dark:text-[#FF721A]" aria-hidden="true" />
+                          <span>Copied!</span>
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="copy"
+                          initial={prefersReducedMotion ? false : { scale: 0.75, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.75, opacity: 0 }}
+                          transition={INTERACTION_SPRING}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <Copy size={14} aria-hidden="true" />
+                          <span>Copy Email</span>
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </motion.div>
 
-                <a
+                <motion.a
+                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
                   href={PROFILE.whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  whileHover={prefersReducedMotion ? undefined : { x: 4 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
+                  transition={INTERACTION_SPRING}
                   className="py-4 flex items-center justify-between gap-4 group"
                 >
                   <div>
@@ -259,12 +399,47 @@ export const ContactAndFooter: React.FC = () => {
                   </div>
                   <ArrowUpRight
                     size={16}
-                    className="text-[#525252] dark:text-[#A3A3A3] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A]"
+                    className="text-[#525252] dark:text-[#A3A3A3] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
                     aria-hidden="true"
                   />
-                </a>
+                </motion.a>
 
-                <div className="py-4 flex items-center justify-between gap-4">
+                <motion.div
+                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
+                  className="py-4 flex flex-wrap items-center justify-between gap-3"
+                >
+                  <div>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Social</p>
+                    <p className="text-xs text-[#737373] dark:text-[#737373] mt-0.5">
+                      Connect directly
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <MagneticLink
+                      href={PROFILE.linkedinHref}
+                      allowMagnetic={allowMagnetic}
+                      prefersReducedMotion={prefersReducedMotion}
+                      entranceDelay={0.2}
+                      className="inline-flex items-center justify-center min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                    >
+                      LinkedIn
+                    </MagneticLink>
+                    <MagneticLink
+                      href={PROFILE.instagramHref}
+                      allowMagnetic={allowMagnetic}
+                      prefersReducedMotion={prefersReducedMotion}
+                      entranceDelay={0.28}
+                      className="inline-flex items-center justify-center min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                    >
+                      Instagram
+                    </MagneticLink>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
+                  className="py-4 flex items-center justify-between gap-4"
+                >
                   <div>
                     <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">
                       Local Time · {PROFILE.location}
@@ -274,8 +449,8 @@ export const ContactAndFooter: React.FC = () => {
                   <span className="font-mono text-xs text-[#C94B00] dark:text-[#FF721A]">
                     UTC+5:30
                   </span>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
               </motion.div>
             </ParallaxLayer>
 
@@ -414,7 +589,7 @@ export const ContactAndFooter: React.FC = () => {
       </section>
 
       {/* Quiet Editorial Footer with bottom clearance for floating Back-to-Top button */}
-      <footer className="pt-10 pb-20 sm:pb-10">
+      <footer className="snap-end pt-10 pb-20 sm:pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-center sm:text-left text-[#525252] dark:text-[#A3A3A3]">
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-4">
             <a href="#top" aria-label={PROFILE.name} className="inline-flex items-center shrink-0">
@@ -438,18 +613,20 @@ export const ContactAndFooter: React.FC = () => {
             <MagneticLink
               href={PROFILE.linkedinHref}
               allowMagnetic={allowMagnetic}
-              className="inline-flex items-center gap-1 py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              prefersReducedMotion={prefersReducedMotion}
+              entranceDelay={0.05}
+              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              <span>LinkedIn</span>
-              <ArrowUpRight size={12} aria-hidden="true" />
+              LinkedIn
             </MagneticLink>
             <MagneticLink
               href={PROFILE.instagramHref}
               allowMagnetic={allowMagnetic}
-              className="inline-flex items-center gap-1 py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              prefersReducedMotion={prefersReducedMotion}
+              entranceDelay={0.14}
+              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              <span>Instagram</span>
-              <ArrowUpRight size={12} aria-hidden="true" />
+              Instagram
             </MagneticLink>
           </div>
         </div>
