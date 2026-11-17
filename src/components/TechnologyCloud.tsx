@@ -7,7 +7,6 @@ import {
   Cpu,
   Layers,
   PenTool,
-  Radio,
   Server,
   Sparkles,
   Terminal,
@@ -63,13 +62,6 @@ const RAW_TECH_ITEMS: TechNodeBase[] = [
     discipline: 'Type-Safe Engineering',
     polarity: 'attract',
     icon: Braces,
-  },
-  {
-    id: 'lora',
-    name: 'SX1278 LoRa',
-    discipline: 'Sub-GHz RF Telemetry',
-    polarity: 'repel',
-    icon: Radio,
   },
   {
     id: 'illustrator',
