@@ -143,17 +143,33 @@ const TECH_SPHERE_NODES: TechSphereNode[] = RAW_TECH_ITEMS.map((item, idx) => {
   };
 });
 
+// Precompute geodesic constellation edges between nearest neighbors on the unit sphere
+const GEODESIC_EDGES: [number, number][] = (() => {
+  const edges: [number, number][] = [];
+  for (let i = 0; i < TECH_SPHERE_NODES.length; i++) {
+    for (let j = i + 1; j < TECH_SPHERE_NODES.length; j++) {
+      const a = TECH_SPHERE_NODES[i];
+      const b = TECH_SPHERE_NODES[j];
+      const dist = Math.hypot(a.x0 - b.x0, a.y0 - b.y0, a.z0 - b.z0);
+      if (dist < 1.32) {
+        edges.push([i, j]);
+      }
+    }
+  }
+  return edges;
+})();
+
 const FIELD_MODES: { id: CloudFieldMode; label: string }[] = [
   { id: 'mixed', label: 'Mixed Field' },
   { id: 'attract', label: 'Attract' },
   { id: 'repel', label: 'Repel' },
 ];
 
-const FORCE_RADIUS = 175;
+const FORCE_RADIUS = 180;
 const NODE_SPRING = { stiffness: 220, damping: 18, mass: 0.55 };
 const SCALE_SPRING = { stiffness: 320, damping: 22, mass: 0.5 };
 const CURSOR_RING_SPRING = { stiffness: 280, damping: 28, mass: 0.4 };
-const MERIDIAN_OFFSETS = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4];
+const MERIDIAN_OFFSETS = [0, Math.PI / 5, (2 * Math.PI) / 5, (3 * Math.PI) / 5, (4 * Math.PI) / 5];
 
 interface NodeMotionState {
   projX: MotionValue<number>;
@@ -166,23 +182,32 @@ interface NodeMotionState {
   forceScale: MotionValue<number>;
 }
 
+interface LiveSpringPair {
+  x: MotionValue<number>;
+  y: MotionValue<number>;
+}
+
 interface GlobeNodeItemProps {
+  index: number;
   node: TechSphereNode;
   motionState: NodeMotionState;
   mode: CloudFieldMode;
   isSelected: boolean;
   isInfluenced: boolean;
   onSelect: (id: string) => void;
+  onRegisterSprings: (index: number, x: MotionValue<number>, y: MotionValue<number>) => void;
   prefersReducedMotion: boolean;
 }
 
 const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
+  index,
   node,
   motionState,
   mode,
   isSelected,
   isInfluenced,
   onSelect,
+  onRegisterSprings,
   prefersReducedMotion,
 }) => {
   const Icon = node.icon;
@@ -192,6 +217,10 @@ const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
   const springForceX = useSpring(motionState.forceX, NODE_SPRING);
   const springForceY = useSpring(motionState.forceY, NODE_SPRING);
   const springForceScale = useSpring(motionState.forceScale, SCALE_SPRING);
+
+  useEffect(() => {
+    onRegisterSprings(index, springForceX, springForceY);
+  }, [index, onRegisterSprings, springForceX, springForceY]);
 
   return (
     <motion.div
@@ -221,22 +250,24 @@ const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
           <motion.button
             type="button"
             onClick={() => onSelect(node.id)}
-            whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.09 }}
             whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
             aria-pressed={isSelected}
-            className={`group/node inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border text-[11px] sm:text-xs font-medium transition-colors duration-150 shadow-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
-              isSelected || isInfluenced
-                ? isAttractor
-                  ? 'border-[#FF721A] bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white shadow-md'
-                  : 'border-[#0A0A0A] dark:border-white bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white shadow-md'
-                : 'border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#111111]/95 text-[#0A0A0A] dark:text-white hover:border-[#FF721A]'
+            className={`group/node relative inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border text-[11px] sm:text-xs font-medium transition-colors duration-150 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+              isSelected
+                ? 'border-[#FF721A] bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white shadow-[0_8px_24px_-4px_rgba(255,114,26,0.35)] ring-1 ring-[#FF721A]/35'
+                : isInfluenced
+                  ? isAttractor
+                    ? 'border-[#FF721A] bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white shadow-[0_8px_22px_-4px_rgba(255,114,26,0.28)]'
+                    : 'border-[#0A0A0A] dark:border-white bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white shadow-md'
+                  : 'border-[#E5E5E5]/95 dark:border-[#2A2A2A] bg-white/95 dark:bg-[#111111]/95 text-[#0A0A0A] dark:text-white shadow-sm hover:border-[#FF721A]'
             }`}
           >
             <span
               className={`inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-lg shrink-0 transition-colors ${
                 isAttractor
-                  ? 'bg-[#FF721A]/12 text-[#C94B00] dark:text-[#FF721A]'
-                  : 'bg-[#0A0A0A]/[0.06] dark:bg-white/[0.08] text-[#0A0A0A] dark:text-white'
+                  ? 'bg-[#FF721A]/15 text-[#C94B00] dark:text-[#FF721A]'
+                  : 'bg-[#0A0A0A]/[0.06] dark:bg-white/[0.09] text-[#0A0A0A] dark:text-white'
               }`}
             >
               <Icon size={13} aria-hidden="true" />
@@ -266,14 +297,14 @@ export const TechnologyCloud: React.FC = () => {
   const [isCursorInside, setIsCursorInside] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [influencedMap, setInfluencedMap] = useState<Record<string, boolean>>({});
-  const [globeRadius, setGlobeRadius] = useState(148);
+  const [stageDims, setStageDims] = useState({ width: 900, height: 430, radius: 158 });
 
   const stageRef = useRef<HTMLDivElement>(null);
-  const stageSizeRef = useRef({ width: 900, height: 420 });
+  const stageSizeRef = useRef({ width: 900, height: 430 });
 
-  // Spherical rotation & drag momentum state (mutated inside 60fps animation frame)
-  const yawRef = useRef(0.45);
-  const pitchRef = useRef(0.24);
+  // Spherical rotation & drag momentum state (updated at 60fps without React re-renders)
+  const yawRef = useRef(0.48);
+  const pitchRef = useRef(0.28);
   const velYawRef = useRef(0);
   const velPitchRef = useRef(0);
   const isDraggingRef = useRef(false);
@@ -281,19 +312,22 @@ export const TechnologyCloud: React.FC = () => {
   const dragPointerRef = useRef({ startX: 0, startY: 0, lastX: 0, lastY: 0, moved: 0 });
   const cursorRelRef = useRef({ x: -9999, y: -9999 });
   const influencedPrevRef = useRef<Record<string, boolean>>({});
+  const liveSpringsRef = useRef<Record<number, LiveSpringPair>>({});
 
-  // Wireframe SVG refs for zero-React-rerender 3D rotation
+  // Wireframe & Geodesic SVG element refs for 60fps direct attribute mutation
   const meridianRefs = useRef<(SVGEllipseElement | null)[]>([]);
   const equatorRef = useRef<SVGEllipseElement | null>(null);
   const northTropicRef = useRef<SVGEllipseElement | null>(null);
   const southTropicRef = useRef<SVGEllipseElement | null>(null);
+  const edgeLineRefs = useRef<(SVGLineElement | null)[]>([]);
+  const tetherLineRefs = useRef<(SVGLineElement | null)[]>([]);
+  const outerRingGroupRef = useRef<SVGGElement | null>(null);
 
   const cursorPxX = useMotionValue(-9999);
   const cursorPxY = useMotionValue(-9999);
   const smoothCursorX = useSpring(cursorPxX, CURSOR_RING_SPRING);
   const smoothCursorY = useSpring(cursorPxY, CURSOR_RING_SPRING);
 
-  // Persistent per-node MotionValues (fixed array length matching TECH_SPHERE_NODES)
   const nodeMotions = useMemo<NodeMotionState[]>(
     () =>
       TECH_SPHERE_NODES.map(() => ({
@@ -306,6 +340,13 @@ export const TechnologyCloud: React.FC = () => {
         forceY: new MotionValue(0),
         forceScale: new MotionValue(1),
       })),
+    []
+  );
+
+  const registerSprings = useMemo(
+    () => (idx: number, x: MotionValue<number>, y: MotionValue<number>) => {
+      liveSpringsRef.current[idx] = { x, y };
+    },
     []
   );
 
@@ -327,10 +368,14 @@ export const TechnologyCloud: React.FC = () => {
       if (rect.width > 0 && rect.height > 0) {
         stageSizeRef.current = { width: rect.width, height: rect.height };
         const nextRadius = Math.max(
-          96,
-          Math.min(162, Math.min(rect.width * 0.34, rect.height * 0.37))
+          104,
+          Math.min(170, Math.min(rect.width * 0.35, rect.height * 0.38))
         );
-        setGlobeRadius(Math.round(nextRadius));
+        setStageDims({
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          radius: Math.round(nextRadius),
+        });
       }
     };
 
@@ -348,6 +393,7 @@ export const TechnologyCloud: React.FC = () => {
   }, []);
 
   const allowPointerField = pointerFine && !prefersReducedMotion;
+  const selectedIndex = TECH_SPHERE_NODES.findIndex((n) => n.id === selectedId);
 
   const projectAndApplyForces = (radius: number) => {
     const yaw = yawRef.current;
@@ -358,7 +404,7 @@ export const TechnologyCloud: React.FC = () => {
     const sinP = Math.sin(pitch);
     const perspective = 680;
 
-    // Update SVG 3D wireframe meridians & latitude parallels
+    // 1) Synchronize 3D wireframe meridians & parallels
     MERIDIAN_OFFSETS.forEach((offset, idx) => {
       const el = meridianRefs.current[idx];
       if (!el) return;
@@ -367,11 +413,11 @@ export const TechnologyCloud: React.FC = () => {
     });
 
     if (equatorRef.current) {
-      const eqRy = Math.max(2, Math.abs(sinP) * 180);
+      const eqRy = Math.max(3, Math.abs(sinP) * 180);
       equatorRef.current.setAttribute('ry', eqRy.toFixed(1));
     }
 
-    const tropicLat = 0.62; // ~35.5 deg
+    const tropicLat = 0.62;
     const tropicRadius = Math.cos(tropicLat) * 180;
     const tropicOffset = Math.sin(tropicLat) * 180 * cosP;
     const tropicRy = Math.max(2, Math.abs(sinP) * tropicRadius);
@@ -387,6 +433,14 @@ export const TechnologyCloud: React.FC = () => {
       southTropicRef.current.setAttribute('ry', tropicRy.toFixed(1));
     }
 
+    if (outerRingGroupRef.current) {
+      const deg = ((yaw * 180) / Math.PI) * 0.45;
+      outerRingGroupRef.current.setAttribute(
+        'transform',
+        `rotate(${deg.toFixed(2)} 200 200)`
+      );
+    }
+
     const { width, height } = stageSizeRef.current;
     const cx = cursorRelRef.current.x;
     const cy = cursorRelRef.current.y;
@@ -400,11 +454,13 @@ export const TechnologyCloud: React.FC = () => {
 
     let changedInfluence = false;
     const nextInfluence: Record<string, boolean> = {};
+    const liveCoords: { x: number; y: number; normZ: number; influenced: boolean; isAttractor: boolean }[] =
+      new Array(TECH_SPHERE_NODES.length);
 
+    // 2) Project every node in 3D and apply cursor attract/repel springs
     TECH_SPHERE_NODES.forEach((node, idx) => {
       const state = nodeMotions[idx];
 
-      // Rotate around Y (yaw) then X (pitch)
       const x1 = node.x0 * cosY - node.z0 * sinY;
       const z1 = node.x0 * sinY + node.z0 * cosY;
       const y2 = node.y0 * cosP - z1 * sinP;
@@ -417,13 +473,17 @@ export const TechnologyCloud: React.FC = () => {
       const depthRatio = perspective / (perspective - worldZ);
       const sx = worldX * depthRatio;
       const sy = worldY * depthRatio;
-      const normZ = (z2 + 1) * 0.5; // 0 (back) -> 1 (front)
+      const normZ = (z2 + 1) * 0.5;
 
       state.projX.set(sx);
       state.projY.set(sy);
-      state.depthScale.set(0.72 + normZ * 0.36);
-      state.depthOpacity.set(0.32 + normZ * 0.68);
+      state.depthScale.set(0.68 + normZ * 0.42);
+      state.depthOpacity.set(0.28 + normZ * 0.72);
       state.zIndexMV.set(Math.round(normZ * 30) + 1);
+
+      const effectivePolarity: Polarity =
+        fieldMode === 'mixed' ? node.polarity : fieldMode;
+      const isAttractor = effectivePolarity === 'attract';
 
       let influenced = false;
       if (pointerActive) {
@@ -433,20 +493,17 @@ export const TechnologyCloud: React.FC = () => {
 
         if (dist < FORCE_RADIUS && dist > 0.001) {
           const falloff = Math.pow(1 - dist / FORCE_RADIUS, 1.25);
-          const effectivePolarity: Polarity =
-            fieldMode === 'mixed' ? node.polarity : fieldMode;
-          const isAttractor = effectivePolarity === 'attract';
           influenced = falloff > 0.14;
 
           if (isAttractor) {
-            const pull = Math.min(dist * 0.44, 38) * falloff;
+            const pull = Math.min(dist * 0.45, 38) * falloff;
             state.forceX.set((vx / dist) * pull);
             state.forceY.set((vy / dist) * pull);
             state.forceScale.set(1 + 0.16 * falloff);
           } else {
             const push = 52 * falloff;
-            const halfW = width * 0.5 - 52;
-            const halfH = height * 0.5 - 28;
+            const halfW = width * 0.5 - 54;
+            const halfH = height * 0.5 - 30;
             const targetFx = -(vx / dist) * push;
             const targetFy = -(vy / dist) * push;
             state.forceX.set(
@@ -468,10 +525,77 @@ export const TechnologyCloud: React.FC = () => {
         state.forceScale.set(1);
       }
 
+      const springPair = liveSpringsRef.current[idx];
+      const liveFx = springPair ? springPair.x.get() : 0;
+      const liveFy = springPair ? springPair.y.get() : 0;
+
+      liveCoords[idx] = {
+        x: sx + liveFx,
+        y: sy + liveFy,
+        normZ,
+        influenced,
+        isAttractor,
+      };
+
+      // Update interactive magnetic tether beam between cursor and nearby node
+      const tetherEl = tetherLineRefs.current[idx];
+      if (tetherEl) {
+        if (pointerActive && influenced) {
+          tetherEl.setAttribute('x1', cx.toFixed(1));
+          tetherEl.setAttribute('y1', cy.toFixed(1));
+          tetherEl.setAttribute('x2', (sx + liveFx).toFixed(1));
+          tetherEl.setAttribute('y2', (sy + liveFy).toFixed(1));
+          tetherEl.setAttribute(
+            'stroke',
+            isAttractor ? '#FF721A' : 'currentColor'
+          );
+          tetherEl.setAttribute(
+            'stroke-opacity',
+            (0.22 + normZ * 0.36).toFixed(2)
+          );
+          tetherEl.setAttribute(
+            'stroke-dasharray',
+            isAttractor ? 'none' : '3 4'
+          );
+        } else {
+          tetherEl.setAttribute('stroke-opacity', '0');
+        }
+      }
+
       nextInfluence[node.id] = influenced;
       if (Boolean(influencedPrevRef.current[node.id]) !== influenced) {
         changedInfluence = true;
       }
+    });
+
+    // 3) Update geodesic constellation edges connecting neighboring 3D nodes
+    GEODESIC_EDGES.forEach(([i, j], edgeIdx) => {
+      const lineEl = edgeLineRefs.current[edgeIdx];
+      if (!lineEl) return;
+      const a = liveCoords[i];
+      const b = liveCoords[j];
+      if (!a || !b) return;
+
+      lineEl.setAttribute('x1', a.x.toFixed(1));
+      lineEl.setAttribute('y1', a.y.toFixed(1));
+      lineEl.setAttribute('x2', b.x.toFixed(1));
+      lineEl.setAttribute('y2', b.y.toFixed(1));
+
+      const avgDepth = (a.normZ + b.normZ) * 0.5;
+      const touchesSelected = i === selectedIndex || j === selectedIndex;
+      const isActiveEdge = touchesSelected || a.influenced || b.influenced;
+
+      lineEl.setAttribute(
+        'stroke',
+        isActiveEdge ? '#FF721A' : 'currentColor'
+      );
+      lineEl.setAttribute(
+        'stroke-opacity',
+        isActiveEdge
+          ? (0.28 + avgDepth * 0.45).toFixed(2)
+          : (0.06 + avgDepth * 0.16).toFixed(2)
+      );
+      lineEl.setAttribute('stroke-width', isActiveEdge ? '1.25' : '0.85');
     });
 
     if (changedInfluence) {
@@ -481,8 +605,8 @@ export const TechnologyCloud: React.FC = () => {
   };
 
   useEffect(() => {
-    projectAndApplyForces(globeRadius);
-  }, [globeRadius, fieldMode]);
+    projectAndApplyForces(stageDims.radius);
+  }, [stageDims.radius, fieldMode, selectedIndex]);
 
   useAnimationFrame((_time, deltaMs) => {
     const dt = Math.min(deltaMs, 48) / 1000;
@@ -502,13 +626,12 @@ export const TechnologyCloud: React.FC = () => {
         velYawRef.current *= damping;
         velPitchRef.current *= damping;
       } else {
-        // Gentle orbital rotation (slows softly when inspecting/hovering)
         const baseSpeed = isHoveringRef.current ? 0.1 : 0.28;
         yawRef.current += baseSpeed * dt;
       }
     }
 
-    projectAndApplyForces(globeRadius);
+    projectAndApplyForces(stageDims.radius);
   });
 
   const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -542,7 +665,6 @@ export const TechnologyCloud: React.FC = () => {
       if (!isCursorInside) setIsCursorInside(true);
     }
 
-    // Track drag spin if primary button held
     if (e.buttons === 1) {
       const dx = e.clientX - dragPointerRef.current.lastX;
       const dy = e.clientY - dragPointerRef.current.lastY;
@@ -568,7 +690,7 @@ export const TechnologyCloud: React.FC = () => {
         );
         velYawRef.current = dx * 0.24;
         velPitchRef.current = -dy * 0.24;
-        projectAndApplyForces(globeRadius);
+        projectAndApplyForces(stageDims.radius);
       }
     }
   };
@@ -602,7 +724,9 @@ export const TechnologyCloud: React.FC = () => {
     TECH_SPHERE_NODES[0];
   const selectedPolarity: Polarity =
     fieldMode === 'mixed' ? selectedNode.polarity : fieldMode;
-  const svgSize = globeRadius * 2 + 36;
+
+  const orbDiameter = stageDims.radius * 2;
+  const svgSize = orbDiameter + 44;
 
   return (
     <motion.div
@@ -672,10 +796,78 @@ export const TechnologyCloud: React.FC = () => {
         onPointerUp={handleStagePointerUp}
         onPointerCancel={handleStagePointerLeave}
         onPointerLeave={handleStagePointerLeave}
-        className={`relative w-full h-[350px] sm:h-[420px] lg:h-[440px] rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA]/80 dark:bg-[#0A0A0A]/85 overflow-hidden select-none touch-pan-y ${
+        className={`relative w-full h-[360px] sm:h-[430px] lg:h-[460px] rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#050505] overflow-hidden select-none touch-pan-y ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
       >
+        {/* Minimal Architectural Drafting Corner Marks */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-3.5 left-3.5 w-3 h-3 border-t border-l border-[#D4D4D4] dark:border-[#333333]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-3.5 right-3.5 w-3 h-3 border-t border-r border-[#D4D4D4] dark:border-[#333333]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-3.5 left-3.5 w-3 h-3 border-b border-l border-[#D4D4D4] dark:border-[#333333]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-3.5 right-3.5 w-3 h-3 border-b border-r border-[#D4D4D4] dark:border-[#333333]"
+        />
+
+        {/* Volumetric Ambient Stage Glow */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-75 dark:opacity-90"
+          style={{
+            width: orbDiameter + 120,
+            height: orbDiameter + 120,
+            background:
+              'radial-gradient(circle, rgba(255,114,26,0.12) 0%, rgba(255,114,26,0.03) 48%, transparent 72%)',
+          }}
+        />
+
+        {/* Light Mode 3D Sculptural Shaded Sphere Volume */}
+        <div
+          aria-hidden="true"
+          className="block dark:hidden pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#E5E5E5]"
+          style={{
+            width: orbDiameter,
+            height: orbDiameter,
+            background:
+              'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.98) 0%, rgba(244,244,245,0.9) 50%, rgba(224,224,228,0.85) 84%, rgba(255,114,26,0.14) 100%)',
+            boxShadow:
+              '0 28px 64px -18px rgba(10,10,10,0.14), inset -18px -22px 44px rgba(10,10,10,0.06), inset 14px 14px 32px rgba(255,255,255,0.9)',
+          }}
+        />
+
+        {/* Dark Mode 3D Sculptural Shaded Sphere Volume */}
+        <div
+          aria-hidden="true"
+          className="hidden dark:block pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#262626]"
+          style={{
+            width: orbDiameter,
+            height: orbDiameter,
+            background:
+              'radial-gradient(circle at 33% 27%, rgba(48,48,54,0.85) 0%, rgba(16,16,19,0.95) 54%, rgba(4,4,6,0.98) 85%, rgba(255,114,26,0.22) 100%)',
+            boxShadow:
+              '0 28px 72px -14px rgba(255,114,26,0.18), inset -18px -22px 48px rgba(0,0,0,0.75), inset 14px 14px 36px rgba(255,255,255,0.05)',
+          }}
+        />
+
+        {/* Tilted Precision Outer Calibration Orbital Ring */}
+        <div
+          aria-hidden="true"
+          style={{
+            width: orbDiameter + 48,
+            height: orbDiameter + 48,
+          }}
+          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 scale-y-[0.34] rounded-full border border-dashed border-[#FF721A]/35"
+        />
+
         {/* Synchronized 3D Architectural Wireframe Sphere */}
         <svg
           aria-hidden="true"
@@ -683,6 +875,20 @@ export const TechnologyCloud: React.FC = () => {
           style={{ width: svgSize, height: svgSize }}
           className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
         >
+          {/* Rotating Outer Calibrated Bezel Ticks */}
+          <g ref={outerRingGroupRef}>
+            <circle
+              cx="200"
+              cy="200"
+              r="192"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeDasharray="2 12"
+              className="text-[#D4D4D4] dark:text-[#333333]"
+            />
+          </g>
+
           {/* Outer Limb Circle */}
           <circle
             cx="200"
@@ -691,10 +897,10 @@ export const TechnologyCloud: React.FC = () => {
             fill="none"
             stroke="currentColor"
             strokeWidth="1"
-            className="text-[#E5E5E5] dark:text-[#262626]"
+            className="text-[#E5E5E5] dark:text-[#2A2A2A]"
           />
 
-          {/* Latitude Tropics & Accent Equator */}
+          {/* Latitude Tropics & Glowing Orange Equator */}
           <ellipse
             ref={northTropicRef}
             cx="200"
@@ -705,7 +911,7 @@ export const TechnologyCloud: React.FC = () => {
             stroke="currentColor"
             strokeWidth="0.9"
             strokeDasharray="3 5"
-            className="text-[#D4D4D4] dark:text-[#262626]"
+            className="text-[#D4D4D4] dark:text-[#2E2E2E]"
           />
           <ellipse
             ref={southTropicRef}
@@ -717,7 +923,7 @@ export const TechnologyCloud: React.FC = () => {
             stroke="currentColor"
             strokeWidth="0.9"
             strokeDasharray="3 5"
-            className="text-[#D4D4D4] dark:text-[#262626]"
+            className="text-[#D4D4D4] dark:text-[#2E2E2E]"
           />
           <ellipse
             ref={equatorRef}
@@ -727,8 +933,8 @@ export const TechnologyCloud: React.FC = () => {
             ry="42"
             fill="none"
             stroke="#FF721A"
-            strokeOpacity="0.28"
-            strokeWidth="1.15"
+            strokeOpacity="0.42"
+            strokeWidth="1.25"
           />
 
           {/* Rotating Longitude Meridians */}
@@ -740,35 +946,66 @@ export const TechnologyCloud: React.FC = () => {
               }}
               cx="200"
               cy="200"
-              rx={Math.max(2, Math.abs(Math.sin(0.45 + offset)) * 180)}
+              rx={Math.max(2, Math.abs(Math.sin(0.48 + offset)) * 180)}
               ry="180"
               fill="none"
               stroke="currentColor"
-              strokeWidth="0.9"
+              strokeWidth="0.85"
               strokeDasharray={idx % 2 === 0 ? undefined : '4 5'}
               className="text-[#E5E5E5] dark:text-[#262626]"
             />
           ))}
 
           {/* Polar Core Crosshair */}
+          <circle cx="200" cy="200" r="3.5" fill="#FF721A" fillOpacity="0.8" />
           <line
             x1="200"
-            y1="186"
+            y1="184"
             x2="200"
-            y2="214"
+            y2="216"
             stroke="#FF721A"
             strokeOpacity="0.45"
             strokeWidth="1"
           />
           <line
-            x1="186"
+            x1="184"
             y1="200"
-            x2="214"
+            x2="216"
             y2="200"
             stroke="#FF721A"
             strokeOpacity="0.45"
             strokeWidth="1"
           />
+        </svg>
+
+        {/* Live 3D Geodesic Constellation Mesh & Magnetic Cursor Force Tethers */}
+        <svg
+          aria-hidden="true"
+          viewBox={`${-stageDims.width / 2} ${-stageDims.height / 2} ${stageDims.width} ${stageDims.height}`}
+          className="pointer-events-none absolute inset-0 w-full h-full text-[#737373] dark:text-[#A3A3A3]"
+        >
+          {GEODESIC_EDGES.map(([i, j], edgeIdx) => (
+            <line
+              key={`${i}-${j}`}
+              ref={(el) => {
+                edgeLineRefs.current[edgeIdx] = el;
+              }}
+              stroke="currentColor"
+              strokeOpacity="0.14"
+              strokeWidth="0.85"
+            />
+          ))}
+          {TECH_SPHERE_NODES.map((node, idx) => (
+            <line
+              key={`tether-${node.id}`}
+              ref={(el) => {
+                tetherLineRefs.current[idx] = el;
+              }}
+              stroke="#FF721A"
+              strokeOpacity="0"
+              strokeWidth="1"
+            />
+          ))}
         </svg>
 
         {/* Cursor Magnetic Influence Ring */}
@@ -784,7 +1021,7 @@ export const TechnologyCloud: React.FC = () => {
               x: smoothCursorX,
               y: smoothCursorY,
             }}
-            className="pointer-events-none absolute top-0 left-0 -ml-[88px] -mt-[88px] w-44 h-44 rounded-full border border-dashed border-[#FF721A]/35 bg-[#FF721A]/[0.03]"
+            className="pointer-events-none absolute top-0 left-0 -ml-[88px] -mt-[88px] w-44 h-44 rounded-full border border-dashed border-[#FF721A]/40 bg-[#FF721A]/[0.035]"
           />
         )}
 
@@ -792,12 +1029,14 @@ export const TechnologyCloud: React.FC = () => {
         {TECH_SPHERE_NODES.map((node, idx) => (
           <GlobeNodeItem
             key={node.id}
+            index={idx}
             node={node}
             motionState={nodeMotions[idx]}
             mode={fieldMode}
             isSelected={selectedId === node.id}
             isInfluenced={Boolean(influencedMap[node.id])}
             onSelect={setSelectedId}
+            onRegisterSprings={registerSprings}
             prefersReducedMotion={prefersReducedMotion}
           />
         ))}
