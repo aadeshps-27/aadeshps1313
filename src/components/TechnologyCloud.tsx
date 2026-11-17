@@ -4,7 +4,6 @@ import {
   Bot,
   Braces,
   Compass,
-  Cpu,
   Layers,
   PenTool,
   Server,
@@ -48,13 +47,6 @@ const RAW_TECH_ITEMS: TechNodeBase[] = [
     discipline: 'Interactive UI Architecture',
     polarity: 'attract',
     icon: Atom,
-  },
-  {
-    id: 'esp32',
-    name: 'ESP32',
-    discipline: 'Embedded Microcontroller',
-    polarity: 'repel',
-    icon: Cpu,
   },
   {
     id: 'typescript',
@@ -143,7 +135,7 @@ const GEODESIC_EDGES: [number, number][] = (() => {
       const a = TECH_SPHERE_NODES[i];
       const b = TECH_SPHERE_NODES[j];
       const dist = Math.hypot(a.x0 - b.x0, a.y0 - b.y0, a.z0 - b.z0);
-      if (dist < 1.32) {
+      if (dist < 1.42) {
         edges.push([i, j]);
       }
     }
