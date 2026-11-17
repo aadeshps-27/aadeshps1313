@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
+  AnimatePresence,
   motion,
   useMotionValueEvent,
   useReducedMotion,
@@ -12,7 +13,9 @@ import {
   CREATIVE_CASE_STUDY,
   GEOLOCATION_CASE_STUDY,
   PROJECTS,
+  PROJECT_TIMELINE_PHASES,
   ProjectId,
+  ProjectTimelinePhase,
   ROBOT_CASE_STUDY,
   getProjectReadingTime,
 } from '../data/portfolio';
@@ -61,6 +64,206 @@ const ModalTitleParallax: React.FC<ModalTitleParallaxProps> = ({
         {children}
       </motion.div>
     </div>
+  );
+};
+
+interface ProjectTimelineStepperProps {
+  projectId: ProjectId;
+  phases: ProjectTimelinePhase[];
+  prefersReducedMotion: boolean;
+}
+
+const STEPPER_SPRING = { type: 'spring' as const, stiffness: 360, damping: 28, mass: 0.65 };
+
+const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
+  projectId,
+  phases,
+  prefersReducedMotion,
+}) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [projectId]);
+
+  const safeIndex = Math.min(activeIndex, Math.max(0, phases.length - 1));
+  const currentPhase = phases[safeIndex] ?? phases[0];
+  const progressRatio =
+    phases.length > 1 ? safeIndex / (phases.length - 1) : 1;
+
+  const handleStepKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    idx: number
+  ) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setActiveIndex(Math.min(phases.length - 1, idx + 1));
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setActiveIndex(Math.max(0, idx - 1));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActiveIndex(phases.length - 1);
+    }
+  };
+
+  return (
+    <section
+      aria-label="Project timeline phases"
+      className="p-5 sm:p-6 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-5"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
+          <span className="inline-block w-3.5 h-[2px] bg-[#FF721A]" aria-hidden="true" />
+          <span>Project Timeline</span>
+        </div>
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <span className="font-mono text-[11px] tabular-nums text-[#525252] dark:text-[#A3A3A3]">
+            Phase {currentPhase.step} / 0{phases.length}
+          </span>
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
+              disabled={safeIndex === 0}
+              aria-label="Previous project phase"
+              className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
+            >
+              <ChevronLeft size={14} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setActiveIndex((prev) => Math.min(phases.length - 1, prev + 1))
+              }
+              disabled={safeIndex === phases.length - 1}
+              aria-label="Next project phase"
+              className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
+            >
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Horizontal Stepper Track */}
+      <div className="relative pt-1">
+        {/* Continuous Base Rail spanning center of Step 1 (12.5%) to Step 4 (87.5%) */}
+        <div
+          aria-hidden="true"
+          className="absolute top-[19px] left-[12.5%] right-[12.5%] h-[2px] bg-[#E5E5E5] dark:bg-[#262626]"
+        >
+          <motion.div
+            initial={false}
+            animate={{ scaleX: progressRatio }}
+            transition={prefersReducedMotion ? { duration: 0 } : STEPPER_SPRING}
+            style={{ transformOrigin: 'left center' }}
+            className="h-full w-full bg-[#FF721A]"
+          />
+        </div>
+
+        <div className="relative grid grid-cols-4 gap-2 sm:gap-4">
+          {phases.map((item, idx) => {
+            const isActive = idx === safeIndex;
+            const isCompleted = idx < safeIndex;
+
+            return (
+              <motion.button
+                key={item.step}
+                type="button"
+                onClick={() => setActiveIndex(idx)}
+                onKeyDown={(e) => handleStepKeyDown(e, idx)}
+                aria-current={isActive ? 'step' : undefined}
+                whileHover={prefersReducedMotion ? undefined : { y: -1 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+                transition={STEPPER_SPRING}
+                className="group/step flex flex-col items-center text-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-lg"
+              >
+                <span
+                  className={`relative z-10 w-8 h-8 rounded-lg border flex items-center justify-center font-mono text-xs tabular-nums font-bold transition-colors duration-200 ${
+                    isActive
+                      ? 'border-[#FF721A] bg-[#FF721A] text-[#0A0A0A] shadow-[0_0_0_4px_rgba(255,114,26,0.16)]'
+                      : isCompleted
+                        ? 'border-[#FF721A] bg-white dark:bg-[#141414] text-[#C94B00] dark:text-[#FF721A]'
+                        : 'border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-[#525252] dark:text-[#A3A3A3] group-hover/step:border-[#FF721A]'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+                  ) : (
+                    item.step
+                  )}
+                </span>
+
+                <span
+                  className={`mt-2.5 text-[11px] sm:text-xs font-semibold tracking-tight transition-colors ${
+                    isActive
+                      ? 'text-[#0A0A0A] dark:text-white'
+                      : 'text-[#525252] dark:text-[#A3A3A3] group-hover/step:text-[#0A0A0A] dark:group-hover/step:text-white'
+                  }`}
+                >
+                  {item.phase}
+                </span>
+
+                <span className="hidden sm:block mt-0.5 font-mono text-[10px] text-[#737373] dark:text-[#737373]">
+                  {item.timeframe}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Active Phase Detail Panel */}
+      <div className="pt-4 border-t border-[#E5E5E5] dark:border-[#262626]">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${projectId}-${currentPhase.step}`}
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, y: 8, filter: 'blur(4px)' }
+            }
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : { opacity: 0, y: -6, filter: 'blur(4px)' }
+            }
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+          >
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                  {currentPhase.phase} · {currentPhase.timeframe}
+                </span>
+              </div>
+              <h3 className="font-display text-base sm:text-lg font-bold text-[#0A0A0A] dark:text-white">
+                {currentPhase.title}
+              </h3>
+              <p className="text-xs sm:text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                {currentPhase.description}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 lg:justify-end shrink-0">
+              {currentPhase.deliverables.map((deliverable) => (
+                <span
+                  key={deliverable}
+                  className="px-2.5 py-1 rounded-md border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] font-mono text-[11px] font-medium text-[#0A0A0A] dark:text-white whitespace-nowrap"
+                >
+                  {deliverable}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </section>
   );
 };
 
@@ -297,6 +500,13 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </div>
             ))}
           </div>
+
+          {/* Horizontal Project Timeline Stepper */}
+          <ProjectTimelineStepper
+            projectId={project.id}
+            phases={PROJECT_TIMELINE_PHASES[project.id]}
+            prefersReducedMotion={Boolean(prefersReducedMotion)}
+          />
         </header>
 
         {/* Project-Specific Rich Content */}

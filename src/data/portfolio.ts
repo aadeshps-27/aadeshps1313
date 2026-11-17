@@ -396,6 +396,132 @@ export const GEOLOCATION_CASE_STUDY = {
     'Combining RSSI path-loss estimation, geometric trilateration, and Kalman filtering yields a practical, scalable alternative to GPS for robotics, mining, and emergency response in off-grid environments.',
 };
 
+export interface ProjectTimelinePhase {
+  step: string;
+  phase: string;
+  timeframe: string;
+  title: string;
+  description: string;
+  deliverables: string[];
+}
+
+export const PROJECT_TIMELINE_PHASES: Record<ProjectId, ProjectTimelinePhase[]> = {
+  creative: [
+    {
+      step: '01',
+      phase: 'Ideation',
+      timeframe: 'Week 01',
+      title: 'Aesthetic & Grid Strategy',
+      description:
+        'Defining structural grid proportions, human-first navigation intuition, and high-contrast monochrome visual rules before drawing a single vector node.',
+      deliverables: ['Design Tokens', 'Editorial Grid Spec', 'Contrast Audit'],
+    },
+    {
+      step: '02',
+      phase: 'Design',
+      timeframe: 'Weeks 02–03',
+      title: 'Bezier Vector & Brand Craft',
+      description:
+        'Sculpting custom vector geometry, modular identity marks, and expressive editorial typography across Adobe Illustrator and Affinity Suite.',
+      deliverables: ['Vector Artwork', 'Type Hierarchy', 'Brand System'],
+    },
+    {
+      step: '03',
+      phase: 'Development',
+      timeframe: 'Weeks 04–05',
+      title: 'React & Kinetic Architecture',
+      description:
+        'Building modular TypeScript components, responsive Tailwind layouts, and GPU-composited Framer Motion springs across interactive surfaces.',
+      deliverables: ['React + TS Build', 'Spring Physics', 'Responsive Views'],
+    },
+    {
+      step: '04',
+      phase: 'Deployment',
+      timeframe: 'Ongoing',
+      title: 'Accessibility & Launch Polish',
+      description:
+        'Verifying WCAG AA contrast, keyboard navigation parity, reduced-motion fallbacks, and clean frame pacing across desktop and mobile devices.',
+      deliverables: ['WCAG AA Check', 'Reduced Motion', 'Production Bundle'],
+    },
+  ],
+  robot: [
+    {
+      step: '01',
+      phase: 'Ideation',
+      timeframe: 'Stage 01',
+      title: 'Reconnaissance Requirements',
+      description:
+        'Scoping hazardous tunnel and border surveillance constraints, payload weight budgets, obstacle detection distance, and wireless link reliability.',
+      deliverables: ['Mission Brief', 'Power Budget', 'Range Targets'],
+    },
+    {
+      step: '02',
+      phase: 'Design',
+      timeframe: 'Stage 02',
+      title: 'Chassis & Dual-Link Schematic',
+      description:
+        'Configuring the tracked suspension chassis, L298N H-bridge motor driver wiring, ultrasonic/IR sensor placement, and low-light camera mount.',
+      deliverables: ['UGV CAD Layout', 'H-Bridge Circuit', 'Sensor Array Map'],
+    },
+    {
+      step: '03',
+      phase: 'Development',
+      timeframe: 'Stage 03',
+      title: 'Embedded Firmware & Video Stream',
+      description:
+        'Writing deterministic Embedded C/Python traction routines, PWM speed control, OpenCV telemetry overlays, and operator remote command protocols.',
+      deliverables: ['Control Firmware', 'OpenCV Feed', 'RF Packet Link'],
+    },
+    {
+      step: '04',
+      phase: 'Deployment',
+      timeframe: 'Field Test',
+      title: 'Obstruction & Tunnel Trials',
+      description:
+        'Validating real-time video latency, collision warning thresholds, and battery endurance under simultaneous drive and optics load.',
+      deliverables: ['Range Validation', 'Latency Benchmark', 'Field Readiness'],
+    },
+  ],
+  geolocation: [
+    {
+      step: '01',
+      phase: 'Ideation',
+      timeframe: 'Stage 01',
+      title: 'GPS-Denied Signal Study',
+      description:
+        'Analyzing underground and indoor satellite attenuation challenges and selecting sub-GHz SX1278 LoRa beacons for off-grid localization.',
+      deliverables: ['Multipath Study', 'RF Link Budget', 'Anchor Geometry'],
+    },
+    {
+      step: '02',
+      phase: 'Design',
+      timeframe: 'Stage 02',
+      title: 'Anchor Node & IMU Hardware',
+      description:
+        'Designing ESP32 anchor/rover schematics paired with SX1278 LoRa transceivers, MPU6050 6-axis IMU, HMC5883L magnetometer, and OLED display.',
+      deliverables: ['Proteus Circuit', 'LoRa Node BOM', 'IMU Calibration'],
+    },
+    {
+      step: '03',
+      phase: 'Development',
+      timeframe: 'Stage 03',
+      title: 'Trilateration & Kalman DSP',
+      description:
+        'Implementing logarithmic RSSI path-loss distance modeling, 2D geometric trilateration, and MATLAB/Python Kalman trajectory smoothing.',
+      deliverables: ['Path-Loss Model', 'Kalman Filter', 'OLED Telemetry UI'],
+    },
+    {
+      step: '04',
+      phase: 'Deployment',
+      timeframe: 'Validation',
+      title: 'Off-Grid Field Positioning',
+      description:
+        'Benchmarking coordinate convergence inside obstructed zones and tuning low-power duty cycling for sustained autonomous beacon operation.',
+      deliverables: ['Field Trajectory', 'Accuracy Report', 'Duty-Cycle Tune'],
+    },
+  ],
+};
+
 const CASE_STUDY_CONTENT_MAP: Record<ProjectId, unknown> = {
   creative: CREATIVE_CASE_STUDY,
   robot: ROBOT_CASE_STUDY,
@@ -423,6 +549,7 @@ function collectTextSegments(value: unknown, bucket: string[]): void {
 export function getProjectReadingMinutes(id: ProjectId): number {
   const summaryProject = PROJECTS.find((p) => p.id === id);
   const caseStudy = CASE_STUDY_CONTENT_MAP[id];
+  const timeline = PROJECT_TIMELINE_PHASES[id];
 
   const segments: string[] = [];
   if (summaryProject) {
@@ -434,6 +561,7 @@ export function getProjectReadingMinutes(id: ProjectId): number {
     );
   }
   collectTextSegments(caseStudy, segments);
+  collectTextSegments(timeline, segments);
 
   const wordCount = segments
     .join(' ')
