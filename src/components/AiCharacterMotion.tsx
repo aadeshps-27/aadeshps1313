@@ -14,7 +14,14 @@ import { ARTCRAFT_EASE } from './MotionPrimitives';
 type MoodMode =
   | 'tracking'
   | 'happy'
+  | 'love'
+  | 'laugh'
   | 'curious'
+  | 'surprised'
+  | 'shy'
+  | 'cool'
+  | 'proud'
+  | 'dizzy'
   | 'scan'
   | 'wink'
   | 'excited'
@@ -24,7 +31,16 @@ type MoodMode =
   | 'overdrive'
   | 'sleep';
 
-type ThoughtGlyph = 'spark' | 'theme' | 'signal' | 'heart' | 'bolt' | null;
+type ThoughtGlyph =
+  | 'spark'
+  | 'theme'
+  | 'signal'
+  | 'heart'
+  | 'bolt'
+  | 'music'
+  | 'exclaim'
+  | 'dizzy'
+  | null;
 
 const TRACK_SPRING = { stiffness: 280, damping: 24, mass: 0.45 };
 const ROAM_SPRING = { stiffness: 90, damping: 20, mass: 0.9 };
@@ -41,6 +57,14 @@ const SECTION_PROMPTS: Record<string, { line: string; target: string; cta: strin
 const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
 const OVERDRIVE_ANGLES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
 const DANCE_BARS = [0, 1, 2, 3, 4];
+const EMOTION_PRESETS: { id: MoodMode; label: string; glyph: ThoughtGlyph }[] = [
+  { id: 'happy', label: 'Happy', glyph: 'spark' },
+  { id: 'love', label: 'Love', glyph: 'heart' },
+  { id: 'laugh', label: 'Laugh', glyph: 'spark' },
+  { id: 'cool', label: 'Cool', glyph: null },
+  { id: 'shy', label: 'Shy', glyph: null },
+  { id: 'surprised', label: 'Whoa', glyph: 'exclaim' },
+];
 
 export const AiCharacterMotion: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -288,6 +312,7 @@ export const AiCharacterMotion: React.FC = () => {
 
       if (pSpeed > 2.4 && dist < 360) {
         setIsFastPointer(true);
+        setMood((prev) => (prev === 'tracking' || prev === 'sleep' ? 'surprised' : prev));
         if (fastTimer !== null) window.clearTimeout(fastTimer);
         fastTimer = window.setTimeout(() => setIsFastPointer(false), 320);
       }
@@ -350,6 +375,15 @@ export const AiCharacterMotion: React.FC = () => {
     rawAttractY,
   ]);
 
+  // Gently blush if user lingers directly over the companion
+  useEffect(() => {
+    if (!isHovered || isDragging || prefersReducedMotion) return;
+    const shyTimer = window.setTimeout(() => {
+      setMood((prev) => (prev === 'tracking' || prev === 'happy' ? 'shy' : prev));
+    }, 2200);
+    return () => window.clearTimeout(shyTimer);
+  }, [isHovered, isDragging, prefersReducedMotion]);
+
   // Auto-settle temporary click / theme / wake moods back to live tracking
   useEffect(() => {
     if (
@@ -364,9 +398,15 @@ export const AiCharacterMotion: React.FC = () => {
     ) {
       return;
     }
+    const duration =
+      mood === 'overdrive'
+        ? 2500
+        : mood === 'cool' || mood === 'love' || mood === 'proud'
+          ? 2800
+          : 2100;
     const timer = window.setTimeout(() => {
       setMood('tracking');
-    }, mood === 'overdrive' ? 2400 : 2000);
+    }, duration);
     return () => window.clearTimeout(timer);
   }, [mood, isDragging, danceActive, radarActive, waveActive]);
 
@@ -397,7 +437,23 @@ export const AiCharacterMotion: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [waveActive]);
 
+  const spinDizzyTimerRef = useRef<number | null>(null);
+
+  const clearDizzyTimer = useCallback(() => {
+    if (spinDizzyTimerRef.current !== null) {
+      window.clearTimeout(spinDizzyTimerRef.current);
+      spinDizzyTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearDizzyTimer();
+    };
+  }, [clearDizzyTimer]);
+
   const triggerOverdrive = useCallback(() => {
+    clearDizzyTimer();
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setOverdriveCount((c) => c + 1);
@@ -407,7 +463,23 @@ export const AiCharacterMotion: React.FC = () => {
     setWaveActive(false);
     setMood('overdrive');
     flashThought('bolt', 2200);
-  }, [flashThought]);
+  }, [clearDizzyTimer, flashThought]);
+
+  const selectEmotion = useCallback(
+    (nextMood: MoodMode, glyph: ThoughtGlyph = null) => {
+      clearDizzyTimer();
+      setPulseKey((k) => k + 1);
+      setHopKey((k) => k + 1);
+      setDanceActive(false);
+      setRadarActive(false);
+      setWaveActive(false);
+      setMood(nextMood);
+      if (glyph) {
+        flashThought(glyph, 1600);
+      }
+    },
+    [clearDizzyTimer, flashThought]
+  );
 
   const triggerReaction = () => {
     const now = performance.now();
@@ -424,24 +496,42 @@ export const AiCharacterMotion: React.FC = () => {
       return;
     }
 
+    clearDizzyTimer();
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setDanceActive(false);
     setRadarActive(false);
     setWaveActive(false);
-    setMood((prev) => {
-      if (prev === 'tracking' || prev === 'scan' || prev === 'sleep') return 'happy';
-      if (prev === 'happy') return 'curious';
-      if (prev === 'curious') return 'wink';
-      if (prev === 'wink') return 'excited';
-      return 'tracking';
-    });
+
+    let nextMood: MoodMode = 'tracking';
+    if (mood === 'tracking' || mood === 'scan' || mood === 'sleep') {
+      nextMood = 'happy';
+    } else if (mood === 'happy') {
+      nextMood = 'love';
+      flashThought('heart', 1200);
+    } else if (mood === 'love') {
+      nextMood = 'laugh';
+    } else if (mood === 'laugh') {
+      nextMood = 'curious';
+    } else if (mood === 'curious') {
+      nextMood = 'wink';
+    } else if (mood === 'wink') {
+      nextMood = 'cool';
+    } else if (mood === 'cool') {
+      nextMood = 'proud';
+    } else if (mood === 'proud') {
+      nextMood = 'surprised';
+      flashThought('exclaim', 1100);
+    }
+
+    setMood(nextMood);
     if (!pointerFine) {
       setShowControls((s) => !s);
     }
   };
 
   const triggerSpin = () => {
+    clearDizzyTimer();
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setDanceActive(false);
@@ -449,18 +539,27 @@ export const AiCharacterMotion: React.FC = () => {
     setWaveActive(false);
     setSpinCount((c) => c + 1);
     setMood('excited');
-    flashThought('spark', 1400);
+    flashThought('spark', 900);
+
+    spinDizzyTimerRef.current = window.setTimeout(() => {
+      setMood('dizzy');
+      flashThought('dizzy', 1400);
+      spinDizzyTimerRef.current = null;
+    }, 680);
   };
 
   const triggerDance = () => {
+    clearDizzyTimer();
     setPulseKey((k) => k + 1);
     setRadarActive(false);
     setWaveActive(false);
     setDanceActive(true);
     setMood('dance');
+    flashThought('music', 1800);
   };
 
   const triggerRadar = () => {
+    clearDizzyTimer();
     setPulseKey((k) => k + 1);
     setDanceActive(false);
     setWaveActive(false);
@@ -749,6 +848,27 @@ export const AiCharacterMotion: React.FC = () => {
                   <path d="M8 1L9.8 6.2L15 8L9.8 9.8L8 15L6.2 9.8L1 8L6.2 6.2L8 1Z" />
                 </svg>
               )}
+              {thought === 'music' && (
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M6 12.2a2.2 2.2 0 1 1-1.2-1.96V4.1l8-1.6v7.1a2.2 2.2 0 1 1-1.2-1.96V4.7L6 5.82v6.38Z" />
+                </svg>
+              )}
+              {thought === 'exclaim' && (
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="7" y="2" width="2" height="8" rx="1" />
+                  <circle cx="8" cy="13" r="1.3" />
+                </svg>
+              )}
+              {thought === 'dizzy' && (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8.4 8.2c0-.9.8-1.5 1.6-1.3 1.2.3 1.7 1.7 1.2 2.8-.7 1.5-2.7 2-4.2 1.2-1.9-1-2.5-3.4-1.4-5.2 1.3-2.2 4.3-2.9 6.5-1.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -811,7 +931,7 @@ export const AiCharacterMotion: React.FC = () => {
             }
             transition={{ duration: 0.44, ease: ARTCRAFT_EASE }}
           >
-            {/* Spin / Dance / Idle Levitation Wrapper */}
+            {/* Spin / Dance / Emotional Levitation Wrapper */}
             <motion.div
               animate={
                 prefersReducedMotion
@@ -819,26 +939,43 @@ export const AiCharacterMotion: React.FC = () => {
                   : {
                       y: danceActive
                         ? [0, -10, 0, -8, 0]
-                        : activeMood === 'sleep'
-                          ? [0, -2, 0]
-                          : isDragging
-                            ? -4
-                            : [0, -5, 0],
+                        : activeMood === 'laugh'
+                          ? [0, -4, 0, -3, 0]
+                          : activeMood === 'sleep'
+                            ? [0, -2, 0]
+                            : isDragging
+                              ? -4
+                              : [0, -5, 0],
                       rotate: danceActive
                         ? [0, -9, 9, -7, 0]
-                        : spinCount * 360 + (roamActive ? roamFacing * 3 : 0),
-                      scale: isHovered || isNearPointer ? 1.06 : 1,
+                        : activeMood === 'dizzy'
+                          ? [0, -8, 8, -5, 0]
+                          : activeMood === 'shy'
+                            ? [0, -5, 4, -3, 0]
+                            : spinCount * 360 + (roamActive ? roamFacing * 3 : 0),
+                      scale:
+                        activeMood === 'surprised'
+                          ? 1.09
+                          : isHovered || isNearPointer
+                            ? 1.06
+                            : 1,
                     }
               }
               transition={{
                 y: danceActive
                   ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
-                  : activeMood === 'sleep'
-                    ? { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
-                    : { duration: 3.1, repeat: Infinity, ease: 'easeInOut' },
+                  : activeMood === 'laugh'
+                    ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
+                    : activeMood === 'sleep'
+                      ? { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
+                      : { duration: 3.1, repeat: Infinity, ease: 'easeInOut' },
                 rotate: danceActive
                   ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
-                  : { duration: 0.75, ease: ARTCRAFT_EASE },
+                  : activeMood === 'dizzy'
+                    ? { duration: 0.65, repeat: Infinity, ease: 'easeInOut' }
+                    : activeMood === 'shy'
+                      ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' }
+                      : { duration: 0.75, ease: ARTCRAFT_EASE },
                 scale: { duration: 0.22, ease: ARTCRAFT_EASE },
               }}
               className="drop-shadow-[0_10px_20px_rgba(10,10,10,0.16)] dark:drop-shadow-[0_10px_22px_rgba(0,0,0,0.75)]"
@@ -1024,6 +1161,8 @@ export const AiCharacterMotion: React.FC = () => {
                     activeMood === 'radar' ||
                     activeMood === 'wave' ||
                     activeMood === 'overdrive' ||
+                    activeMood === 'dizzy' ||
+                    activeMood === 'cool' ||
                     activeMood === 'sleep'
                       ? undefined
                       : {
@@ -1032,6 +1171,18 @@ export const AiCharacterMotion: React.FC = () => {
                         }
                   }
                 >
+                  {/* Warm Visor Cheek Blush for Affectionate / Joyful Emotions */}
+                  {(activeMood === 'happy' ||
+                    activeMood === 'love' ||
+                    activeMood === 'laugh' ||
+                    activeMood === 'shy' ||
+                    activeMood === 'excited') && (
+                    <g opacity={activeMood === 'shy' || activeMood === 'love' ? 0.65 : 0.4}>
+                      <ellipse cx="17.5" cy="36" rx="2.4" ry="1.3" fill="#FF721A" />
+                      <ellipse cx="42.5" cy="36" rx="2.4" ry="1.3" fill="#FF721A" />
+                    </g>
+                  )}
+
                   <motion.g
                     animate={
                       prefersReducedMotion ||
@@ -1039,6 +1190,8 @@ export const AiCharacterMotion: React.FC = () => {
                       activeMood === 'radar' ||
                       activeMood === 'wave' ||
                       activeMood === 'overdrive' ||
+                      activeMood === 'dizzy' ||
+                      activeMood === 'cool' ||
                       activeMood === 'sleep'
                         ? undefined
                         : { scaleY: [1, 1, 1, 0.08, 1, 1] }
@@ -1079,7 +1232,6 @@ export const AiCharacterMotion: React.FC = () => {
                         />
                       ))
                     ) : activeMood === 'wave' ? (
-                      // Live RF Carrier Oscilloscope inside visor
                       <g>
                         <line
                           x1="17"
@@ -1115,7 +1267,6 @@ export const AiCharacterMotion: React.FC = () => {
                         />
                       </g>
                     ) : activeMood === 'overdrive' ? (
-                      // Four-point star optics for 5x Overdrive combo
                       <g>
                         <motion.path
                           d="M22.5 26.5L23.7 30.8L28 32L23.7 33.2L22.5 37.5L21.3 33.2L17 32L21.3 30.8Z"
@@ -1156,6 +1307,146 @@ export const AiCharacterMotion: React.FC = () => {
                           style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
                         />
                       </g>
+                    ) : activeMood === 'love' ? (
+                      // Pulsing heart optics + sweet smile
+                      <g>
+                        <motion.path
+                          d="M22.5 35.4s-3.5-2.2-3.5-4.7c0-1.3 1-2.2 2.1-2.2.7 0 1.2.4 1.4.8.2-.4.7-.8 1.4-.8 1.1 0 2.1.9 2.1 2.2 0 2.5-3.5 4.7-3.5 4.7Z"
+                          fill="#FF721A"
+                          animate={prefersReducedMotion ? undefined : { scale: [1, 1.18, 1] }}
+                          transition={{ duration: 0.85, repeat: Infinity, ease: 'easeInOut' }}
+                          style={{ transformOrigin: '22.5px 32px', transformBox: 'view-box' }}
+                        />
+                        <motion.path
+                          d="M37.5 35.4s-3.5-2.2-3.5-4.7c0-1.3 1-2.2 2.1-2.2.7 0 1.2.4 1.4.8.2-.4.7-.8 1.4-.8 1.1 0 2.1.9 2.1 2.2 0 2.5-3.5 4.7-3.5 4.7Z"
+                          fill="#FF721A"
+                          animate={prefersReducedMotion ? undefined : { scale: [1, 1.18, 1] }}
+                          transition={{ duration: 0.85, delay: 0.14, repeat: Infinity, ease: 'easeInOut' }}
+                          style={{ transformOrigin: '37.5px 32px', transformBox: 'view-box' }}
+                        />
+                        <path
+                          d="M27.8 37.2Q30 39 32.2 37.2"
+                          stroke="#FF721A"
+                          strokeWidth="1.4"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </g>
+                    ) : activeMood === 'laugh' ? (
+                      // Joyful ^ ^ eyes + laughing open D-mouth
+                      <g>
+                        <path
+                          d="M19.5 32L22.8 28.8L26.1 32"
+                          stroke="#FF721A"
+                          strokeWidth="2.3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M33.9 32L37.2 28.8L40.5 32"
+                          stroke="#FF721A"
+                          strokeWidth="2.3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M27.2 34.8H32.8C32.5 37.6 31.3 38.6 30 38.6C28.7 38.6 27.5 37.6 27.2 34.8Z"
+                          fill="#FF721A"
+                        />
+                      </g>
+                    ) : activeMood === 'surprised' ? (
+                      // Wide O O optics + tiny surprised o mouth
+                      <g>
+                        <circle
+                          cx="22.8"
+                          cy="30.5"
+                          r="3.4"
+                          stroke="#FF721A"
+                          strokeWidth="1.8"
+                          fill="none"
+                        />
+                        <circle cx="22.8" cy="30.5" r="1.2" fill="#FF721A" />
+                        <circle
+                          cx="37.2"
+                          cy="30.5"
+                          r="3.4"
+                          stroke="#FF721A"
+                          strokeWidth="1.8"
+                          fill="none"
+                        />
+                        <circle cx="37.2" cy="30.5" r="1.2" fill="#FF721A" />
+                        <circle cx="30" cy="37.2" r="1.6" fill="#FF721A" />
+                      </g>
+                    ) : activeMood === 'shy' ? (
+                      // Bashful downward curves + sweet wavy mouth
+                      <g>
+                        <path
+                          d="M19.8 31.2C21.2 33.4 24.4 33.4 25.8 31.2"
+                          stroke="#FF721A"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M34.2 31.2C35.6 33.4 38.8 33.4 40.2 31.2"
+                          stroke="#FF721A"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <path
+                          d="M27.6 36.8C28.5 35.8 29.5 37.6 30.5 36.8C31.3 36.1 32 37.2 32.6 36.6"
+                          stroke="#FF721A"
+                          strokeWidth="1.3"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </g>
+                    ) : activeMood === 'cool' ? (
+                      // Sharp geometric visor sunglasses + confident smirk
+                      <g>
+                        <line x1="16" y1="29.5" x2="44" y2="29.5" stroke="#FF721A" strokeWidth="1.4" />
+                        <path d="M17.5 29.5H28.2L26.8 34.4C26.4 35.2 25.5 35.6 24.4 35.6H20.2C18.9 35.6 18 34.8 17.8 33.6L17.5 29.5Z" fill="#FF721A" />
+                        <path d="M31.8 29.5H42.5L42.2 33.6C42 34.8 41.1 35.6 39.8 35.6H35.6C34.5 35.6 33.6 35.2 33.2 34.4L31.8 29.5Z" fill="#FF721A" />
+                        <line x1="20" y1="31.3" x2="22.5" y2="33.8" stroke="#0A0A0A" strokeWidth="1.2" strokeLinecap="round" />
+                        <line x1="34.3" y1="31.3" x2="36.8" y2="33.8" stroke="#0A0A0A" strokeWidth="1.2" strokeLinecap="round" />
+                        <path d="M27.6 38.2Q30.6 38.8 32.8 36.8" stroke="#FF721A" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+                      </g>
+                    ) : activeMood === 'proud' ? (
+                      // Confident angled brows + bright eyes + crisp smile
+                      <g>
+                        <line x1="19.5" y1="26.8" x2="25.8" y2="28.2" stroke="#FF721A" strokeWidth="1.6" strokeLinecap="round" />
+                        <line x1="40.5" y1="26.8" x2="34.2" y2="28.2" stroke="#FF721A" strokeWidth="1.6" strokeLinecap="round" />
+                        <rect x="20.6" y="29.4" width="4.4" height="5.4" rx="2.2" fill="#FF721A" />
+                        <rect x="35" y="29.4" width="4.4" height="5.4" rx="2.2" fill="#FF721A" />
+                        <path d="M27.4 37.2Q30 39.2 32.6 37.2" stroke="#FF721A" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                      </g>
+                    ) : activeMood === 'dizzy' ? (
+                      // Rotating spiral optics
+                      <g>
+                        <motion.path
+                          d="M22.8 32m-3.2 0a3.2 3.2 0 1 0 6.4 0a2.1 2.1 0 1 0-4.2 0a1 1 0 1 0 2 0"
+                          stroke="#FF721A"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          fill="none"
+                          animate={prefersReducedMotion ? undefined : { rotate: 360 }}
+                          transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+                          style={{ transformOrigin: '22.8px 32px', transformBox: 'view-box' }}
+                        />
+                        <motion.path
+                          d="M37.2 32m-3.2 0a3.2 3.2 0 1 0 6.4 0a2.1 2.1 0 1 0-4.2 0a1 1 0 1 0 2 0"
+                          stroke="#FF721A"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          fill="none"
+                          animate={prefersReducedMotion ? undefined : { rotate: -360 }}
+                          transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+                          style={{ transformOrigin: '37.2px 32px', transformBox: 'view-box' }}
+                        />
+                      </g>
                     ) : activeMood === 'sleep' ? (
                       <>
                         <line
@@ -1180,22 +1471,36 @@ export const AiCharacterMotion: React.FC = () => {
                     ) : activeMood === 'happy' ? (
                       <>
                         <path
-                          d="M20 33.5C21.2 30.2 24.8 30.2 26 33.5"
+                          d="M20 33C21.2 29.7 24.8 29.7 26 33"
                           stroke="#FF721A"
                           strokeWidth="2.4"
                           strokeLinecap="round"
                         />
                         <path
-                          d="M34 33.5C35.2 30.2 38.8 30.2 40 33.5"
+                          d="M34 33C35.2 29.7 38.8 29.7 40 33"
                           stroke="#FF721A"
                           strokeWidth="2.4"
                           strokeLinecap="round"
                         />
+                        <path
+                          d="M27.8 36.8Q30 38.6 32.2 36.8"
+                          stroke="#FF721A"
+                          strokeWidth="1.4"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
                       </>
                     ) : activeMood === 'excited' || isFastPointer ? (
                       <>
-                        <circle cx="22.8" cy="32" r="3.8" fill="#FF721A" />
-                        <circle cx="37.2" cy="32" r="3.8" fill="#FF721A" />
+                        <circle cx="22.8" cy="31.5" r="3.6" fill="#FF721A" />
+                        <circle cx="37.2" cy="31.5" r="3.6" fill="#FF721A" />
+                        <path
+                          d="M27.6 36.8Q30 39 32.4 36.8"
+                          stroke="#FF721A"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
                       </>
                     ) : activeMood === 'wink' ? (
                       <>
@@ -1212,6 +1517,13 @@ export const AiCharacterMotion: React.FC = () => {
                           stroke="#FF721A"
                           strokeWidth="2.4"
                           strokeLinecap="round"
+                        />
+                        <path
+                          d="M28 37.4Q30.4 38.6 32.2 36.8"
+                          stroke="#FF721A"
+                          strokeWidth="1.3"
+                          strokeLinecap="round"
+                          fill="none"
                         />
                       </>
                     ) : activeMood === 'scan' ? (
@@ -1327,11 +1639,32 @@ export const AiCharacterMotion: React.FC = () => {
                 : { opacity: 0, x: -6, scale: 0.96, filter: 'blur(4px)' }
             }
             transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
-            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2 max-w-[260px]"
+            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2 max-w-[275px]"
           >
             <p className="text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3] px-1">
               {promptInfo.line}
             </p>
+            {/* Interactive Emotion Selector Row */}
+            <div className="flex flex-wrap items-center gap-1 pb-1.5 border-b border-[#E5E5E5]/80 dark:border-[#262626]/80">
+              {EMOTION_PRESETS.map((preset) => {
+                const active = activeMood === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => selectEmotion(preset.id, preset.glyph)}
+                    aria-pressed={active}
+                    className={`min-h-[28px] px-2 py-1 rounded-md text-[10px] font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A] ${
+                      active
+                        ? 'bg-[#FF721A] text-[#0A0A0A]'
+                        : 'bg-[#FAFAFA] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#0A0A0A] dark:hover:text-white'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
