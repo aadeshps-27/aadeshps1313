@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Copy, Mail, MessageSquare } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Mail,
+  MessageSquare,
+} from 'lucide-react';
 import {
   AnimatePresence,
   motion,
@@ -10,7 +16,10 @@ import {
 import { PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE, ParallaxLayer, SectionChoreoHeader } from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
-import { playCopyConfirm } from '../utils/spatialAudio';
+import {
+  playCopyConfirm,
+  playNavSelect,
+} from '../utils/spatialAudio';
 
 interface FormErrors {
   name?: string;
@@ -166,6 +175,9 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
 export const ContactAndFooter: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
+  const [focusedField, setFocusedField] = useState<
+    'name' | 'email' | 'message' | null
+  >(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -249,21 +261,23 @@ export const ContactAndFooter: React.FC = () => {
     }
   };
 
-  const handleSubmitEmail = (e: React.FormEvent) => {
+  const handleSubmitEmail = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const subject = encodeURIComponent(`Portfolio Inquiry from ${name.trim()}`);
+    playNavSelect(e.currentTarget);
+    const subject = encodeURIComponent(`Portfolio inquiry from ${name.trim()}`);
     const body = encodeURIComponent(
       `Hi Aadesh,\n\nName: ${name.trim()}\nEmail: ${email.trim()}\n\n${message.trim()}`
     );
 
     window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${body}`;
-    setSentNotice('Opened your default email client with your prepared inquiry.');
+    setSentNotice('Opened your email client with your message.');
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!validate()) return;
+    playNavSelect(e.currentTarget);
     const text = encodeURIComponent(
       `Hi Aadesh, I'm ${name.trim()} (${email.trim()}). ${message.trim()}`
     );
@@ -457,7 +471,7 @@ export const ContactAndFooter: React.FC = () => {
               </motion.div>
             </ParallaxLayer>
 
-            {/* Right Column: Interactive Inquiry Composer */}
+            {/* Right Column: Minimal Editorial Underlined Note Form */}
             <ParallaxLayer speed={20} className="lg:col-span-7">
               <motion.div
                 initial={
@@ -469,122 +483,187 @@ export const ContactAndFooter: React.FC = () => {
                 viewport={{ once: true, amount: 0.15 }}
                 transition={{ duration: 0.78, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
               >
-              <form
-                onSubmit={handleSubmitEmail}
-                noValidate
-                className="p-5 sm:p-7 lg:p-9 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-5 sm:space-y-6"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="space-y-2">
+                <form
+                  onSubmit={handleSubmitEmail}
+                  noValidate
+                  aria-label="Project inquiry form"
+                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-7"
+                >
+                  {/* Simple Header */}
+                  <div className="pb-5 border-b border-[#E5E5E5] dark:border-[#262626]">
+                    <h3 className="font-serif italic text-xl sm:text-2xl text-[#0A0A0A] dark:text-white">
+                      Send a note
+                    </h3>
+                  </div>
+
+                  {/* Clean Underlined Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="contact-name"
+                        className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
+                      >
+                        Name
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="contact-name"
+                          type="text"
+                          value={name}
+                          aria-invalid={Boolean(errors.name)}
+                          onFocus={() => setFocusedField('name')}
+                          onBlur={() => setFocusedField((prev) => (prev === 'name' ? null : prev))}
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                          }}
+                          placeholder="Aarav Menon"
+                          className={`w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors ${
+                            errors.name
+                              ? 'border-red-600 dark:border-red-500'
+                              : 'border-[#D4D4D4] dark:border-[#333333]'
+                          }`}
+                        />
+                        <motion.span
+                          aria-hidden="true"
+                          initial={false}
+                          animate={{ scaleX: focusedField === 'name' ? 1 : 0 }}
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { duration: 0.24, ease: ARTCRAFT_EASE }
+                          }
+                          style={{ transformOrigin: 'left center' }}
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
+                        />
+                      </div>
+                      {errors.name && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{errors.name}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="contact-email"
+                        className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
+                      >
+                        Email
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="contact-email"
+                          type="email"
+                          value={email}
+                          aria-invalid={Boolean(errors.email)}
+                          onFocus={() => setFocusedField('email')}
+                          onBlur={() => setFocusedField((prev) => (prev === 'email' ? null : prev))}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                          }}
+                          placeholder="you@example.com"
+                          className={`w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors ${
+                            errors.email
+                              ? 'border-red-600 dark:border-red-500'
+                              : 'border-[#D4D4D4] dark:border-[#333333]'
+                          }`}
+                        />
+                        <motion.span
+                          aria-hidden="true"
+                          initial={false}
+                          animate={{ scaleX: focusedField === 'email' ? 1 : 0 }}
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { duration: 0.24, ease: ARTCRAFT_EASE }
+                          }
+                          style={{ transformOrigin: 'left center' }}
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
+                        />
+                      </div>
+                      {errors.email && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{errors.email}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label
-                      htmlFor="contact-name"
-                      className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
+                      htmlFor="contact-message"
+                      className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
                     >
-                      Your Name
+                      Message
                     </label>
-                    <input
-                      id="contact-name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
-                      }}
-                      placeholder="Aarav Menon"
-                      className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors ${
-                        errors.name
-                          ? 'border-red-600 dark:border-red-500'
-                          : 'border-[#E5E5E5] dark:border-[#262626]'
-                      }`}
-                    />
-                    {errors.name && (
-                      <p className="text-xs text-red-600 dark:text-red-400">{errors.name}</p>
+                    <div className="relative">
+                      <textarea
+                        id="contact-message"
+                        rows={3}
+                        value={message}
+                        aria-invalid={Boolean(errors.message)}
+                        onFocus={() => setFocusedField('message')}
+                        onBlur={() => setFocusedField((prev) => (prev === 'message' ? null : prev))}
+                        onChange={(e) => {
+                          setMessage(e.target.value);
+                          if (errors.message) setErrors((prev) => ({ ...prev, message: undefined }));
+                        }}
+                        placeholder="Tell me a bit about what you'd like to build..."
+                        className={`block w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors resize-y ${
+                          errors.message
+                            ? 'border-red-600 dark:border-red-500'
+                            : 'border-[#D4D4D4] dark:border-[#333333]'
+                        }`}
+                      />
+                      <motion.span
+                        aria-hidden="true"
+                        initial={false}
+                        animate={{ scaleX: focusedField === 'message' ? 1 : 0 }}
+                        transition={
+                          prefersReducedMotion
+                            ? { duration: 0 }
+                            : { duration: 0.24, ease: ARTCRAFT_EASE }
+                        }
+                        style={{ transformOrigin: 'left center' }}
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
+                      />
+                    </div>
+                    {errors.message && (
+                      <p className="text-xs text-red-600 dark:text-red-400">{errors.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="contact-email"
-                      className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
+                  {/* Clean Action Row */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                    <motion.button
+                      type="submit"
+                      whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+                      className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                     >
-                      Email Address
-                    </label>
-                    <input
-                      id="contact-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-                      }}
-                      placeholder="you@example.com"
-                      className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors ${
-                        errors.email
-                          ? 'border-red-600 dark:border-red-500'
-                          : 'border-[#E5E5E5] dark:border-[#262626]'
-                      }`}
-                    />
-                    {errors.email && (
-                      <p className="text-xs text-red-600 dark:text-red-400">{errors.email}</p>
-                    )}
-                  </div>
-                </div>
+                      <Mail size={15} aria-hidden="true" />
+                      <span>Send Email</span>
+                    </motion.button>
 
-                <div className="space-y-2">
-                  <label
-                    htmlFor="contact-message"
-                    className="block text-xs font-semibold text-[#0A0A0A] dark:text-white"
-                  >
-                    Project Brief
-                  </label>
-                  <textarea
-                    id="contact-message"
-                    rows={4}
-                    value={message}
-                    onChange={(e) => {
-                      setMessage(e.target.value);
-                      if (errors.message) setErrors((prev) => ({ ...prev, message: undefined }));
-                    }}
-                    placeholder="Share your goals, timeline, or hardware/software requirements..."
-                    className={`w-full px-4 py-3 rounded-lg bg-white dark:bg-[#141414] border text-sm text-[#0A0A0A] dark:text-white placeholder:text-[#737373] focus:outline-none focus:border-[#FF721A] transition-colors resize-y ${
-                      errors.message
-                        ? 'border-red-600 dark:border-red-500'
-                        : 'border-[#E5E5E5] dark:border-[#262626]'
-                    }`}
-                  />
-                  {errors.message && (
-                    <p className="text-xs text-red-600 dark:text-red-400">{errors.message}</p>
+                    <motion.button
+                      type="button"
+                      onClick={handleSendWhatsApp}
+                      whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+                      className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                    >
+                      <MessageSquare size={15} aria-hidden="true" />
+                      <span>WhatsApp</span>
+                    </motion.button>
+                  </div>
+
+                  {sentNotice && (
+                    <p
+                      role="status"
+                      className="text-xs font-medium text-[#C94B00] dark:text-[#FF721A]"
+                    >
+                      {sentNotice}
+                    </p>
                   )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 pt-1">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                  >
-                    <Mail size={16} aria-hidden="true" />
-                    <span>Compose Email</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSendWhatsApp}
-                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                  >
-                    <MessageSquare size={16} aria-hidden="true" />
-                    <span>Send via WhatsApp</span>
-                  </button>
-                </div>
-
-                {sentNotice && (
-                  <p
-                    role="status"
-                    className="text-xs font-medium text-[#0A0A0A] dark:text-white pt-1"
-                  >
-                    {sentNotice}
-                  </p>
-                )}
-              </form>
+                </form>
               </motion.div>
             </ParallaxLayer>
           </div>
