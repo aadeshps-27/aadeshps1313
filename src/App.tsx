@@ -119,8 +119,17 @@ export default function App() {
     setIsPreloading(false);
   }, []);
 
+  const isOverlayOpen = selectedProject !== null || isPreloading;
+
   return (
     <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#FF721A] focus:text-[#0A0A0A] focus:font-bold focus:text-xs focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-[#0A0A0A] dark:focus:outline-white"
+      >
+        Skip to main content
+      </a>
+
       <InteractiveDotGrid />
 
       <AnimatePresence>
@@ -130,24 +139,32 @@ export default function App() {
       </AnimatePresence>
 
       <CustomCursor />
-      <ScrollProgressBar isModalOpen={selectedProject !== null || isPreloading} />
-      <Navbar theme={theme} onToggleTheme={toggleTheme} />
+      <ScrollProgressBar isModalOpen={isOverlayOpen} />
 
-      <main id="main" className="relative z-[1] overflow-x-clip">
-        <AboutSection
-          onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
-        />
+      <div
+        aria-hidden={isOverlayOpen || undefined}
+        inert={isOverlayOpen}
+      >
+        <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
-        <WorksSection
-          activeFilter={activeFilter}
-          onChangeFilter={setActiveFilter}
-          onOpenProject={(id) => setSelectedProject(id)}
-        />
+        <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
+          <AboutSection
+            onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
+          />
 
-        <ExperienceSection />
+          <WorksSection
+            activeFilter={activeFilter}
+            onChangeFilter={setActiveFilter}
+            onOpenProject={(id) => setSelectedProject(id)}
+          />
 
-        <ContactAndFooter />
-      </main>
+          <ExperienceSection />
+
+          <ContactAndFooter />
+        </main>
+
+        <BackToTopButton />
+      </div>
 
       <AnimatePresence>
         {selectedProject && (
@@ -165,8 +182,6 @@ export default function App() {
           <AiCharacterMotion key="ai-character-motion" />
         )}
       </AnimatePresence>
-
-      <BackToTopButton />
     </div>
   );
 }

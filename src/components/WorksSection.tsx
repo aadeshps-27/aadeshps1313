@@ -107,6 +107,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
 }) => {
   const cardRef = useRef<HTMLElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Normalized pointer offset inside the card bounds [-0.5, 0.5]
@@ -153,6 +154,45 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
     pointerY.set(0);
   };
 
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    // Only handle card-level shortcuts when focus is directly on the card article
+    if (e.target !== e.currentTarget) return;
+
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpenProject(project.id);
+      return;
+    }
+
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      setIsExpanded((prev) => !prev);
+      return;
+    }
+
+    const cards = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-project-card="true"]')
+    );
+    const currentIdx = cards.indexOf(e.currentTarget);
+    if (currentIdx === -1) return;
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = cards[(currentIdx + 1) % cards.length];
+      next?.focus();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = cards[(currentIdx - 1 + cards.length) % cards.length];
+      prev?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      cards[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      cards[cards.length - 1]?.focus();
+    }
+  };
+
   const isWideLayout = isLeadFeatured || isExpanded;
   const columnParallaxSpeed = isWideLayout
     ? 8
@@ -184,8 +224,17 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
       >
       <motion.article
         ref={cardRef}
-        layout={!prefersReducedMotion}
+        tabIndex={0}
+        data-project-card="true"
         data-cursor="project"
+        aria-labelledby={`project-title-${project.id}`}
+        aria-describedby={`project-summary-${project.id}`}
+        aria-keyshortcuts="Enter Space E ArrowLeft ArrowRight"
+        onFocus={(e) => {
+          if (e.target === e.currentTarget) setIsFocused(true);
+        }}
+        onBlur={() => setIsFocused(false)}
+        onKeyDown={handleCardKeyDown}
         onPointerMove={handlePointerMove}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -204,7 +253,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             : { borderRadius: 16 }
         }
         transition={{ layout: layoutTransition }}
-        className={`h-full group rule-reveal rounded-2xl border bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-colors duration-200 ${
+        className={`h-full group rule-reveal rounded-2xl border bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex flex-col transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] focus-within:border-[#FF721A] focus-within:shadow-[0_0_0_3px_rgba(255,114,26,0.14)] ${
           isExpanded
             ? 'border-[#FF721A]'
             : 'border-[#E5E5E5] dark:border-[#262626] hover:border-[#FF721A]'
@@ -240,7 +289,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                   : undefined
               }
               animate={{
-                scale: !prefersReducedMotion && isHovered ? 1.05 : 1,
+                scale: !prefersReducedMotion && (isHovered || isFocused) ? 1.05 : 1,
               }}
               transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
             >
@@ -287,7 +336,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
           </div>
 
           <div>
-            <h3 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[#0A0A0A] dark:text-white">
+            <h3
+              id={`project-title-${project.id}`}
+              className="font-display text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
+            >
               {project.title}
             </h3>
             <p className="mt-1 font-serif italic text-sm sm:text-base text-[#525252] dark:text-[#A3A3A3]">
@@ -295,7 +347,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             </p>
           </div>
 
-          <p className="text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+          <p
+            id={`project-summary-${project.id}`}
+            className="text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]"
+          >
             {project.summary}
           </p>
         </div>
@@ -466,6 +521,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   const [pointerFine, setPointerFine] = useState(false);
   const [hasSwitchedFilter, setHasSwitchedFilter] = useState(false);
   const prevFilterRef = useRef<ProjectCategory>(activeFilter);
+  const filterTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -487,6 +543,29 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     if (nextFilter === activeFilter) return;
     setHasSwitchedFilter(true);
     onChangeFilter(nextFilter);
+  };
+
+  const handleFilterKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    idx: number
+  ) => {
+    let nextIdx: number | null = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIdx = (idx + 1) % FILTER_OPTIONS.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = FILTER_OPTIONS.length - 1;
+    }
+
+    if (nextIdx !== null) {
+      e.preventDefault();
+      const targetOption = FILTER_OPTIONS[nextIdx];
+      handleFilterClick(targetOption.id);
+      filterTabRefs.current[nextIdx]?.focus();
+    }
   };
 
   const filteredProjects =
@@ -528,15 +607,20 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
               aria-label="Filter projects by discipline"
               className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] self-stretch sm:self-start lg:self-auto w-full sm:w-auto"
             >
-              {FILTER_OPTIONS.map((option) => {
+              {FILTER_OPTIONS.map((option, idx) => {
                 const isSelected = activeFilter === option.id;
                 return (
                   <button
                     key={option.id}
+                    ref={(el) => {
+                      filterTabRefs.current[idx] = el;
+                    }}
                     type="button"
                     role="tab"
+                    tabIndex={isSelected ? 0 : -1}
                     aria-selected={isSelected}
                     onClick={() => handleFilterClick(option.id)}
+                    onKeyDown={(e) => handleFilterKeyDown(e, idx)}
                     className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                       isSelected
                         ? 'text-white dark:text-[#0A0A0A]'

@@ -81,6 +81,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
   prefersReducedMotion,
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const stepButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -95,18 +96,21 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
     e: React.KeyboardEvent<HTMLButtonElement>,
     idx: number
   ) => {
+    let nextIdx: number | null = null;
     if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      setActiveIndex(Math.min(phases.length - 1, idx + 1));
+      nextIdx = Math.min(phases.length - 1, idx + 1);
     } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      setActiveIndex(Math.max(0, idx - 1));
+      nextIdx = Math.max(0, idx - 1);
     } else if (e.key === 'Home') {
-      e.preventDefault();
-      setActiveIndex(0);
+      nextIdx = 0;
     } else if (e.key === 'End') {
+      nextIdx = phases.length - 1;
+    }
+
+    if (nextIdx !== null) {
       e.preventDefault();
-      setActiveIndex(phases.length - 1);
+      setActiveIndex(nextIdx);
+      stepButtonRefs.current[nextIdx]?.focus();
     }
   };
 
@@ -173,6 +177,9 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
             return (
               <motion.button
                 key={item.step}
+                ref={(el) => {
+                  stepButtonRefs.current[idx] = el;
+                }}
                 type="button"
                 onClick={() => setActiveIndex(idx)}
                 onKeyDown={(e) => handleStepKeyDown(e, idx)}
@@ -274,6 +281,8 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 }) => {
   const prefersReducedMotion = useReducedMotion();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [readPercent, setReadPercent] = useState(0);
 
   const { scrollY, scrollYProgress } = useScroll({
@@ -319,12 +328,89 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
     setReadPercent(0);
   }, [projectId]);
 
+  // Capture trigger element & move focus into dialog on open; restore on unmount/close
+  useEffect(() => {
+    if (!projectId) return;
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const raf = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      if (previousFocusRef.current && previousFocusRef.current.isConnected) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [projectId !== null]);
+
   useEffect(() => {
     if (!projectId) return;
 
+    const currentIdx = PROJECTS.findIndex((p) => p.id === projectId);
+    const prevProj = PROJECTS[(currentIdx - 1 + PROJECTS.length) % PROJECTS.length];
+    const nextProj = PROJECTS[(currentIdx + 1) % PROJECTS.length];
+
+    const getFocusableElements = () => {
+      const container = scrollContainerRef.current;
+      if (!container) return [];
+      const selector = [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(',');
+
+      return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+        (el) => el.offsetParent !== null || el.getClientRects().length > 0
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         onClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusables = getFocusableElements();
+        if (focusables.length === 0) return;
+
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+
+        if (e.shiftKey) {
+          if (active === first || !scrollContainerRef.current?.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (active === last || !scrollContainerRef.current?.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+
+      // Skip bracket/alt shortcuts when adjusting range sliders or inputs
+      const targetTag = (e.target as HTMLElement | null)?.tagName;
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT') {
+        return;
+      }
+
+      if (e.key === '[' || (e.altKey && e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        onSelectProject(prevProj.id);
+      } else if (e.key === ']' || (e.altKey && e.key === 'ArrowRight')) {
+        e.preventDefault();
+        onSelectProject(nextProj.id);
       }
     };
 
@@ -336,7 +422,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [projectId, onClose]);
+  }, [projectId, onClose, onSelectProject]);
 
   if (!projectId) return null;
 
@@ -353,11 +439,12 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="case-study-title"
+      tabIndex={-1}
       initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black text-[#0A0A0A] dark:text-white"
+      className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black text-[#0A0A0A] dark:text-white focus:outline-none"
     >
       {/* Top Sticky Monograph Bar */}
       <div className="sticky top-0 z-20 border-b border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-black/95 backdrop-blur-md">
@@ -376,7 +463,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Circular Reading Depth Indicator */}
             <div
               role="progressbar"
@@ -420,10 +507,32 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </span>
             </div>
 
+            <div className="hidden sm:inline-flex items-center gap-1" role="group" aria-label="Switch case study">
+              <button
+                type="button"
+                onClick={() => onSelectProject(prevProject.id)}
+                aria-label={`Previous case study: ${prevProject.title}`}
+                title={`Previous (${prevProject.title}) · [`}
+                className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                <ChevronLeft size={16} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectProject(nextProject.id)}
+                aria-label={`Next case study: ${nextProject.title}`}
+                title={`Next (${nextProject.title}) · ]`}
+                className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </div>
+
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={onClose}
-              aria-label="Close case study"
+              aria-label="Close case study (Escape)"
               className="inline-flex items-center gap-2 min-h-[40px] px-3.5 sm:px-4 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
               <span>Close</span>
@@ -816,7 +925,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                     step={1}
                     value={distanceMeters}
                     onChange={(e) => setDistanceMeters(Number(e.target.value))}
-                    className="w-full h-6 cursor-pointer accent-[#FF721A]"
+                    className="w-full h-6 cursor-pointer accent-[#FF721A] rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   />
                 </label>
 
@@ -836,7 +945,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                     step={0.1}
                     value={pathLossN}
                     onChange={(e) => setPathLossN(Number(e.target.value))}
-                    className="w-full h-6 cursor-pointer accent-[#FF721A]"
+                    className="w-full h-6 cursor-pointer accent-[#FF721A] rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   />
                 </label>
 
@@ -935,7 +1044,8 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <button
             type="button"
             onClick={() => onSelectProject(prevProject.id)}
-            className="inline-flex items-center gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-left"
+            aria-label={`Previous case study: ${prevProject.title}`}
+            className="inline-flex items-center gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >
             <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
             <div>
@@ -947,7 +1057,8 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <button
             type="button"
             onClick={() => onSelectProject(nextProject.id)}
-            className="inline-flex items-center justify-between sm:justify-end gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-right"
+            aria-label={`Next case study: ${nextProject.title}`}
+            className="inline-flex items-center justify-between sm:justify-end gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-right focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >
             <div>
               <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">Next</p>

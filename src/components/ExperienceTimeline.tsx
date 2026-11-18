@@ -32,6 +32,7 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
   const [filter, setFilter] = useState<TimelineFilter>('all');
   const [chronologicalAsc, setChronologicalAsc] = useState<boolean>(true);
   const railRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const { scrollYProgress } = useScroll({
     target: railRef,
@@ -43,6 +44,28 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
     damping: 26,
     restDelta: 0.001,
   });
+
+  const handleTabKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    idx: number
+  ) => {
+    let nextIdx: number | null = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIdx = (idx + 1) % FILTER_OPTIONS.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = FILTER_OPTIONS.length - 1;
+    }
+
+    if (nextIdx !== null) {
+      e.preventDefault();
+      setFilter(FILTER_OPTIONS[nextIdx].id);
+      tabRefs.current[nextIdx]?.focus();
+    }
+  };
 
   // Base array in portfolio.ts is latest-first; reversing displays chronological progression
   const orderedItems = chronologicalAsc ? [...items].reverse() : items;
@@ -60,15 +83,20 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
           aria-label="Filter career and academic timeline"
           className="inline-flex flex-wrap items-center gap-1.5 p-1 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] self-start"
         >
-          {FILTER_OPTIONS.map((opt) => {
+          {FILTER_OPTIONS.map((opt, idx) => {
             const isActive = filter === opt.id;
             return (
               <button
                 key={opt.id}
+                ref={(el) => {
+                  tabRefs.current[idx] = el;
+                }}
                 type="button"
                 role="tab"
+                tabIndex={isActive ? 0 : -1}
                 aria-selected={isActive}
                 onClick={() => setFilter(opt.id)}
+                onKeyDown={(e) => handleTabKeyDown(e, idx)}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                   isActive
                     ? 'text-[#0A0A0A]'
@@ -96,7 +124,8 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
         <button
           type="button"
           onClick={() => setChronologicalAsc((prev) => !prev)}
-          className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] text-xs font-mono text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors"
+          aria-label={`Sort order: ${chronologicalAsc ? 'Earliest to Present' : 'Present to Earliest'}`}
+          className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] text-xs font-mono text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
         >
           <span className="text-[#C94B00] dark:text-[#FF721A] font-semibold">Order:</span>
           <span>{chronologicalAsc ? 'Earliest → Present' : 'Present → Earliest'}</span>
