@@ -197,7 +197,7 @@ export default function App() {
             <ContactAndFooter />
           </main>
 
-          <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:right-12 z-30 flex flex-col items-end gap-2.5">
+          <div className="fixed bottom-4 right-8 sm:bottom-6 sm:right-9 md:right-12 z-30 flex flex-col items-end gap-2.5">
             <FloatingAudioToggle />
             <BackToTopButton inline />
           </div>

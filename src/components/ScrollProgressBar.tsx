@@ -3,8 +3,6 @@ import {
   AnimatePresence,
   motion,
   useReducedMotion,
-  useScroll,
-  useSpring,
 } from 'motion/react';
 
 interface ScrollProgressBarProps {
@@ -24,8 +22,10 @@ interface SectionMarker {
   ratio: number;
 }
 
-const EDGE_PAD = 20;
-const RAIL_WIDTH = 34;
+const DESKTOP_EDGE_PAD = 20;
+const MOBILE_EDGE_PAD = 16;
+const DESKTOP_RAIL_WIDTH = 34;
+const MOBILE_RAIL_WIDTH = 26;
 const TOTAL_TICKS = 50; // Every 2% from 0% to 100%
 const SCROLL_IDLE_DELAY_MS = 1100; // > 1 second after scrolling stops
 
@@ -47,12 +47,6 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   isModalOpen = false,
 }) => {
   const prefersReducedMotion = useReducedMotion();
-  const { scrollYProgress } = useScroll();
-  const smoothMobileProgress = useSpring(scrollYProgress, {
-    stiffness: 180,
-    damping: 30,
-    restDelta: 0.001,
-  });
 
   const [isDesktopRuler, setIsDesktopRuler] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -80,7 +74,10 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     typeof window !== 'undefined' ? window.scrollY : 0
   );
 
-  // Enable custom architectural ruler on tablet/desktop viewports (>= 768px)
+  const railWidth = isDesktopRuler ? DESKTOP_RAIL_WIDTH : MOBILE_RAIL_WIDTH;
+  const edgePad = isDesktopRuler ? DESKTOP_EDGE_PAD : MOBILE_EDGE_PAD;
+
+  // Enable expanded architectural ruler metrics on tablet/desktop viewports (>= 768px)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mq = window.matchMedia('(min-width: 768px)');
@@ -90,11 +87,11 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     return () => mq.removeEventListener('change', syncMode);
   }, []);
 
-  // Toggle html[data-ruler="on"] to hide native OS scrollbar while desktop ruler is active
+  // Toggle html[data-ruler="on"] to hide native OS scrollbar while the architectural ruler bar is active
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    if (isDesktopRuler && !isModalOpen) {
+    if (!isModalOpen) {
       root.setAttribute('data-ruler', 'on');
     } else {
       root.removeAttribute('data-ruler');
@@ -102,7 +99,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     return () => {
       root.removeAttribute('data-ruler');
     };
-  }, [isDesktopRuler, isModalOpen]);
+  }, [isModalOpen]);
 
   // Temporarily pause CSS scroll-snap during direct ruler scrubbing
   useEffect(() => {
@@ -236,12 +233,12 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
   const getClampedRatio = useCallback(
     (clientY: number) => {
-      const span = Math.max(1, metrics.vh - EDGE_PAD * 2);
-      const clampedY = Math.min(EDGE_PAD + span, Math.max(EDGE_PAD, clientY));
-      const ratio = (clampedY - EDGE_PAD) / span;
+      const span = Math.max(1, metrics.vh - edgePad * 2);
+      const clampedY = Math.min(edgePad + span, Math.max(edgePad, clientY));
+      const ratio = (clampedY - edgePad) / span;
       return { ratio, clampedY, span };
     },
-    [metrics.vh]
+    [edgePad, metrics.vh]
   );
 
   const scrollToRatio = useCallback(
@@ -260,11 +257,14 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     dragStartYRef.current = e.clientY;
     dragMovedRef.current = 0;
     setIsDragging(true);
+    if (e.pointerType === 'touch') {
+      setIsHovered(true);
+    }
     setIsScrollIdle(false);
     if (idleTimerRef.current !== null) {
       window.clearTimeout(idleTimerRef.current);
@@ -310,7 +310,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
       e.clientY >= rect.top &&
       e.clientY <= rect.bottom;
 
-    if (!inside) {
+    if (!inside || e.pointerType === 'touch') {
       setIsHovered(false);
       setGhostY(null);
       setGhostPercent(null);
@@ -347,57 +347,13 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     return null;
   }
 
-  // Mobile fallback: crisp 2px architectural progress hairline at top edge + floating section label
-  if (!isDesktopRuler) {
-    return (
-      <>
-        <div
-          aria-hidden="true"
-          className="fixed top-0 left-0 right-0 z-[45] h-[2px] bg-[#E5E5E5]/60 dark:bg-[#262626]/60 pointer-events-none"
-        >
-          <motion.div
-            style={{
-              scaleX: prefersReducedMotion ? scrollYProgress : smoothMobileProgress,
-            }}
-            className="h-full w-full origin-left bg-[#FF721A]"
-          />
-        </div>
-
-        <AnimatePresence>
-          {isScrollIdle && (
-            <motion.div
-              key="mobile-section-floating-label"
-              aria-live="polite"
-              initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -8, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
-              transition={prefersReducedMotion ? { duration: 0.12 } : LABEL_SPRING}
-              className="fixed top-[64px] right-3 z-[45] pointer-events-none"
-            >
-              <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white/92 dark:bg-[#0A0A0A]/92 backdrop-blur-md shadow-md">
-                <span className="w-1.5 h-1.5 bg-[#FF721A] shrink-0" aria-hidden="true" />
-                <span className="font-mono text-[10px] tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                  {activeSection.label}
-                </span>
-                <span className="h-3 w-px bg-[#E5E5E5] dark:bg-[#262626]" aria-hidden="true" />
-                <span className="text-xs font-semibold tracking-tight text-[#0A0A0A] dark:text-white whitespace-nowrap">
-                  {activeSection.name}
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </>
-    );
-  }
-
-  const span = Math.max(1, metrics.vh - EDGE_PAD * 2);
+  const span = Math.max(1, metrics.vh - edgePad * 2);
   const maxScroll = Math.max(1, metrics.docH - metrics.vh);
   const progressRatio = Math.min(1, Math.max(0, metrics.scrollY / maxScroll));
-  const needleY = EDGE_PAD + progressRatio * span;
+  const needleY = edgePad + progressRatio * span;
 
   // Viewport window thumb indicator
-  const thumbTop = EDGE_PAD + (metrics.scrollY / Math.max(1, metrics.docH)) * span;
+  const thumbTop = edgePad + (metrics.scrollY / Math.max(1, metrics.docH)) * span;
   const thumbHeight = Math.max(
     18,
     (metrics.vh / Math.max(1, metrics.docH)) * span
@@ -405,8 +361,13 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
   const activeZoom = isHovered || isDragging;
   const nearBottom = progressRatio > 0.9;
-  const showDesktopFloatingLabel = isScrollIdle && !isDragging;
-  const labelTop = Math.min(Math.max(76, needleY - 16), Math.max(76, metrics.vh - 96));
+  const showFloatingLabel = isScrollIdle && !isDragging;
+  const minLabelTop = isDesktopRuler ? 76 : 68;
+  const maxLabelTop = Math.max(
+    minLabelTop,
+    metrics.vh - (isDesktopRuler ? 120 : 136)
+  );
+  const labelTop = Math.min(Math.max(minLabelTop, needleY - 16), maxLabelTop);
 
   // Format 3-column odometer digits ("000" -> "100", or padded two/three digit display)
   const padded = String(percent).padStart(3, '0');
@@ -414,6 +375,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
   return (
     <>
+      {/* Architectural Vertical Scroll Ruler Bar (Mobile + Desktop) */}
       <div
         ref={railRef}
         role="scrollbar"
@@ -423,211 +385,233 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-      aria-label="Page scroll ruler"
-      onPointerEnter={() => setIsHovered(true)}
-      onPointerLeave={() => {
-        if (!isDragging) {
-          setIsHovered(false);
-          setGhostY(null);
-          setGhostPercent(null);
-        }
-      }}
-      onPointerMove={handlePointerMove}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-      onKeyDown={handleKeyDown}
-      style={{ width: RAIL_WIDTH }}
-      className="fixed inset-y-0 right-0 z-[45] cursor-crosshair select-none overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF721A]"
-    >
-      {/* Frosted right-edge veil */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none transition-opacity duration-200 bg-white/60 dark:bg-black/60"
-        style={{
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          maskImage: 'linear-gradient(to left, black 38%, transparent 100%)',
-          WebkitMaskImage:
-            'linear-gradient(to left, black 38%, transparent 100%)',
-          opacity: activeZoom ? 0.96 : 0.72,
+        aria-label="Page scroll ruler"
+        onPointerEnter={(e) => {
+          if (e.pointerType !== 'touch') setIsHovered(true);
         }}
-      />
-
-      {/* Subtle right hairline spine */}
-      <div
-        aria-hidden="true"
-        className="absolute right-0 pointer-events-none bg-[#E5E5E5] dark:bg-[#262626]"
-        style={{ top: EDGE_PAD, bottom: EDGE_PAD, width: 1 }}
-      />
-
-      {/* Viewport span band (illuminates on hover / drag) */}
-      <div
-        aria-hidden="true"
-        className="absolute right-0 pointer-events-none transition-opacity duration-200 bg-[#0A0A0A]/[0.06] dark:bg-white/[0.08] border-r-2 border-[#FF721A]/70"
-        style={{
-          top: 0,
-          width: activeZoom ? RAIL_WIDTH - 4 : 6,
-          height: thumbHeight,
-          transform: `translate3d(0, ${thumbTop}px, 0)`,
-          opacity: activeZoom ? 1 : 0.45,
-          transitionProperty: 'opacity, width',
+        onPointerLeave={() => {
+          if (!isDragging) {
+            setIsHovered(false);
+            setGhostY(null);
+            setGhostPercent(null);
+          }
         }}
-      />
-
-      {/* Precision Architectural Ruler Ticks (minor 2%, mid 10%, major 20%) */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
+        onPointerMove={handlePointerMove}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onKeyDown={handleKeyDown}
+        style={{ width: railWidth }}
+        className="fixed inset-y-0 right-0 z-[45] cursor-crosshair select-none touch-none overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FF721A]"
       >
-        {Array.from({ length: TOTAL_TICKS + 1 }).map((_, idx) => {
-          const tickRatio = idx / TOTAL_TICKS;
-          const y = EDGE_PAD + tickRatio * span;
-          const isMajor = idx % 10 === 0;
-          const isMid = idx % 5 === 0 && !isMajor;
-          const distFromNeedle = Math.abs(y - needleY);
-          const nearNeedle = distFromNeedle < 28;
-
-          const tickWidth = isMajor
-            ? activeZoom
-              ? 13
-              : 9
-            : nearNeedle
-              ? 7
-              : isMid
-                ? 6
-                : 4;
-
-          return (
-            <span
-              key={idx}
-              className={`absolute right-0 block h-px transition-all duration-150 ${
-                nearNeedle
-                  ? 'bg-[#FF721A]/85'
-                  : isMajor
-                    ? 'bg-[#0A0A0A]/40 dark:bg-white/40'
-                    : isMid
-                      ? 'bg-[#0A0A0A]/28 dark:bg-white/28'
-                      : 'bg-[#0A0A0A]/16 dark:bg-white/16'
-              }`}
-              style={{
-                width: tickWidth,
-                transform: `translate3d(0, ${y}px, 0)`,
-              }}
-            />
-          );
-        })}
-
-        {/* Section registration tick marks */}
-        {sectionMarkers.map((marker) => {
-          const y = EDGE_PAD + marker.ratio * span;
-          const isCurrent = Math.abs(marker.ratio - progressRatio) < 0.06;
-          return (
-            <span
-              key={marker.id}
-              className={`absolute right-0 flex items-center justify-end pointer-events-none transition-colors duration-200`}
-              style={{ transform: `translate3d(0, ${y - 5}px, 0)`, height: 10 }}
-            >
-              {activeZoom && (
-                <span
-                  className={`mr-3.5 font-mono text-[8px] tabular-nums leading-none ${
-                    isCurrent
-                      ? 'text-[#C94B00] dark:text-[#FF721A] font-bold'
-                      : 'text-[#525252]/75 dark:text-[#A3A3A3]/75'
-                  }`}
-                >
-                  {marker.label}
-                </span>
-              )}
-              <span
-                className={`block h-[2px] ${
-                  isCurrent
-                    ? 'w-3 bg-[#FF721A]'
-                    : 'w-2.5 bg-[#0A0A0A]/55 dark:bg-white/55'
-                }`}
-              />
-            </span>
-          );
-        })}
-      </div>
-
-      {/* Hover Ghost Preview Hairline */}
-      {ghostY !== null && activeZoom && !isDragging && (
+        {/* Frosted right-edge veil */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none transition-opacity duration-200 bg-white/60 dark:bg-black/60"
           style={{
-            top: 0,
-            transform: `translate3d(0, ${ghostY}px, 0)`,
-          }}
-        >
-          <span className="block w-full h-px bg-[#0A0A0A]/35 dark:bg-white/35" />
-          {ghostPercent !== null && Math.abs(ghostY - needleY) > 22 && (
-            <span className="absolute right-1.5 -top-3.5 font-mono text-[8px] tabular-nums text-[#525252] dark:text-[#A3A3A3]">
-              {ghostPercent}%
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Active Scroll Hairline Needle + Rolling Odometer Percentage Readout */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 pointer-events-none"
-        style={{
-          transform: `translate3d(0, ${needleY}px, 0)`,
-          willChange: 'transform',
-        }}
-      >
-        <span
-          className="block w-full bg-[#FF721A]"
-          style={{
-            height: activeZoom ? 2 : 1.5,
-            boxShadow: '0 0 8px rgba(255, 114, 26, 0.55)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            maskImage: 'linear-gradient(to left, black 38%, transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to left, black 38%, transparent 100%)',
+            opacity: activeZoom ? 0.96 : 0.72,
           }}
         />
-        <span
-          className="absolute right-1.5 whitespace-nowrap font-mono tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] inline-flex items-center"
+
+        {/* Subtle right hairline spine */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 pointer-events-none bg-[#E5E5E5] dark:bg-[#262626]"
+          style={{ top: edgePad, bottom: edgePad, width: 1 }}
+        />
+
+        {/* Viewport span band (illuminates on hover / drag) */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 pointer-events-none transition-opacity duration-200 bg-[#0A0A0A]/[0.06] dark:bg-white/[0.08] border-r-2 border-[#FF721A]/70"
           style={{
-            top: nearBottom ? -15 : 4,
-            fontSize: 9,
-            letterSpacing: '0.04em',
+            top: 0,
+            width: activeZoom ? railWidth - 4 : isDesktopRuler ? 6 : 4,
+            height: thumbHeight,
+            transform: `translate3d(0, ${thumbTop}px, 0)`,
+            opacity: activeZoom ? 1 : 0.45,
+            transitionProperty: 'opacity, width',
+          }}
+        />
+
+        {/* Precision Architectural Ruler Ticks (minor 2%, mid 10%, major 20%) */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+        >
+          {Array.from({ length: TOTAL_TICKS + 1 }).map((_, idx) => {
+            const tickRatio = idx / TOTAL_TICKS;
+            const y = edgePad + tickRatio * span;
+            const isMajor = idx % 10 === 0;
+            const isMid = idx % 5 === 0 && !isMajor;
+            const distFromNeedle = Math.abs(y - needleY);
+            const nearNeedle = distFromNeedle < 28;
+
+            const tickWidth = isMajor
+              ? activeZoom
+                ? isDesktopRuler
+                  ? 13
+                  : 10
+                : isDesktopRuler
+                  ? 9
+                  : 7
+              : nearNeedle
+                ? isDesktopRuler
+                  ? 7
+                  : 6
+                : isMid
+                  ? isDesktopRuler
+                    ? 6
+                    : 5
+                  : isDesktopRuler
+                    ? 4
+                    : 3;
+
+            return (
+              <span
+                key={idx}
+                className={`absolute right-0 block h-px transition-all duration-150 ${
+                  nearNeedle
+                    ? 'bg-[#FF721A]/85'
+                    : isMajor
+                      ? 'bg-[#0A0A0A]/40 dark:bg-white/40'
+                      : isMid
+                        ? 'bg-[#0A0A0A]/28 dark:bg-white/28'
+                        : 'bg-[#0A0A0A]/16 dark:bg-white/16'
+                }`}
+                style={{
+                  width: tickWidth,
+                  transform: `translate3d(0, ${y}px, 0)`,
+                }}
+              />
+            );
+          })}
+
+          {/* Section registration tick marks */}
+          {sectionMarkers.map((marker) => {
+            const y = edgePad + marker.ratio * span;
+            const isCurrent = Math.abs(marker.ratio - progressRatio) < 0.06;
+            return (
+              <span
+                key={marker.id}
+                className="absolute right-0 flex items-center justify-end pointer-events-none transition-colors duration-200"
+                style={{ transform: `translate3d(0, ${y - 5}px, 0)`, height: 10 }}
+              >
+                {activeZoom && isDesktopRuler && (
+                  <span
+                    className={`mr-3.5 font-mono text-[8px] tabular-nums leading-none ${
+                      isCurrent
+                        ? 'text-[#C94B00] dark:text-[#FF721A] font-bold'
+                        : 'text-[#525252]/75 dark:text-[#A3A3A3]/75'
+                    }`}
+                  >
+                    {marker.label}
+                  </span>
+                )}
+                <span
+                  className={`block h-[2px] ${
+                    isCurrent
+                      ? isDesktopRuler
+                        ? 'w-3 bg-[#FF721A]'
+                        : 'w-2.5 bg-[#FF721A]'
+                      : isDesktopRuler
+                        ? 'w-2.5 bg-[#0A0A0A]/55 dark:bg-white/55'
+                        : 'w-2 bg-[#0A0A0A]/55 dark:bg-white/55'
+                  }`}
+                />
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Hover / Scrub Ghost Preview Hairline */}
+        {ghostY !== null && activeZoom && !isDragging && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 pointer-events-none"
+            style={{
+              top: 0,
+              transform: `translate3d(0, ${ghostY}px, 0)`,
+            }}
+          >
+            <span className="block w-full h-px bg-[#0A0A0A]/35 dark:bg-white/35" />
+            {ghostPercent !== null && Math.abs(ghostY - needleY) > 22 && (
+              <span
+                className={`absolute -top-3.5 font-mono text-[8px] tabular-nums text-[#525252] dark:text-[#A3A3A3] ${
+                  isDesktopRuler ? 'right-1.5' : 'right-1'
+                }`}
+              >
+                {ghostPercent}%
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Active Scroll Hairline Needle + Rolling Odometer Percentage Readout */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 pointer-events-none"
+          style={{
+            transform: `translate3d(0, ${needleY}px, 0)`,
+            willChange: 'transform',
           }}
         >
-          <span className="ruler-digits">
-            {digitCols.map((digit, colIdx) => {
-              // Hide leading zeros except for units digit
-              const isHiddenZero =
-                (colIdx === 0 && percent < 100) ||
-                (colIdx === 1 && percent < 10);
-              if (isHiddenZero) return null;
-              return (
-                <span
-                  key={colIdx}
-                  className="ruler-digit-col"
-                  style={{
-                    transform: prefersReducedMotion
-                      ? `translateY(-${digit}em)`
-                      : `translate3d(0, -${digit}em, 0)`,
-                  }}
-                >
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                    <span key={n}>{n}</span>
-                  ))}
-                </span>
-              );
-            })}
+          <span
+            className="block w-full bg-[#FF721A]"
+            style={{
+              height: activeZoom ? 2 : 1.5,
+              boxShadow: '0 0 8px rgba(255, 114, 26, 0.55)',
+            }}
+          />
+          <span
+            className={`absolute whitespace-nowrap font-mono tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] inline-flex items-center ${
+              isDesktopRuler ? 'right-1.5' : 'right-1'
+            }`}
+            style={{
+              top: nearBottom ? -15 : 4,
+              fontSize: isDesktopRuler ? 9 : 8,
+              letterSpacing: isDesktopRuler ? '0.04em' : '0.01em',
+            }}
+          >
+            <span className="ruler-digits">
+              {digitCols.map((digit, colIdx) => {
+                // Hide leading zeros except for units digit
+                const isHiddenZero =
+                  (colIdx === 0 && percent < 100) ||
+                  (colIdx === 1 && percent < 10);
+                if (isHiddenZero) return null;
+                return (
+                  <span
+                    key={colIdx}
+                    className="ruler-digit-col"
+                    style={{
+                      transform: prefersReducedMotion
+                        ? `translateY(-${digit}em)`
+                        : `translate3d(0, -${digit}em, 0)`,
+                    }}
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                      <span key={n}>{n}</span>
+                    ))}
+                  </span>
+                );
+              })}
+            </span>
+            <span className="ml-[1px]">%</span>
           </span>
-          <span className="ml-[1px]">%</span>
-        </span>
+        </div>
       </div>
-    </div>
 
       {/* Floating active section label shown after scrolling stops for > 1s */}
       <AnimatePresence>
-        {showDesktopFloatingLabel && (
+        {showFloatingLabel && (
           <motion.div
-            key="desktop-section-floating-label"
+            key="section-floating-label"
             aria-live="polite"
             initial={
               prefersReducedMotion
@@ -642,12 +626,12 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
             }
             transition={prefersReducedMotion ? { duration: 0.12 } : LABEL_SPRING}
             style={{
-              right: RAIL_WIDTH + 10,
+              right: railWidth + 10,
               top: labelTop,
             }}
             className="fixed z-[45] pointer-events-none select-none"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white/92 dark:bg-[#0A0A0A]/92 backdrop-blur-md shadow-md">
+            <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white/92 dark:bg-[#0A0A0A]/92 backdrop-blur-md shadow-md">
               <span className="w-1.5 h-1.5 bg-[#FF721A] shrink-0" aria-hidden="true" />
               <span className="font-mono text-[10px] tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
                 {activeSection.label}

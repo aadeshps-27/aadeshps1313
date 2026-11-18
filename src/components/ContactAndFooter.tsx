@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
@@ -27,6 +27,12 @@ interface FormErrors {
   message?: string;
 }
 
+interface MagneticLinkTooltip {
+  platform: string;
+  detail: string;
+  align?: 'center' | 'end';
+}
+
 interface MagneticLinkProps {
   href: string;
   children: React.ReactNode;
@@ -35,6 +41,7 @@ interface MagneticLinkProps {
   entranceDelay?: number;
   className?: string;
   wrapperClassName?: string;
+  tooltip?: MagneticLinkTooltip;
 }
 
 const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 20, mass: 0.45 };
@@ -79,15 +86,21 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
   entranceDelay = 0,
   className = '',
   wrapperClassName = '',
+  tooltip,
 }) => {
   const linkRef = useRef<HTMLAnchorElement>(null);
+  const tooltipId = useId();
   const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const rawX = useMotionValue(0);
   const rawY = useMotionValue(0);
   const rawRotate = useMotionValue(0);
   const springX = useSpring(rawX, MAGNETIC_LINK_SPRING);
   const springY = useSpring(rawY, MAGNETIC_LINK_SPRING);
   const springRotate = useSpring(rawRotate, MAGNETIC_LINK_SPRING);
+
+  const showTooltip = Boolean(tooltip) && (isHovered || isFocused) && !isDismissed;
 
   const handlePointerMove = (e: React.PointerEvent<HTMLAnchorElement>) => {
     if (!allowMagnetic || !linkRef.current) return;
@@ -105,15 +118,35 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
   };
 
   const handlePointerEnter = () => {
+    setIsDismissed(false);
     setIsHovered(true);
   };
 
   const handlePointerReset = () => {
     setIsHovered(false);
+    setIsDismissed(false);
     rawX.set(0);
     rawY.set(0);
     rawRotate.set(0);
   };
+
+  const handleFocus = () => {
+    setIsDismissed(false);
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    setIsDismissed(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
+    if (e.key === 'Escape' && showTooltip) {
+      setIsDismissed(true);
+    }
+  };
+
+  const isEndAligned = tooltip?.align === 'end';
 
   return (
     <motion.div
@@ -129,17 +162,79 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
           ? { duration: 0 }
           : { ...ENTRANCE_SPRING, delay: entranceDelay }
       }
-      className={`inline-block ${wrapperClassName}`}
+      className={`relative inline-block ${wrapperClassName}`}
     >
+      <AnimatePresence>
+        {tooltip && showTooltip && (
+          <motion.div
+            id={tooltipId}
+            role="tooltip"
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, y: 6, scale: 0.95 }
+            }
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : { opacity: 0, y: 4, scale: 0.96 }
+            }
+            transition={{
+              duration: prefersReducedMotion ? 0 : 0.16,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className={`pointer-events-none absolute bottom-full mb-2.5 z-30 ${
+              isEndAligned
+                ? 'left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0'
+                : 'left-1/2 -translate-x-1/2'
+            }`}
+          >
+            <div className="relative px-3 py-2 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] border border-[#262626] dark:border-[#E5E5E5] shadow-lg whitespace-nowrap">
+              <span className="inline-flex items-center gap-1.5 leading-none">
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-1.5 h-1.5 bg-[#FF721A] shrink-0"
+                />
+                <span className="font-semibold text-[11px] tracking-tight">
+                  {tooltip.platform}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="text-[#737373] dark:text-[#A3A3A3]"
+                >
+                  ·
+                </span>
+                <span className="font-mono text-[10px] text-[#D4D4D4] dark:text-[#525252]">
+                  {tooltip.detail}
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className={`absolute -bottom-1 w-2 h-2 rotate-45 bg-[#0A0A0A] dark:bg-white border-r border-b border-[#262626] dark:border-[#E5E5E5] ${
+                  isEndAligned
+                    ? 'left-1/2 -translate-x-1/2 sm:left-auto sm:right-5 sm:translate-x-0'
+                    : 'left-1/2 -translate-x-1/2'
+                }`}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.a
         ref={linkRef}
         href={href}
         target="_blank"
         rel="noopener noreferrer"
+        aria-describedby={showTooltip ? tooltipId : undefined}
         onPointerEnter={handlePointerEnter}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerReset}
         onPointerCancel={handlePointerReset}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
         whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
         transition={INTERACTION_SPRING}
@@ -697,6 +792,7 @@ export const ContactAndFooter: React.FC = () => {
               allowMagnetic={allowMagnetic}
               prefersReducedMotion={prefersReducedMotion}
               entranceDelay={0.05}
+              tooltip={{ platform: 'LinkedIn', detail: 'in/aadeshps27' }}
               className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
               LinkedIn
@@ -706,6 +802,11 @@ export const ContactAndFooter: React.FC = () => {
               allowMagnetic={allowMagnetic}
               prefersReducedMotion={prefersReducedMotion}
               entranceDelay={0.14}
+              tooltip={{
+                platform: 'Instagram',
+                detail: '@_aadeshps',
+                align: 'end',
+              }}
               className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
               Instagram

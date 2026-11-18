@@ -232,8 +232,8 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
         scrolled ? 'shadow-[0_1px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_16px_rgba(0,0,0,0.5)]' : ''
       }`}
     >
-      {/* Clear right-edge architectural scroll ruler (34px wide) on md+ screens */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:pr-12 lg:pl-10 lg:pr-14 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-6 lg:gap-8">
+      {/* Clear right-edge architectural scroll ruler (26px mobile / 34px md+) */}
+      <div className="max-w-7xl mx-auto pl-4 pr-8 sm:pl-6 sm:pr-9 md:pr-12 lg:pl-10 lg:pr-14 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-6 lg:gap-8">
         {/* Zone 1: Brand wordmark blended seamlessly in Light & Dark modes */}
         <motion.a
           href="#top"
@@ -363,7 +363,7 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
             transition={{ duration: 0.24, ease: ARTCRAFT_EASE }}
-            className="md:hidden overflow-hidden border-t border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-black px-4 sm:px-6 shadow-lg"
+            className="md:hidden overflow-hidden border-t border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-black pl-4 pr-8 sm:pl-6 sm:pr-9 shadow-lg"
           >
             <nav aria-label="Mobile Navigation" className="py-4 flex flex-col gap-1">
               {navLinks.map((item) => {
