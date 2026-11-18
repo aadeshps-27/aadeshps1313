@@ -20,6 +20,13 @@ import {
   getProjectReadingTime,
 } from '../data/portfolio';
 import { SafeImage } from './SafeImage';
+import { InlineAudioToggle } from './SpatialAudioProvider';
+import {
+  playModalClose,
+  playMonographSwitch,
+  playSliderTick,
+  playTimelineStep,
+} from '../utils/spatialAudio';
 
 interface CaseStudyModalProps {
   projectId: ProjectId | null;
@@ -92,6 +99,13 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
   const progressRatio =
     phases.length > 1 ? safeIndex / (phases.length - 1) : 1;
 
+  const selectPhase = (nextIdx: number, sourceEl?: HTMLElement | null) => {
+    const clamped = Math.max(0, Math.min(phases.length - 1, nextIdx));
+    if (clamped === safeIndex) return;
+    playTimelineStep(clamped, phases.length, sourceEl ?? stepButtonRefs.current[clamped]);
+    setActiveIndex(clamped);
+  };
+
   const handleStepKeyDown = (
     e: React.KeyboardEvent<HTMLButtonElement>,
     idx: number
@@ -109,8 +123,9 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
 
     if (nextIdx !== null) {
       e.preventDefault();
-      setActiveIndex(nextIdx);
-      stepButtonRefs.current[nextIdx]?.focus();
+      const targetEl = stepButtonRefs.current[nextIdx];
+      selectPhase(nextIdx, targetEl);
+      targetEl?.focus();
     }
   };
 
@@ -131,7 +146,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
           <div className="inline-flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
+              onClick={(e) => selectPhase(safeIndex - 1, e.currentTarget)}
               disabled={safeIndex === 0}
               aria-label="Previous project phase"
               className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
@@ -140,9 +155,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
             </button>
             <button
               type="button"
-              onClick={() =>
-                setActiveIndex((prev) => Math.min(phases.length - 1, prev + 1))
-              }
+              onClick={(e) => selectPhase(safeIndex + 1, e.currentTarget)}
               disabled={safeIndex === phases.length - 1}
               aria-label="Next project phase"
               className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
@@ -181,7 +194,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
                   stepButtonRefs.current[idx] = el;
                 }}
                 type="button"
-                onClick={() => setActiveIndex(idx)}
+                onClick={(e) => selectPhase(idx, e.currentTarget)}
                 onKeyDown={(e) => handleStepKeyDown(e, idx)}
                 aria-current={isActive ? 'step' : undefined}
                 whileHover={prefersReducedMotion ? undefined : { y: -1 }}
@@ -375,6 +388,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        playModalClose();
         onClose();
         return;
       }
@@ -407,9 +421,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
       if (e.key === '[' || (e.altKey && e.key === 'ArrowLeft')) {
         e.preventDefault();
+        playMonographSwitch('prev');
         onSelectProject(prevProj.id);
       } else if (e.key === ']' || (e.altKey && e.key === 'ArrowRight')) {
         e.preventDefault();
+        playMonographSwitch('next');
         onSelectProject(nextProj.id);
       }
     };
@@ -507,10 +523,15 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </span>
             </div>
 
+            <InlineAudioToggle />
+
             <div className="hidden sm:inline-flex items-center gap-1" role="group" aria-label="Switch case study">
               <button
                 type="button"
-                onClick={() => onSelectProject(prevProject.id)}
+                onClick={(e) => {
+                  playMonographSwitch('prev', e.currentTarget);
+                  onSelectProject(prevProject.id);
+                }}
                 aria-label={`Previous case study: ${prevProject.title}`}
                 title={`Previous (${prevProject.title}) · [`}
                 className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
@@ -519,7 +540,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => onSelectProject(nextProject.id)}
+                onClick={(e) => {
+                  playMonographSwitch('next', e.currentTarget);
+                  onSelectProject(nextProject.id);
+                }}
                 aria-label={`Next case study: ${nextProject.title}`}
                 title={`Next (${nextProject.title}) · ]`}
                 className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
@@ -531,7 +555,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             <button
               ref={closeButtonRef}
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                playModalClose();
+                onClose();
+              }}
               aria-label="Close case study (Escape)"
               className="inline-flex items-center gap-2 min-h-[40px] px-3.5 sm:px-4 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
@@ -924,7 +951,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                     max={150}
                     step={1}
                     value={distanceMeters}
-                    onChange={(e) => setDistanceMeters(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDistanceMeters(val);
+                      playSliderTick((val - 1) / 149, e.currentTarget);
+                    }}
                     className="w-full h-6 cursor-pointer accent-[#FF721A] rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   />
                 </label>
@@ -944,7 +975,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                     max={4.0}
                     step={0.1}
                     value={pathLossN}
-                    onChange={(e) => setPathLossN(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setPathLossN(val);
+                      playSliderTick((val - 2.0) / 2.0, e.currentTarget);
+                    }}
                     className="w-full h-6 cursor-pointer accent-[#FF721A] rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   />
                 </label>
@@ -1043,7 +1078,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
         <footer className="pt-8 border-t border-[#E5E5E5] dark:border-[#262626] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() => onSelectProject(prevProject.id)}
+            onClick={(e) => {
+              playMonographSwitch('prev', e.currentTarget);
+              onSelectProject(prevProject.id);
+            }}
             aria-label={`Previous case study: ${prevProject.title}`}
             className="inline-flex items-center gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >
@@ -1056,7 +1094,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
           <button
             type="button"
-            onClick={() => onSelectProject(nextProject.id)}
+            onClick={(e) => {
+              playMonographSwitch('next', e.currentTarget);
+              onSelectProject(nextProject.id);
+            }}
             aria-label={`Next case study: ${nextProject.title}`}
             className="inline-flex items-center justify-between sm:justify-end gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-right focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >

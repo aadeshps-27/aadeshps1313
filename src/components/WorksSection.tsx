@@ -26,11 +26,16 @@ import {
   ParallaxLayer,
   ParallaxMediaAperture,
 } from './MotionPrimitives';
+import {
+  playCardHover,
+  playFilterTab,
+  playSpecsToggle,
+} from '../utils/spatialAudio';
 
 interface WorksSectionProps {
   activeFilter: ProjectCategory;
   onChangeFilter: (filter: ProjectCategory) => void;
-  onOpenProject: (id: ProjectId) => void;
+  onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
 }
 
 const FILTER_OPTIONS: { id: ProjectCategory; label: string }[] = [
@@ -92,7 +97,7 @@ interface MagneticProjectCardProps {
   isLeadFeatured: boolean;
   allowParallax: boolean;
   prefersReducedMotion: boolean;
-  onOpenProject: (id: ProjectId) => void;
+  onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
 }
 
 const MAGNETIC_SPRING = { stiffness: 240, damping: 26, mass: 0.55 };
@@ -143,7 +148,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
     pointerY.set(ny);
   };
 
-  const handlePointerEnter = () => {
+  const handlePointerEnter = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== 'touch') {
+      playCardHover(cardRef.current, index);
+    }
     if (!allowParallax) return;
     setIsHovered(true);
   };
@@ -160,13 +168,18 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
 
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onOpenProject(project.id);
+      onOpenProject(project.id, cardRef.current);
       return;
     }
 
     if (e.key === 'e' || e.key === 'E') {
       e.preventDefault();
-      setIsExpanded((prev) => !prev);
+      const targetEl = cardRef.current;
+      setIsExpanded((prev) => {
+        const next = !prev;
+        playSpecsToggle(next, targetEl);
+        return next;
+      });
       return;
     }
 
@@ -231,7 +244,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
         aria-describedby={`project-summary-${project.id}`}
         aria-keyshortcuts="Enter Space E ArrowLeft ArrowRight"
         onFocus={(e) => {
-          if (e.target === e.currentTarget) setIsFocused(true);
+          if (e.target === e.currentTarget) {
+            setIsFocused(true);
+            playCardHover(cardRef.current, index);
+          }
         }}
         onBlur={() => setIsFocused(false)}
         onKeyDown={handleCardKeyDown}
@@ -364,7 +380,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
           <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
             <button
               type="button"
-              onClick={() => onOpenProject(project.id)}
+              onClick={(e) => onOpenProject(project.id, e.currentTarget)}
               className="invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
               <span>Read Case Study</span>
@@ -375,7 +391,14 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
               type="button"
               aria-expanded={isExpanded}
               aria-controls={`project-expanded-${project.id}`}
-              onClick={() => setIsExpanded((prev) => !prev)}
+              onClick={(e) => {
+                const sourceEl = e.currentTarget;
+                setIsExpanded((prev) => {
+                  const next = !prev;
+                  playSpecsToggle(next, sourceEl);
+                  return next;
+                });
+              }}
               className={`w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                 isExpanded
                   ? 'border-[#FF721A] bg-[#FF721A] text-[#0A0A0A]'
@@ -539,8 +562,13 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     }
   }, [activeFilter]);
 
-  const handleFilterClick = (nextFilter: ProjectCategory) => {
+  const handleFilterClick = (
+    nextFilter: ProjectCategory,
+    tabIndex = 0,
+    sourceEl?: HTMLElement | null
+  ) => {
     if (nextFilter === activeFilter) return;
+    playFilterTab(tabIndex, FILTER_OPTIONS.length, sourceEl);
     setHasSwitchedFilter(true);
     onChangeFilter(nextFilter);
   };
@@ -563,8 +591,9 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     if (nextIdx !== null) {
       e.preventDefault();
       const targetOption = FILTER_OPTIONS[nextIdx];
-      handleFilterClick(targetOption.id);
-      filterTabRefs.current[nextIdx]?.focus();
+      const targetEl = filterTabRefs.current[nextIdx];
+      handleFilterClick(targetOption.id, nextIdx, targetEl);
+      targetEl?.focus();
     }
   };
 
@@ -578,7 +607,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   return (
     <section
       id="work"
-      className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+      className="snap-start py-12 sm:py-16 lg:py-24"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         {/* Section Header + Functional Segmented Filter Bar */}
@@ -619,7 +648,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                     role="tab"
                     tabIndex={isSelected ? 0 : -1}
                     aria-selected={isSelected}
-                    onClick={() => handleFilterClick(option.id)}
+                    onClick={(e) => handleFilterClick(option.id, idx, e.currentTarget)}
                     onKeyDown={(e) => handleFilterKeyDown(e, idx)}
                     className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                       isSelected

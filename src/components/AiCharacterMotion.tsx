@@ -10,6 +10,7 @@ import {
   useVelocity,
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
+import { playCompanionCue } from '../utils/spatialAudio';
 
 type MoodMode =
   | 'tracking'
@@ -453,6 +454,7 @@ export const AiCharacterMotion: React.FC = () => {
 
   const triggerOverdrive = useCallback(() => {
     clearDizzyTimer();
+    playCompanionCue('overdrive', stageRef.current);
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setOverdriveCount((c) => c + 1);
@@ -523,6 +525,7 @@ export const AiCharacterMotion: React.FC = () => {
       flashThought('exclaim', 1100);
     }
 
+    playCompanionCue('tap', stageRef.current);
     setMood(nextMood);
     if (!pointerFine) {
       setShowControls((s) => !s);
@@ -531,6 +534,7 @@ export const AiCharacterMotion: React.FC = () => {
 
   const triggerSpin = () => {
     clearDizzyTimer();
+    playCompanionCue('spin', stageRef.current);
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setDanceActive(false);

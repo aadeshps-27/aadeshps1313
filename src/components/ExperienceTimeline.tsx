@@ -3,6 +3,7 @@ import { Briefcase, GraduationCap, MapPin } from 'lucide-react';
 import { motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { ExperienceItem } from '../data/portfolio';
 import { ParallaxLayer } from './MotionPrimitives';
+import { playFilterTab } from '../utils/spatialAudio';
 
 type TimelineFilter = 'all' | 'role' | 'education';
 
@@ -62,8 +63,10 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
 
     if (nextIdx !== null) {
       e.preventDefault();
+      const targetEl = tabRefs.current[nextIdx];
       setFilter(FILTER_OPTIONS[nextIdx].id);
-      tabRefs.current[nextIdx]?.focus();
+      playFilterTab(nextIdx, FILTER_OPTIONS.length, targetEl);
+      targetEl?.focus();
     }
   };
 
@@ -95,7 +98,12 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                 role="tab"
                 tabIndex={isActive ? 0 : -1}
                 aria-selected={isActive}
-                onClick={() => setFilter(opt.id)}
+                onClick={(e) => {
+                  if (filter !== opt.id) {
+                    playFilterTab(idx, FILTER_OPTIONS.length, e.currentTarget);
+                  }
+                  setFilter(opt.id);
+                }}
                 onKeyDown={(e) => handleTabKeyDown(e, idx)}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                   isActive
@@ -123,7 +131,10 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
 
         <button
           type="button"
-          onClick={() => setChronologicalAsc((prev) => !prev)}
+          onClick={(e) => {
+            playFilterTab(chronologicalAsc ? 1 : 2, 3, e.currentTarget);
+            setChronologicalAsc((prev) => !prev);
+          }}
           aria-label={`Sort order: ${chronologicalAsc ? 'Earliest to Present' : 'Present to Earliest'}`}
           className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] text-xs font-mono text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
         >

@@ -12,7 +12,13 @@ import { CaseStudyModal } from './components/CaseStudyModal';
 import { BackToTopButton } from './components/BackToTopButton';
 import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { InteractiveDotGrid } from './components/InteractiveDotGrid';
+import {
+  FloatingAudioToggle,
+  SpatialAudioProvider,
+} from './components/SpatialAudioProvider';
+import { SectionDivider } from './components/SectionDivider';
 import { ProjectCategory, ProjectId } from './data/portfolio';
+import { playModalOpen, playThemeSwitch } from './utils/spatialAudio';
 
 type DocumentWithViewTransition = Document & {
   startViewTransition?: (updateCallback: () => void) => {
@@ -54,6 +60,7 @@ export default function App() {
 
   const toggleTheme = (event?: React.MouseEvent<HTMLButtonElement>) => {
     const nextTheme: 'light' | 'dark' = theme === 'dark' ? 'light' : 'dark';
+    playThemeSwitch(nextTheme, event?.currentTarget);
     const root = document.documentElement;
     const doc = document as DocumentWithViewTransition;
     const reduceMotion =
@@ -119,69 +126,100 @@ export default function App() {
     setIsPreloading(false);
   }, []);
 
+  const handleOpenProject = useCallback(
+    (id: ProjectId, source?: HTMLElement | null) => {
+      playModalOpen(source);
+      setSelectedProject(id);
+    },
+    []
+  );
+
   const isOverlayOpen = selectedProject !== null || isPreloading;
 
   return (
-    <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#FF721A] focus:text-[#0A0A0A] focus:font-bold focus:text-xs focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-[#0A0A0A] dark:focus:outline-white"
-      >
-        Skip to main content
-      </a>
+    <SpatialAudioProvider>
+      <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#FF721A] focus:text-[#0A0A0A] focus:font-bold focus:text-xs focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-[#0A0A0A] dark:focus:outline-white"
+        >
+          Skip to main content
+        </a>
 
-      <InteractiveDotGrid />
+        <InteractiveDotGrid />
 
-      <AnimatePresence>
-        {isPreloading && (
-          <Preloader key="site-preloader" onComplete={handlePreloaderComplete} />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {isPreloading && (
+            <Preloader key="site-preloader" onComplete={handlePreloaderComplete} />
+          )}
+        </AnimatePresence>
 
-      <CustomCursor />
-      <ScrollProgressBar isModalOpen={isOverlayOpen} />
+        <CustomCursor />
+        <ScrollProgressBar isModalOpen={isOverlayOpen} />
 
-      <div
-        aria-hidden={isOverlayOpen || undefined}
-        inert={isOverlayOpen}
-      >
-        <Navbar theme={theme} onToggleTheme={toggleTheme} />
+        <div
+          aria-hidden={isOverlayOpen || undefined}
+          inert={isOverlayOpen}
+        >
+          <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
-        <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
-          <AboutSection
-            onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
-          />
+          <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
+            <AboutSection
+              onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
+            />
 
-          <WorksSection
-            activeFilter={activeFilter}
-            onChangeFilter={setActiveFilter}
-            onOpenProject={(id) => setSelectedProject(id)}
-          />
+            <SectionDivider
+              index="02"
+              label="Selected Works"
+              descriptor="Case Studies & Research"
+            />
 
-          <ExperienceSection />
+            <WorksSection
+              activeFilter={activeFilter}
+              onChangeFilter={setActiveFilter}
+              onOpenProject={handleOpenProject}
+            />
 
-          <ContactAndFooter />
-        </main>
+            <SectionDivider
+              index="03"
+              label="Professional Background"
+              descriptor="Roles & Academic Journey"
+            />
 
-        <BackToTopButton />
+            <ExperienceSection />
+
+            <SectionDivider
+              index="04"
+              label="Direct Connection"
+              descriptor="Collaborations & Inquiries"
+            />
+
+            <ContactAndFooter />
+          </main>
+
+          <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:right-12 z-30 flex flex-col items-end gap-2.5">
+            <FloatingAudioToggle />
+            <BackToTopButton inline />
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {selectedProject && (
+            <CaseStudyModal
+              key="case-study-modal"
+              projectId={selectedProject}
+              onClose={() => setSelectedProject(null)}
+              onSelectProject={(id) => setSelectedProject(id)}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!isPreloading && selectedProject === null && (
+            <AiCharacterMotion key="ai-character-motion" />
+          )}
+        </AnimatePresence>
       </div>
-
-      <AnimatePresence>
-        {selectedProject && (
-          <CaseStudyModal
-            key="case-study-modal"
-            projectId={selectedProject}
-            onClose={() => setSelectedProject(null)}
-            onSelectProject={(id) => setSelectedProject(id)}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {!isPreloading && selectedProject === null && (
-          <AiCharacterMotion key="ai-character-motion" />
-        )}
-      </AnimatePresence>
-    </div>
+    </SpatialAudioProvider>
   );
 }

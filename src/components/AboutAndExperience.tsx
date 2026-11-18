@@ -26,6 +26,7 @@ import {
   RegistrationTick,
   SectionChoreoHeader,
 } from './MotionPrimitives';
+import { playFilterTab } from '../utils/spatialAudio';
 
 const EASE_OUT_EXPO = ARTCRAFT_EASE;
 
@@ -155,7 +156,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   return (
     <section
       id="about"
-      className="snap-start pt-6 pb-14 sm:pt-10 sm:pb-20 lg:pt-12 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+      className="snap-start pt-6 pb-12 sm:pt-10 sm:pb-16 lg:pt-12 lg:pb-24"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         <div id="top" className="space-y-8 sm:space-y-10">
@@ -444,7 +445,8 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     delay: prefersReducedMotion ? 0 : idx * 0.065,
                     ease: ARTCRAFT_EASE,
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
+                    playFilterTab(idx, DISCIPLINES.length, e.currentTarget);
                     onSelectDisciplineFilter?.(item.filter);
                     const el = document.getElementById('work');
                     el?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
@@ -481,7 +483,7 @@ export const ExperienceSection: React.FC = () => {
   return (
     <section
         id="experience"
-        className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+        className="snap-start py-12 sm:py-16 lg:py-24"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">

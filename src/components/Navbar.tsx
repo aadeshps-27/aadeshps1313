@@ -3,6 +3,7 @@ import { Menu, X } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
+import { playNavSelect } from '../utils/spatialAudio';
 
 interface NavbarProps {
   theme: 'light' | 'dark';
@@ -205,6 +206,7 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
     href: string
   ) => {
     e.preventDefault();
+    playNavSelect(e.currentTarget);
     scrollToSection(href);
   };
 
@@ -213,6 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
     href: string
   ) => {
     e.preventDefault();
+    playNavSelect(e.currentTarget);
     setMobileOpen(false);
     // Defer scroll by one frame so drawer collapse doesn't skew landing offset
     window.requestAnimationFrame(() => {

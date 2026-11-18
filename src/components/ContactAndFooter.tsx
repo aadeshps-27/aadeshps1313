@@ -10,6 +10,7 @@ import {
 import { PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE, ParallaxLayer, SectionChoreoHeader } from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
+import { playCopyConfirm } from '../utils/spatialAudio';
 
 interface FormErrors {
   name?: string;
@@ -206,7 +207,8 @@ export const ContactAndFooter: React.FC = () => {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleCopyEmail = async () => {
+  const handleCopyEmail = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const sourceEl = e.currentTarget;
     let copied = false;
 
     try {
@@ -235,6 +237,7 @@ export const ContactAndFooter: React.FC = () => {
     }
 
     if (copied) {
+      playCopyConfirm(sourceEl);
       if (copyTimerRef.current !== null) {
         window.clearTimeout(copyTimerRef.current);
       }
@@ -270,7 +273,7 @@ export const ContactAndFooter: React.FC = () => {
 
   return (
     <>
-      <section id="contact" className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]">
+      <section id="contact" className="snap-start pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             {/* Left Column: Direct Channels */}
