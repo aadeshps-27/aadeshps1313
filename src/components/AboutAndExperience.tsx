@@ -16,6 +16,7 @@ import {
 import { ExperienceTimeline } from './ExperienceTimeline';
 import { LiveClock } from './LiveClock';
 import { SafeImage } from './SafeImage';
+import { warmImage } from '../utils/imagePreload';
 import { TechnologyCloud } from './TechnologyCloud';
 import {
   ARTCRAFT_EASE,
@@ -132,9 +133,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   const rotateY = useSpring(rawRotateY, { stiffness: 220, damping: 24, mass: 0.55 });
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !PROFILE.portraitImage) return;
-    const preload = new window.Image();
-    preload.src = PROFILE.portraitImage;
+    if (PROFILE.portraitImage) {
+      warmImage(PROFILE.portraitImage);
+    }
   }, []);
 
   const handlePortraitMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -289,6 +290,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                       src={PROFILE.portraitImage}
                       alt={PROFILE.portraitImageAlt}
                       fallbackLabel={PROFILE.name}
+                      priority="high"
+                      loading="eager"
+                      decoding="async"
                       className="w-full h-full object-cover object-top"
                     />
                   </motion.div>

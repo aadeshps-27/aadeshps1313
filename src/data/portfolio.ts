@@ -1,7 +1,7 @@
-import heroAbstractImg from '../assets/images/abstract_hero_architecture_1794645779005.jpg';
-import vectorAtelierImg from '../assets/images/project_vector_atelier_1794644199666.jpg';
-import roboticsAbstractImg from '../assets/images/abstract_robotics_kinematics_1794645780497.jpg';
-import rfAbstractImg from '../assets/images/abstract_rf_waveforms_1794645779400.jpg';
+import heroAbstractImg from '../assets/optimized/hero-abstract.webp';
+import vectorAtelierImg from '../assets/optimized/project-vector-atelier.webp';
+import roboticsAbstractImg from '../assets/optimized/project-robotics.webp';
+import rfAbstractImg from '../assets/optimized/project-rf.webp';
 
 export type ProjectCategory = 'all' | 'design' | 'robotics' | 'rf';
 
@@ -35,6 +35,8 @@ export interface ExperienceItem {
   focus: string[];
 }
 
+export const BRAND_LOGO_URL = '/assets/optimized/brand-logo.webp';
+
 export const PROFILE = {
   name: 'Aadesh P S',
   shortName: 'Aadesh',
@@ -43,6 +45,8 @@ export const PROFILE = {
   education: "Master's in Applied Electronics",
   availability: 'Open for select commissions & product teams',
   email: 'aadeshps2015@gmail.com',
+  domain: 'aadeshps.in',
+  websiteUrl: 'https://aadeshps.in',
   whatsappDisplay: '+91 88938 09997',
   whatsappHref: 'https://wa.me/918893809997',
   linkedinHref: 'https://www.linkedin.com/in/aadeshps27/',
@@ -50,7 +54,7 @@ export const PROFILE = {
   heroImage: heroAbstractImg,
   heroImageAlt:
     'Abstract modernist geometric composition of sweeping obsidian, travertine, and cinnabar arcs',
-  portraitImage: '/assets/aistudio/file_00000000e600820bbd42f9184960f74d_24f90d41.png',
+  portraitImage: '/assets/optimized/portrait-aadesh.webp',
   portraitImageAlt:
     'Stylized geometric vector portrait illustration of Aadesh P S surrounded by concentric orbital lines',
 };

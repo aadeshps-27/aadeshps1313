@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { PROFILE } from '../data/portfolio';
+import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 import { playNavSelect } from '../utils/spatialAudio';
 
@@ -245,8 +245,11 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
           className="inline-flex items-center shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-sm"
         >
           <img
-            src="/assets/aistudio/Black_Blue_and_White_Gradient_Modern_Business_LinkedIn_Banner__3__1be4a1fb.png"
+            src={BRAND_LOGO_URL}
             alt={PROFILE.name}
+            loading="eager"
+            decoding="sync"
+            fetchPriority="high"
             referrerPolicy="no-referrer"
             className="h-8 sm:h-9 lg:h-10 w-auto max-w-[160px] sm:max-w-[200px] object-contain object-left select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
           />

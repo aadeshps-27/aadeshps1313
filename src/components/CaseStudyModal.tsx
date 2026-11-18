@@ -621,6 +621,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               src={project.image}
               alt={project.imageAlt}
               fallbackLabel={project.title}
+              priority="high"
+              loading="eager"
+              decoding="sync"
               className="w-full h-full object-cover"
             />
           </div>

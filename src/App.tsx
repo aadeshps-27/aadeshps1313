@@ -17,8 +17,15 @@ import {
   SpatialAudioProvider,
 } from './components/SpatialAudioProvider';
 import { SectionDivider } from './components/SectionDivider';
-import { ProjectCategory, ProjectId } from './data/portfolio';
+import {
+  BRAND_LOGO_URL,
+  PROFILE,
+  PROJECTS,
+  ProjectCategory,
+  ProjectId,
+} from './data/portfolio';
 import { playModalOpen, playThemeSwitch } from './utils/spatialAudio';
+import { warmImagesOnIdle } from './utils/imagePreload';
 
 type DocumentWithViewTransition = Document & {
   startViewTransition?: (updateCallback: () => void) => {
@@ -47,6 +54,14 @@ export default function App() {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  useEffect(() => {
+    return warmImagesOnIdle([
+      BRAND_LOGO_URL,
+      PROFILE.portraitImage,
+      ...PROJECTS.map((project) => project.image),
+    ]);
+  }, []);
 
   const applyThemeDom = (nextTheme: 'light' | 'dark') => {
     const root = document.documentElement;

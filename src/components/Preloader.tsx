@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { PROFILE } from '../data/portfolio';
+import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 
 interface PreloaderProps {
@@ -8,8 +8,7 @@ interface PreloaderProps {
 }
 
 const PRELOAD_DURATION_MS = 1350;
-const LOGO_SRC =
-  '/assets/aistudio/Black_Blue_and_White_Gradient_Modern_Business_LinkedIn_Banner__3__1be4a1fb.png';
+const LOGO_SRC = BRAND_LOGO_URL;
 
 export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -72,6 +71,9 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
           src={LOGO_SRC}
           alt=""
           aria-hidden="true"
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
           referrerPolicy="no-referrer"
           className="h-14 sm:h-20 lg:h-24 w-auto object-contain opacity-0 pointer-events-none"
         />
@@ -91,6 +93,9 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
             <img
               src={LOGO_SRC}
               alt=""
+              loading="eager"
+              decoding="sync"
+              fetchPriority="high"
               referrerPolicy="no-referrer"
               className="h-14 sm:h-20 lg:h-24 w-auto object-contain mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen"
             />
@@ -116,6 +121,9 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
             <img
               src={LOGO_SRC}
               alt={PROFILE.name}
+              loading="eager"
+              decoding="sync"
+              fetchPriority="high"
               referrerPolicy="no-referrer"
               className="h-14 sm:h-20 lg:h-24 w-auto object-contain mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen"
             />

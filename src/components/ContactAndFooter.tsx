@@ -13,7 +13,7 @@ import {
   useReducedMotion,
   useSpring,
 } from 'motion/react';
-import { PROFILE } from '../data/portfolio';
+import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
 import { ARTCRAFT_EASE, ParallaxLayer, SectionChoreoHeader } from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
 import {
@@ -771,8 +771,10 @@ export const ContactAndFooter: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-4">
             <a href="#top" aria-label={PROFILE.name} className="inline-flex items-center shrink-0">
               <img
-                src="/assets/aistudio/Black_Blue_and_White_Gradient_Modern_Business_LinkedIn_Banner__3__1be4a1fb.png"
+                src={BRAND_LOGO_URL}
                 alt={PROFILE.name}
+                loading="lazy"
+                decoding="async"
                 referrerPolicy="no-referrer"
                 className="h-8 w-auto object-contain select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
               />
@@ -782,7 +784,13 @@ export const ContactAndFooter: React.FC = () => {
               <strong className="font-bold text-[#0A0A0A] dark:text-white">
                 Aadesh PS
               </strong>
-              . Crafted with precision.
+              {' · '}
+              <a
+                href={PROFILE.websiteUrl}
+                className="hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] rounded-sm"
+              >
+                {PROFILE.domain}
+              </a>
             </p>
           </div>
 

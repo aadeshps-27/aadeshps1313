@@ -313,6 +313,9 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                 src={project.image}
                 alt={project.imageAlt}
                 fallbackLabel={project.title}
+                priority={index === 0 ? 'high' : 'auto'}
+                loading="eager"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
             </motion.div>
