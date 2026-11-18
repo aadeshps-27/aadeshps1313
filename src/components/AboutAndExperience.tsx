@@ -1,22 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import {
-  AnimatePresence,
   motion,
   useMotionValue,
   useReducedMotion,
   useSpring,
-  useTransform,
 } from 'motion/react';
 import {
+  DISCIPLINES,
   EXPERIENCE,
   PROCESS_PILLARS,
   PROFILE,
+  ProjectCategory,
 } from '../data/portfolio';
 import { ExperienceTimeline } from './ExperienceTimeline';
+import { LiveClock } from './LiveClock';
 import { SafeImage } from './SafeImage';
 import { TechnologyCloud } from './TechnologyCloud';
 import {
   ARTCRAFT_EASE,
+  BlurSlideReveal,
+  DrawEyebrow,
+  DrawRule,
   ParallaxLayer,
   RegistrationTick,
   SectionChoreoHeader,
@@ -98,19 +103,32 @@ const ScrollRevealText: React.FC<RevealTextProps> = ({
   );
 };
 
-export const AboutAndExperience: React.FC = () => {
+interface AboutSectionProps {
+  onSelectDisciplineFilter?: (filter: Exclude<ProjectCategory, 'all'>) => void;
+}
+
+export const AboutSection: React.FC<AboutSectionProps> = ({
+  onSelectDisciplineFilter,
+}) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
-  const [aboutHovered, setAboutHovered] = useState(false);
-  const aboutBlockRef = useRef<HTMLDivElement>(null);
+  const [pointerFine, setPointerFine] = useState(false);
+  const [portraitHovered, setPortraitHovered] = useState(false);
+  const portraitFrameRef = useRef<HTMLDivElement>(null);
 
-  const hoverX = useMotionValue(0);
-  const hoverY = useMotionValue(0);
-  const smoothX = useSpring(hoverX, { stiffness: 220, damping: 24, mass: 0.5 });
-  const smoothY = useSpring(hoverY, { stiffness: 220, damping: 24, mass: 0.5 });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(pointer: fine)');
+    const sync = () => setPointerFine(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
-  const portraitX = useTransform(smoothX, [-0.5, 0.5], [-12, 12]);
-  const portraitY = useTransform(smoothY, [-0.5, 0.5], [-10, 10]);
-  const portraitRotate = useTransform(smoothX, [-0.5, 0.5], [-2.2, 2.2]);
+  const allowTilt = pointerFine && !prefersReducedMotion;
+  const rawRotateX = useMotionValue(0);
+  const rawRotateY = useMotionValue(0);
+  const rotateX = useSpring(rawRotateX, { stiffness: 220, damping: 24, mass: 0.55 });
+  const rotateY = useSpring(rawRotateY, { stiffness: 220, damping: 24, mass: 0.55 });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !PROFILE.portraitImage) return;
@@ -118,60 +136,189 @@ export const AboutAndExperience: React.FC = () => {
     preload.src = PROFILE.portraitImage;
   }, []);
 
-  const handleAboutPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== 'touch' && !aboutHovered) {
-      setAboutHovered(true);
-    }
-    if (prefersReducedMotion || !aboutBlockRef.current) return;
-    const rect = aboutBlockRef.current.getBoundingClientRect();
+  const handlePortraitMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!allowTilt || !portraitFrameRef.current) return;
+    const rect = portraitFrameRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
-    const nx = Math.max(-0.5, Math.min(0.5, (e.clientX - rect.left) / rect.width - 0.5));
-    const ny = Math.max(-0.5, Math.min(0.5, (e.clientY - rect.top) / rect.height - 0.5));
-    hoverX.set(nx);
-    hoverY.set(ny);
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rawRotateX.set(-py * 7);
+    rawRotateY.set(px * 7);
   };
 
-  const handleAboutLeave = () => {
-    setAboutHovered(false);
-    hoverX.set(0);
-    hoverY.set(0);
+  const handlePortraitLeave = () => {
+    setPortraitHovered(false);
+    rawRotateX.set(0);
+    rawRotateY.set(0);
   };
 
   return (
-    <>
-      {/* Practice & Philosophy */}
-      <section
-        id="about"
-        className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-            <ParallaxLayer speed={14} className="relative z-30 lg:col-span-6">
-              <div className="space-y-5 sm:space-y-6">
-              <SectionChoreoHeader eyebrow="02. Origins & Ethos">
-                <h2
-                  className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
-                  style={{ textWrap: 'balance' }}
-                >
-                  Where applied electronics meets{' '}
-                  <span className="font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]">
-                    intentional
-                  </span>{' '}
-                  design.
-                </h2>
-              </SectionChoreoHeader>
-
-              {/* Interactive Primary About Text Block with Hover-Revealed Engineer Portrait */}
-              <div
-                ref={aboutBlockRef}
-                tabIndex={0}
-                onMouseEnter={() => setAboutHovered(true)}
-                onMouseLeave={handleAboutLeave}
-                onPointerMove={handleAboutPointerMove}
-                onFocus={() => setAboutHovered(true)}
-                onBlur={handleAboutLeave}
-                className="group relative max-w-xl p-4 sm:p-5 -mx-4 sm:-mx-5 rounded-2xl border border-transparent hover:border-[#E5E5E5] dark:hover:border-[#262626] hover:bg-[#FAFAFA]/80 dark:hover:bg-[#0A0A0A]/80 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+    <section
+      id="about"
+      className="snap-start pt-6 pb-14 sm:pt-10 sm:pb-20 lg:pt-12 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+        <div id="top" className="space-y-8 sm:space-y-10">
+          {/* Top Architectural Kicker & Live Location */}
+          <div data-choreo="" className="space-y-3 sm:space-y-4">
+            <DrawRule onMount />
+            <div className="pt-1 flex flex-wrap items-center justify-between gap-3">
+              <DrawEyebrow
+                onMount
+                delay={0.08}
+                className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]"
               >
+                01. Origins &amp; Ethos
+              </DrawEyebrow>
+              <div className="inline-flex items-center gap-2 text-xs text-[#525252] dark:text-[#A3A3A3]">
+                <RegistrationTick onMount delay={0.22} />
+                <span className="inline-flex items-center gap-1.5 font-mono tabular-nums">
+                  <span>{PROFILE.location}</span>
+                  <span aria-hidden="true" className="text-[#C94B00] dark:text-[#FF721A]">·</span>
+                  <LiveClock className="text-[#0A0A0A] dark:text-white" />
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Full-Width Oversized Display Statement */}
+          <BlurSlideReveal onMount delay={0.12}>
+            <div className="max-w-4xl">
+              <h1
+                className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.25rem,5vw,4.35rem)] leading-[1.04]"
+                style={{ textWrap: 'balance' }}
+              >
+                Where applied electronics meets{' '}
+                <span className="font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]">
+                  intentional
+                </span>{' '}
+                design.
+              </h1>
+            </div>
+          </BlurSlideReveal>
+
+          {/* Balanced 12-Col Hero Showcase: Orbital Portrait Monolith + Editorial Manifesto & Process */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
+            {/* Left Column: Tactile 3D Orbital Portrait Frame */}
+            <div className="lg:col-span-5 flex flex-col">
+              <motion.div
+                ref={portraitFrameRef}
+                onPointerEnter={() => setPortraitHovered(true)}
+                onPointerMove={handlePortraitMove}
+                onPointerLeave={handlePortraitLeave}
+                onPointerCancel={handlePortraitLeave}
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : { opacity: 0, y: 22, scale: 0.98, filter: 'blur(8px)' }
+                }
+                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 0.78, delay: 0.16, ease: ARTCRAFT_EASE }}
+                style={
+                  allowTilt
+                    ? { rotateX, rotateY, transformPerspective: 1000, willChange: 'transform' }
+                    : undefined
+                }
+                className="group flex-1 flex flex-col rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A]/80 transition-colors duration-200 overflow-hidden"
+              >
+                <div className="relative flex-1 min-h-[300px] sm:min-h-[360px] lg:min-h-[380px] overflow-hidden bg-[#F5F5F5] dark:bg-[#111111]">
+                  {/* Subtle ambient radial studio backdrop */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-80"
+                    style={{
+                      background:
+                        'radial-gradient(circle at 50% 42%, rgba(255,114,26,0.12) 0%, transparent 62%)',
+                    }}
+                  />
+
+                  {/* Concentric Orbital Calibration Hairlines */}
+                  <motion.svg
+                    aria-hidden="true"
+                    viewBox="0 0 400 400"
+                    animate={
+                      prefersReducedMotion
+                        ? undefined
+                        : { rotate: portraitHovered ? 24 : 360 }
+                    }
+                    transition={
+                      prefersReducedMotion
+                        ? undefined
+                        : portraitHovered
+                          ? { duration: 0.9, ease: ARTCRAFT_EASE }
+                          : { duration: 48, repeat: Infinity, ease: 'linear' }
+                    }
+                    className="pointer-events-none absolute inset-0 w-full h-full text-[#0A0A0A]/12 dark:text-white/12 scale-110"
+                  >
+                    <circle
+                      cx="200"
+                      cy="200"
+                      r="176"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      strokeDasharray="4 8"
+                    />
+                    <circle
+                      cx="200"
+                      cy="200"
+                      r="142"
+                      fill="none"
+                      stroke="#FF721A"
+                      strokeOpacity="0.32"
+                      strokeWidth="1"
+                    />
+                    <line x1="200" y1="14" x2="200" y2="28" stroke="#FF721A" strokeWidth="1.5" />
+                    <line x1="200" y1="372" x2="200" y2="386" stroke="#FF721A" strokeWidth="1.5" />
+                    <line x1="14" y1="200" x2="28" y2="200" stroke="currentColor" strokeWidth="1.2" />
+                    <line x1="372" y1="200" x2="386" y2="200" stroke="currentColor" strokeWidth="1.2" />
+                  </motion.svg>
+
+                  {/* Stylized Geometric Engineer Portrait */}
+                  <motion.div
+                    animate={
+                      prefersReducedMotion
+                        ? undefined
+                        : { scale: portraitHovered ? 1.035 : 1 }
+                    }
+                    transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
+                    className="relative z-10 w-full h-full"
+                  >
+                    <SafeImage
+                      src={PROFILE.portraitImage}
+                      alt={PROFILE.portraitImageAlt}
+                      fallbackLabel={PROFILE.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </motion.div>
+
+                  {/* Soft bottom edge gradient scrim */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-black/10 to-transparent z-20"
+                  />
+                </div>
+
+                {/* Clean Typography Caption Footer */}
+                <div className="px-5 py-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-3 bg-white dark:bg-[#0A0A0A]">
+                  <div className="min-w-0">
+                    <p className="font-display text-sm sm:text-base font-bold text-[#0A0A0A] dark:text-white truncate">
+                      {PROFILE.name}
+                    </p>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3] truncate">
+                      {PROFILE.education}
+                    </p>
+                  </div>
+                  <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] whitespace-nowrap shrink-0">
+                    AE · SWE
+                  </span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Right Column: Origins Statement + 2x2 Process Pillars aligned cleanly */}
+            <div className="lg:col-span-7 flex flex-col justify-between gap-7 sm:gap-8">
+              <div className="space-y-5 sm:space-y-6">
                 <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                   <ScrollRevealText as="p" delay={0.08}>
                     I am{' '}
@@ -182,170 +329,157 @@ export const AboutAndExperience: React.FC = () => {
                     a {PROFILE.education}, my work lives at the intersection of tactile hardware
                     systems and human-centered web software.
                   </ScrollRevealText>
-                  <ScrollRevealText
-                    as="p"
-                    delay={0.12}
-                    className="font-serif italic text-base sm:text-lg text-[#0A0A0A] dark:text-white"
-                  >
-                    &ldquo;I don&apos;t just build interfaces; I construct digital architectures
-                    that prioritize human intuition over technical complexity.&rdquo;
-                  </ScrollRevealText>
+
+                  <div className="pt-4 pb-1 border-t border-[#E5E5E5] dark:border-[#262626]">
+                    <ScrollRevealText
+                      as="p"
+                      delay={0.12}
+                      className="font-serif italic text-lg sm:text-xl leading-snug text-[#0A0A0A] dark:text-white"
+                    >
+                      &ldquo;I don&apos;t just build interfaces; I construct digital architectures
+                      that prioritize human intuition over technical complexity.&rdquo;
+                    </ScrollRevealText>
+                  </div>
+
                   <ScrollRevealText as="p" delay={0.16}>
                     Whether calibrating an RF trilateration filter on an ESP32 or refining bezier
                     curves in Affinity and Illustrator, I bring disciplined engineering clarity to
                     expressive creative execution.
                   </ScrollRevealText>
                 </div>
-
-                {/* Desktop Floating Stylized Engineer Portrait (centered cleanly & elevated above neighbor column) */}
-                <div className="hidden md:block pointer-events-none absolute top-1/2 -translate-y-1/2 left-[calc(100%-3rem)] lg:left-[calc(100%-2.25rem)] z-40 w-48 lg:w-56">
-                  <AnimatePresence>
-                    {aboutHovered && (
-                      <motion.div
-                        key="engineer-hover-portrait"
-                        aria-hidden="true"
-                        initial={
-                          prefersReducedMotion
-                            ? { opacity: 1, scale: 1 }
-                            : { opacity: 0, scale: 0.88, filter: 'blur(8px)' }
-                        }
-                        animate={
-                          prefersReducedMotion
-                            ? { opacity: 1, scale: 1 }
-                            : { opacity: 1, scale: 1.03, filter: 'blur(0px)' }
-                        }
-                        exit={
-                          prefersReducedMotion
-                            ? { opacity: 0 }
-                            : { opacity: 0, scale: 0.92, filter: 'blur(6px)' }
-                        }
-                        transition={{ duration: 0.36, ease: EASE_OUT_EXPO }}
-                        style={
-                          prefersReducedMotion
-                            ? undefined
-                            : {
-                                x: portraitX,
-                                y: portraitY,
-                                rotate: portraitRotate,
-                                willChange: 'transform, opacity',
-                              }
-                        }
-                        className="w-full rounded-2xl border border-[#FF721A]/85 bg-white dark:bg-[#0A0A0A] shadow-2xl overflow-hidden"
-                      >
-                        <div className="aspect-square overflow-hidden bg-[#FAFAFA] dark:bg-[#141414]">
-                          <motion.div
-                            className="w-full h-full"
-                            initial={prefersReducedMotion ? false : { scale: 1.08 }}
-                            animate={{ scale: 1.01 }}
-                            transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-                          >
-                            <SafeImage
-                              src={PROFILE.portraitImage}
-                              alt={PROFILE.portraitImageAlt}
-                              fallbackLabel={PROFILE.name}
-                              className="w-full h-full object-cover object-top"
-                            />
-                          </motion.div>
-                        </div>
-                        <div className="px-3.5 py-2.5 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-2 text-[11px] font-mono">
-                          <span className="font-semibold text-[#0A0A0A] dark:text-white truncate">
-                            {PROFILE.name}
-                          </span>
-                          <span className="text-[#C94B00] dark:text-[#FF721A] shrink-0">
-                            AE · SWE
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Compact Touch / Mobile Portrait Signature */}
-                <motion.div
-                  whileTap={prefersReducedMotion ? undefined : { scale: 1.03 }}
-                  transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
-                  className="md:hidden mt-5 pt-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center gap-3.5"
-                >
-                  <div className="w-16 aspect-square rounded-xl overflow-hidden border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#141414] shrink-0">
-                    <SafeImage
-                      src={PROFILE.portraitImage}
-                      alt={PROFILE.portraitImageAlt}
-                      fallbackLabel={PROFILE.name}
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="text-xs space-y-0.5">
-                    <p className="font-semibold text-[#0A0A0A] dark:text-white">
-                      {PROFILE.name}
-                    </p>
-                    <p className="text-[#525252] dark:text-[#A3A3A3]">
-                      {PROFILE.education}
-                    </p>
-                    <p className="font-mono text-[#C94B00] dark:text-[#FF721A]">
-                      {PROFILE.location}
-                    </p>
-                  </div>
-                </motion.div>
               </div>
-              </div>
-            </ParallaxLayer>
 
-            {/* 4-Stage Process Grid with staggered depth parallax */}
-            <div
-              data-reveal-group=""
-              className="relative z-10 lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6"
-            >
-              {PROCESS_PILLARS.map((pillar, idx) => (
-                <ParallaxLayer
-                  key={pillar.step}
-                  speed={idx % 2 === 0 ? 10 : 22}
-                  className="h-full"
-                >
-                  <motion.div
-                    data-reveal=""
-                    initial={
-                      prefersReducedMotion
-                        ? false
-                        : { opacity: 0, y: 22, filter: 'blur(6px)' }
-                    }
-                    whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    viewport={{ once: true, amount: 0.15 }}
-                    whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                    transition={{
-                      duration: 0.68,
-                      delay: prefersReducedMotion ? 0 : idx * 0.07,
-                      ease: EASE_OUT_EXPO,
-                    }}
-                    className="h-full rule-reveal overflow-hidden p-5 sm:p-7 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 space-y-2.5 sm:space-y-3"
+              {/* 4-Stage Process Grid anchoring bottom baseline alongside the portrait */}
+              <div
+                data-reveal-group=""
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
+              >
+                {PROCESS_PILLARS.map((pillar, idx) => (
+                  <ParallaxLayer
+                    key={pillar.step}
+                    speed={idx % 2 === 0 ? 6 : 12}
+                    className="h-full"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                        {pillar.step}
-                      </span>
-                      <RegistrationTick delay={idx * 0.07 + 0.2} />
-                    </div>
-                    <h3 className="font-display text-lg sm:text-xl font-bold text-[#0A0A0A] dark:text-white">
-                      {pillar.title}
-                    </h3>
-                    <ScrollRevealText
-                      as="p"
-                      delay={idx * 0.05 + 0.08}
-                      className="text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]"
+                    <motion.div
+                      data-reveal=""
+                      initial={
+                        prefersReducedMotion
+                          ? false
+                          : { opacity: 0, y: 20, filter: 'blur(6px)' }
+                      }
+                      whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      viewport={{ once: true, amount: 0.15 }}
+                      whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                      transition={{
+                        duration: 0.65,
+                        delay: prefersReducedMotion ? 0 : idx * 0.06,
+                        ease: EASE_OUT_EXPO,
+                      }}
+                      className="h-full rule-reveal overflow-hidden p-5 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 space-y-2"
                     >
-                      {pillar.desc}
-                    </ScrollRevealText>
-                  </motion.div>
-                </ParallaxLayer>
-              ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                          {pillar.step}
+                        </span>
+                        <RegistrationTick delay={idx * 0.06 + 0.18} />
+                      </div>
+                      <h2 className="font-display text-base sm:text-lg font-bold text-[#0A0A0A] dark:text-white">
+                        {pillar.title}
+                      </h2>
+                      <ScrollRevealText
+                        as="p"
+                        delay={idx * 0.04 + 0.08}
+                        className="text-xs sm:text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]"
+                      >
+                        {pillar.desc}
+                      </ScrollRevealText>
+                    </motion.div>
+                  </ParallaxLayer>
+                ))}
+              </div>
             </div>
           </div>
-
-          <TechnologyCloud />
         </div>
-      </section>
 
-      {/* Experience & Academic Timeline */}
-      <section
+        <TechnologyCloud />
+
+        {/* Interactive 4-Column Discipline Index Strip bridging into Selected Works */}
+        <div className="mt-10 sm:mt-14 pt-8 sm:pt-10 border-t border-[#E5E5E5] dark:border-[#262626] space-y-5 sm:space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <DrawEyebrow
+              delay={0.08}
+              className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]"
+            >
+              Core Disciplines
+            </DrawEyebrow>
+            <span className="font-mono text-[11px] text-[#525252] dark:text-[#A3A3A3]">
+              Select a discipline to filter Selected Works ↓
+            </span>
+          </div>
+
+          <div
+            data-reveal-group=""
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-6"
+          >
+            {DISCIPLINES.map((item, idx) => (
+              <ParallaxLayer
+                key={item.number}
+                speed={idx % 2 === 0 ? 7 : 15}
+                className="h-full"
+              >
+                <motion.button
+                  type="button"
+                  data-reveal=""
+                  initial={
+                    prefersReducedMotion
+                      ? false
+                      : { opacity: 0, y: 20, filter: 'blur(6px)' }
+                  }
+                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
+                  transition={{
+                    duration: 0.65,
+                    delay: prefersReducedMotion ? 0 : idx * 0.065,
+                    ease: ARTCRAFT_EASE,
+                  }}
+                  onClick={() => {
+                    onSelectDisciplineFilter?.(item.filter);
+                    const el = document.getElementById('work');
+                    el?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+                  }}
+                  className="w-full h-full group rule-reveal overflow-hidden text-left p-4 sm:p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                >
+                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                    <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]">
+                      {item.number}
+                    </span>
+                    <ArrowUpRight
+                      size={15}
+                      className="text-[#737373] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <h3 className="font-display text-base font-semibold text-[#0A0A0A] dark:text-white">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 text-xs text-[#525252] dark:text-[#A3A3A3]">
+                    {item.detail}
+                  </p>
+                </motion.button>
+              </ParallaxLayer>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export const ExperienceSection: React.FC = () => {
+  return (
+    <section
         id="experience"
         className="snap-start py-14 sm:py-20 lg:py-28 border-b border-[#E5E5E5] dark:border-[#262626]"
       >
@@ -383,6 +517,14 @@ export const AboutAndExperience: React.FC = () => {
           </div>
         </div>
       </section>
-    </>
   );
 };
+
+export const AboutAndExperience: React.FC<AboutSectionProps> = ({
+  onSelectDisciplineFilter,
+}) => (
+  <>
+    <AboutSection onSelectDisciplineFilter={onSelectDisciplineFilter} />
+    <ExperienceSection />
+  </>
+);

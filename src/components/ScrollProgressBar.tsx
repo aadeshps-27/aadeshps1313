@@ -37,11 +37,10 @@ const LABEL_SPRING = {
 };
 
 const SECTION_ANCHORS: SectionAnchor[] = [
-  { id: 'top', label: '00', name: 'Intro' },
-  { id: 'work', label: '01', name: 'Work' },
-  { id: 'about', label: '02', name: 'About' },
-  { id: 'experience', label: '03', name: 'Experience' },
-  { id: 'contact', label: '04', name: 'Contact' },
+  { id: 'about', label: '01', name: 'Origins & Ethos' },
+  { id: 'work', label: '02', name: 'Selected Works' },
+  { id: 'experience', label: '03', name: 'Journey' },
+  { id: 'contact', label: '04', name: 'Connection' },
 ];
 
 export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({

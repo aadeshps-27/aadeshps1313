@@ -100,8 +100,8 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
   const isDark = theme === 'dark';
 
   const navLinks = [
-    { label: 'Work', href: '#work' },
     { label: 'About', href: '#about' },
+    { label: 'Work', href: '#work' },
     { label: 'Experience', href: '#experience' },
     { label: 'Contact', href: '#contact' },
   ];

@@ -511,7 +511,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                 delay={0.1}
                 className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] mb-2.5 sm:mb-3"
               >
-                01. Selected Works
+                02. Selected Works
               </DrawEyebrow>
               <BlurSlideReveal delay={0.16}>
                 <h2

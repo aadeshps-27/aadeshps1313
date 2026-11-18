@@ -47,9 +47,8 @@ const ROAM_SPRING = { stiffness: 90, damping: 20, mass: 0.9 };
 const IDLE_SLEEP_MS = 14000;
 
 const SECTION_PROMPTS: Record<string, { line: string; target: string; cta: string }> = {
-  top: { line: 'Drag, double-click, or roam', target: '#work', cta: 'Works ↓' },
-  work: { line: 'Inspecting projects & RF craft', target: '#about', cta: 'About ↓' },
-  about: { line: 'Electronics meets software', target: '#experience', cta: 'Journey ↓' },
+  about: { line: 'Electronics meets software', target: '#work', cta: 'Works ↓' },
+  work: { line: 'Inspecting projects & RF craft', target: '#experience', cta: 'Journey ↓' },
   experience: { line: 'Tracing roles & research', target: '#contact', cta: 'Contact ↓' },
   contact: { line: 'Ready to collaborate', target: '#top', cta: 'Top ↑' },
 };
@@ -80,7 +79,7 @@ export const AiCharacterMotion: React.FC = () => {
   const [isNearPointer, setIsNearPointer] = useState(false);
   const [isFastPointer, setIsFastPointer] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>('top');
+  const [activeSection, setActiveSection] = useState<string>('about');
   const [mood, setMood] = useState<MoodMode>('tracking');
   const [thought, setThought] = useState<ThoughtGlyph>(null);
   const [pulseKey, setPulseKey] = useState(0);
@@ -157,11 +156,11 @@ export const AiCharacterMotion: React.FC = () => {
   // Track active portfolio section cleanly
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const ids = ['top', 'work', 'about', 'experience', 'contact'];
+    const ids = ['about', 'work', 'experience', 'contact'];
 
     const detectSection = () => {
       const markerY = window.innerHeight * 0.4;
-      let current = 'top';
+      let current = 'about';
       for (const id of ids) {
         const el = document.getElementById(id);
         if (!el) continue;

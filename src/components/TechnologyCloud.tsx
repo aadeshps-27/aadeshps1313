@@ -734,9 +734,6 @@ export const TechnologyCloud: React.FC = () => {
           <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#0A0A0A] dark:text-white">
             Technology Globe
           </h3>
-          <p className="text-xs sm:text-sm text-[#525252] dark:text-[#A3A3A3]">
-            Drag to spin the 3D sphere or sweep your cursor nearby — software &amp; design icons attract while hardware &amp; RF icons repel.
-          </p>
         </div>
 
         <div

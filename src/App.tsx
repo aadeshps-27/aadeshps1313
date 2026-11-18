@@ -5,9 +5,8 @@ import { Navbar } from './components/Navbar';
 import { ScrollProgressBar } from './components/ScrollProgressBar';
 import { CustomCursor } from './components/CustomCursor';
 import { Preloader } from './components/Preloader';
-import { Hero } from './components/Hero';
 import { WorksSection } from './components/WorksSection';
-import { AboutAndExperience } from './components/AboutAndExperience';
+import { AboutSection, ExperienceSection } from './components/AboutAndExperience';
 import { ContactAndFooter } from './components/ContactAndFooter';
 import { CaseStudyModal } from './components/CaseStudyModal';
 import { BackToTopButton } from './components/BackToTopButton';
@@ -135,7 +134,7 @@ export default function App() {
       <Navbar theme={theme} onToggleTheme={toggleTheme} />
 
       <main id="main" className="relative z-[1] overflow-x-clip">
-        <Hero
+        <AboutSection
           onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
         />
 
@@ -145,7 +144,7 @@ export default function App() {
           onOpenProject={(id) => setSelectedProject(id)}
         />
 
-        <AboutAndExperience />
+        <ExperienceSection />
 
         <ContactAndFooter />
       </main>
