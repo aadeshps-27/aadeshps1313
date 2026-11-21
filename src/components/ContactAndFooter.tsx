@@ -1056,13 +1056,7 @@ export const ContactAndFooter: React.FC = () => {
               <strong className="font-bold text-[#0A0A0A] dark:text-white">
                 Aadesh PS
               </strong>
-              {' · '}
-              <a
-                href={PROFILE.websiteUrl}
-                className="hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] rounded-sm"
-              >
-                {PROFILE.domain}
-              </a>
+              {' · Crafted with precision'}
             </p>
           </div>
 
