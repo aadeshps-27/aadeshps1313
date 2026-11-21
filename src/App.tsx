@@ -180,6 +180,7 @@ export default function App() {
 
           <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
             <AboutSection
+              entranceReady={!isPreloading}
               onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
             />
 

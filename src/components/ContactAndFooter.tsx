@@ -14,7 +14,13 @@ import {
   useSpring,
 } from 'motion/react';
 import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
-import { ARTCRAFT_EASE, ParallaxLayer, SectionChoreoHeader } from './MotionPrimitives';
+import {
+  ARTCRAFT_EASE,
+  ParallaxLayer,
+  RfButtonFlickerText,
+  RfFlickerText,
+  SectionChoreoHeader,
+} from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
 import {
   playCopyConfirm,
@@ -400,16 +406,21 @@ export const ContactAndFooter: React.FC = () => {
               >
               <div className="space-y-3 sm:space-y-4">
                 <SectionChoreoHeader eyebrow="04. Connection">
-                  <h2
+                  <RfFlickerText
+                    as="h2"
+                    mode="heading"
                     className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
                     style={{ textWrap: 'balance' }}
-                  >
-                    Let&apos;s build something{' '}
-                    <span className="font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]">
-                      meaningful
-                    </span>{' '}
-                    together.
-                  </h2>
+                    segments={[
+                      { text: "Let's build something " },
+                      {
+                        text: 'meaningful',
+                        className:
+                          'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
+                      },
+                      { text: ' together.' },
+                    ]}
+                  />
                 </SectionChoreoHeader>
                 <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                   Have a web application, brand system, or applied electronics collaboration in
@@ -732,10 +743,10 @@ export const ContactAndFooter: React.FC = () => {
                       type="submit"
                       whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
                       whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                      className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                      className="rf-btn-flicker w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                     >
                       <Mail size={15} aria-hidden="true" />
-                      <span>Send Email</span>
+                      <RfButtonFlickerText text="Send Email" />
                     </motion.button>
 
                     <motion.button
@@ -743,10 +754,10 @@ export const ContactAndFooter: React.FC = () => {
                       onClick={handleSendWhatsApp}
                       whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
                       whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                      className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                      className="rf-btn-flicker w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                     >
                       <MessageSquare size={15} aria-hidden="true" />
-                      <span>WhatsApp</span>
+                      <RfButtonFlickerText text="WhatsApp" />
                     </motion.button>
                   </div>
 

@@ -95,7 +95,21 @@ export const InteractiveDotGrid: React.FC = () => {
       aria-hidden="true"
       className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none"
     >
-      {/* Base architectural drafting dot-grid plane with mouse + scroll parallax */}
+      {/* Layer 1: Orthogonal 96px architectural drafting grid lines */}
+      <motion.div
+        style={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: allowInteractive ? gridShiftX : 0,
+                y: allowInteractive ? combinedY : scrollShiftY,
+                willChange: 'transform',
+              }
+        }
+        className="absolute -inset-36 blueprint-grid-lines"
+      />
+
+      {/* Layer 2: Base architectural drafting dot-grid plane with mouse + scroll parallax */}
       <motion.div
         style={
           prefersReducedMotion
@@ -109,7 +123,221 @@ export const InteractiveDotGrid: React.FC = () => {
         className="absolute -inset-36 dot-grid-base"
       />
 
-      {/* Reactive #FF721A dot illumination anchored in viewport space around pointer */}
+      {/* Layer 3: ReFactory-inspired technical background SVG geometry & traveling #FF721A energy beams */}
+      <motion.svg
+        data-background-svg=""
+        viewBox="0 0 1440 960"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+        style={
+          prefersReducedMotion
+            ? undefined
+            : {
+                x: allowInteractive ? gridShiftX : 0,
+                y: allowInteractive ? combinedY : scrollShiftY,
+                willChange: 'transform',
+              }
+        }
+        className="absolute inset-0 w-full h-full text-[#0A0A0A]/[0.075] dark:text-white/[0.085]"
+      >
+        {/* Geometric orbital reference arcs & dashed diagonal vectors */}
+        <circle
+          cx="1168"
+          cy="240"
+          r="216"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="6 8"
+          vectorEffect="non-scaling-stroke"
+        />
+        <circle
+          cx="260"
+          cy="740"
+          r="168"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="4 10"
+          vectorEffect="non-scaling-stroke"
+        />
+        <path
+          d="M 1020 -60 L -40 1000"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="10 6"
+          vectorEffect="non-scaling-stroke"
+        />
+        <path
+          d="M 420 -80 L 1480 980"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="10 6"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {/* Orthogonal structural datum tracks */}
+        <line
+          x1="0"
+          y1="288"
+          x2="1440"
+          y2="288"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <line
+          x1="0"
+          y1="672"
+          x2="1440"
+          y2="672"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <line
+          x1="480"
+          y1="0"
+          x2="480"
+          y2="960"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <line
+          x1="1056"
+          y1="0"
+          x2="1056"
+          y2="960"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {/* Calibration intersection square nodes */}
+        <rect
+          x="477"
+          y="285"
+          width="6"
+          height="6"
+          className="fill-white dark:fill-black"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <rect
+          x="1053"
+          y="285"
+          width="6"
+          height="6"
+          className="fill-white dark:fill-black"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <rect
+          x="477"
+          y="669"
+          width="6"
+          height="6"
+          className="fill-white dark:fill-black"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <rect
+          x="1053"
+          y="669"
+          width="6"
+          height="6"
+          className="fill-white dark:fill-black"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {/* Animated #FF721A signal beam sweeps (paused in reduced motion) */}
+        {!prefersReducedMotion && (
+          <>
+            <motion.line
+              x1="0"
+              y1="288"
+              x2="1440"
+              y2="288"
+              stroke="#FF721A"
+              strokeOpacity="0.48"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="160 1440"
+              vectorEffect="non-scaling-stroke"
+              animate={{ strokeDashoffset: [160, -1440] }}
+              transition={{
+                duration: 4.8,
+                repeat: Infinity,
+                repeatDelay: 2.2,
+                ease: 'linear',
+              }}
+            />
+            <motion.line
+              x1="1440"
+              y1="672"
+              x2="0"
+              y2="672"
+              stroke="#FF721A"
+              strokeOpacity="0.42"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="140 1440"
+              vectorEffect="non-scaling-stroke"
+              animate={{ strokeDashoffset: [140, -1440] }}
+              transition={{
+                duration: 5.4,
+                delay: 1.6,
+                repeat: Infinity,
+                repeatDelay: 2.8,
+                ease: 'linear',
+              }}
+            />
+            <motion.line
+              x1="480"
+              y1="0"
+              x2="480"
+              y2="960"
+              stroke="#FF721A"
+              strokeOpacity="0.38"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="110 960"
+              vectorEffect="non-scaling-stroke"
+              animate={{ strokeDashoffset: [110, -960] }}
+              transition={{
+                duration: 4.2,
+                delay: 0.9,
+                repeat: Infinity,
+                repeatDelay: 3.1,
+                ease: 'linear',
+              }}
+            />
+            <motion.path
+              d="M 1020 -60 L -40 1000"
+              stroke="#FF721A"
+              strokeOpacity="0.34"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="130 1500"
+              vectorEffect="non-scaling-stroke"
+              animate={{ strokeDashoffset: [130, -1500] }}
+              transition={{
+                duration: 5.8,
+                delay: 2.4,
+                repeat: Infinity,
+                repeatDelay: 3.4,
+                ease: 'linear',
+              }}
+            />
+          </>
+        )}
+      </motion.svg>
+
+      {/* Layer 4: Reactive #FF721A dot illumination anchored in viewport space around pointer */}
       {allowInteractive && (
         <motion.div
           style={{

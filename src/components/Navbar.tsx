@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
-import { ARTCRAFT_EASE } from './MotionPrimitives';
+import { ARTCRAFT_EASE, RfButtonFlickerText } from './MotionPrimitives';
 import { playNavSelect } from '../utils/spatialAudio';
 
 interface NavbarProps {
@@ -336,9 +336,9 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
             whileHover={prefersReducedMotion ? undefined : { y: -1.5, scale: 1.02 }}
             whileTap={prefersReducedMotion ? undefined : { y: 0, scale: 0.96 }}
             transition={NAV_LINK_SPRING}
-            className="hidden md:inline-flex items-center justify-center min-h-[40px] px-4 lg:px-5 py-2 text-sm font-semibold rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+            className="rf-btn-flicker hidden md:inline-flex items-center justify-center min-h-[40px] px-4 lg:px-5 py-2 text-sm font-semibold rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
           >
-            Get in Touch
+            <RfButtonFlickerText text="Get in Touch" />
           </motion.a>
 
           <motion.button

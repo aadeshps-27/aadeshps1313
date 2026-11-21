@@ -20,11 +20,11 @@ import { warmImage } from '../utils/imagePreload';
 import { TechnologyCloud } from './TechnologyCloud';
 import {
   ARTCRAFT_EASE,
-  BlurSlideReveal,
   DrawEyebrow,
   DrawRule,
   ParallaxLayer,
   RegistrationTick,
+  RfFlickerText,
   SectionChoreoHeader,
 } from './MotionPrimitives';
 import { playFilterTab } from '../utils/spatialAudio';
@@ -106,10 +106,12 @@ const ScrollRevealText: React.FC<RevealTextProps> = ({
 };
 
 interface AboutSectionProps {
+  entranceReady?: boolean;
   onSelectDisciplineFilter?: (filter: Exclude<ProjectCategory, 'all'>) => void;
 }
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
+  entranceReady = true,
   onSelectDisciplineFilter,
 }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -183,21 +185,27 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
             </div>
           </div>
 
-          {/* Full-Width Oversized Display Statement */}
-          <BlurSlideReveal onMount delay={0.12}>
-            <div className="max-w-4xl">
-              <h1
-                className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.25rem,5vw,4.35rem)] leading-[1.04]"
-                style={{ textWrap: 'balance' }}
-              >
-                Where applied electronics meets{' '}
-                <span className="font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]">
-                  intentional
-                </span>{' '}
-                design.
-              </h1>
-            </div>
-          </BlurSlideReveal>
+          {/* Full-Width Oversized Display Statement with ReFactory character flicker */}
+          <div className="max-w-4xl">
+            <RfFlickerText
+              as="h1"
+              mode="heading"
+              onMount
+              ready={entranceReady}
+              mountDelayMs={90}
+              className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.25rem,5vw,4.35rem)] leading-[1.04]"
+              style={{ textWrap: 'balance' }}
+              segments={[
+                { text: 'Where applied electronics meets ' },
+                {
+                  text: 'intentional',
+                  className:
+                    'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
+                },
+                { text: ' design.' },
+              ]}
+            />
+          </div>
 
           {/* Balanced 12-Col Hero Showcase: Orbital Portrait Monolith + Editorial Manifesto & Process */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
@@ -223,7 +231,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 }
                 className="group flex-1 flex flex-col rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A]/80 transition-colors duration-200 overflow-hidden"
               >
-                <div className="relative flex-1 min-h-[300px] sm:min-h-[360px] lg:min-h-[380px] overflow-hidden bg-[#F5F5F5] dark:bg-[#111111]">
+                <div className="rf-reticle-corners relative flex-1 min-h-[300px] sm:min-h-[360px] lg:min-h-[380px] overflow-hidden bg-[#F5F5F5] dark:bg-[#111111]">
                   {/* Subtle ambient radial studio backdrop */}
                   <div
                     aria-hidden="true"
@@ -493,12 +501,13 @@ export const ExperienceSection: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-3 sm:space-y-4">
               <SectionChoreoHeader eyebrow="03. Journey">
-                <h2
+                <RfFlickerText
+                  as="h2"
+                  mode="heading"
                   className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
                   style={{ textWrap: 'balance' }}
-                >
-                  Experience &amp; Academic Foundation
-                </h2>
+                  segments={[{ text: 'Experience & Academic Foundation' }]}
+                />
               </SectionChoreoHeader>
               <ScrollRevealText
                 as="p"

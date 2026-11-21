@@ -20,11 +20,12 @@ import {
 import { SafeImage } from './SafeImage';
 import {
   ARTCRAFT_EASE,
-  BlurSlideReveal,
   DrawEyebrow,
   DrawRule,
   ParallaxLayer,
   ParallaxMediaAperture,
+  RfButtonFlickerText,
+  RfFlickerText,
 } from './MotionPrimitives';
 import {
   playCardHover,
@@ -286,7 +287,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             ease: ARTCRAFT_EASE,
             layout: layoutTransition,
           }}
-          className={`relative overflow-hidden bg-[#F5F5F5] dark:bg-[#141414] ${
+          className={`rf-reticle-corners relative overflow-hidden bg-[#F5F5F5] dark:bg-[#141414] ${
             isWideLayout
               ? 'md:col-span-6 lg:col-span-7 aspect-[4/3] md:aspect-auto md:min-h-[340px] lg:min-h-[400px]'
               : 'aspect-[4/3]'
@@ -384,9 +385,9 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             <button
               type="button"
               onClick={(e) => onOpenProject(project.id, e.currentTarget)}
-              className="invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              className="rf-btn-flicker invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              <span>Read Case Study</span>
+              <RfButtonFlickerText text="Read Case Study" />
               <ArrowUpRight size={16} aria-hidden="true" />
             </button>
 
@@ -624,14 +625,13 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
               >
                 02. Selected Works
               </DrawEyebrow>
-              <BlurSlideReveal delay={0.16}>
-                <h2
-                  className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
-                  style={{ textWrap: 'balance' }}
-                >
-                  Case Studies &amp; Hardware Research
-                </h2>
-              </BlurSlideReveal>
+              <RfFlickerText
+                as="h2"
+                mode="heading"
+                className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
+                style={{ textWrap: 'balance' }}
+                segments={[{ text: 'Case Studies & Hardware Research' }]}
+              />
             </div>
 
             <div

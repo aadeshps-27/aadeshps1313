@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   motion,
   useReducedMotion,
@@ -8,7 +8,220 @@ import {
 } from 'motion/react';
 
 export const ARTCRAFT_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+export const OSMO_EASE: [number, number, number, number] = [0.625, 0.05, 0, 1];
 export const PARALLAX_SPRING = { stiffness: 150, damping: 26, mass: 0.45 };
+
+/**
+ * Generates a deterministic Fisher-Yates shuffled index order for `count` characters
+ * so ReFactory-style staggered character flicker never jitters across React renders.
+ */
+function buildShuffledIndices(count: number, seed = 27): number[] {
+  const arr = Array.from({ length: count }, (_, idx) => idx);
+  let state = seed || 1;
+  for (let i = arr.length - 1; i > 0; i--) {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    const j = state % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export interface RfTextSegment {
+  text: string;
+  className?: string;
+}
+
+interface RfFlickerTextProps {
+  segments: RfTextSegment[];
+  mode?: 'heading' | 'para';
+  as?: 'h1' | 'h2' | 'h3' | 'p' | 'span' | 'div';
+  onMount?: boolean;
+  ready?: boolean;
+  mountDelayMs?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+/**
+ * ReFactory-style staggered shuffled-character optical flicker / appear text reveal.
+ * Preserves semantic screen-reader phrasing via aria-label while marking split spans aria-hidden.
+ */
+export const RfFlickerText: React.FC<RfFlickerTextProps> = ({
+  segments,
+  mode = 'heading',
+  as = 'span',
+  onMount = false,
+  ready = true,
+  mountDelayMs = 0,
+  className = '',
+  style,
+}) => {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const containerRef = useRef<HTMLElement>(null);
+  const [revealed, setRevealed] = useState(
+    () => prefersReducedMotion || (onMount && ready && mountDelayMs === 0)
+  );
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setRevealed(true);
+      return;
+    }
+
+    if (!ready) {
+      return;
+    }
+
+    if (onMount) {
+      if (mountDelayMs === 0) {
+        setRevealed(true);
+        return;
+      }
+      const timer = window.setTimeout(() => {
+        setRevealed(true);
+      }, mountDelayMs);
+      return () => window.clearTimeout(timer);
+    }
+
+    const node = containerRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setRevealed(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setRevealed(true);
+            observer.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -24px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [prefersReducedMotion, onMount, ready, mountDelayMs]);
+
+  const fullText = useMemo(
+    () => segments.map((s) => s.text).join(''),
+    [segments]
+  );
+
+  const tokenized = useMemo(() => {
+    const rawWords: { word: string; className?: string; leadingSpace: boolean }[] = [];
+    let totalChars = 0;
+    let pendingSpace = false;
+
+    segments.forEach((seg) => {
+      const parts = seg.text.split(/(\s+)/);
+      parts.forEach((part) => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) {
+          pendingSpace = true;
+        } else {
+          rawWords.push({
+            word: part,
+            className: seg.className,
+            leadingSpace: pendingSpace,
+          });
+          totalChars += part.length;
+          pendingSpace = false;
+        }
+      });
+    });
+
+    const shuffled = buildShuffledIndices(totalChars, fullText.length + 17);
+    let cursor = 0;
+
+    return rawWords.map((item) => {
+      const chars = Array.from(item.word).map((ch) => ({
+        ch,
+        order: shuffled[cursor++] ?? 0,
+      }));
+      return { ...item, chars };
+    });
+  }, [segments, fullText.length]);
+
+  const Tag = as as React.ElementType;
+
+  return (
+    <Tag
+      ref={containerRef}
+      aria-label={fullText}
+      data-rf-split={mode}
+      style={style}
+      className={`${revealed ? 'is-rf-revealed' : ''} ${className}`.trim()}
+    >
+      <span aria-hidden="true">
+        {tokenized.map((wordObj, wIdx) => (
+          <React.Fragment key={`${wordObj.word}-${wIdx}`}>
+            {wordObj.leadingSpace ? ' ' : ''}
+            <span className={`inline-block whitespace-nowrap ${wordObj.className ?? ''}`}>
+              {wordObj.chars.map((charObj, cIdx) => (
+                <span
+                  key={cIdx}
+                  className="rf-char inline-block"
+                  style={{ '--rf-i': charObj.order } as React.CSSProperties}
+                >
+                  {charObj.ch}
+                </span>
+              ))}
+            </span>
+          </React.Fragment>
+        ))}
+      </span>
+    </Tag>
+  );
+};
+
+interface RfButtonFlickerTextProps {
+  text: string;
+  className?: string;
+}
+
+/**
+ * ReFactory-style hover character flicker text (`[data-button-flicker-text]`).
+ * Place inside an element with class `rf-btn-flicker`.
+ */
+export const RfButtonFlickerText: React.FC<RfButtonFlickerTextProps> = ({
+  text,
+  className = '',
+}) => {
+  const chars = useMemo(() => {
+    const nonSpaceCount = text.replace(/\s/g, '').length;
+    const shuffled = buildShuffledIndices(nonSpaceCount, text.length + 7);
+    let cursor = 0;
+    return Array.from(text).map((ch) =>
+      /\s/.test(ch)
+        ? { ch, order: 0, isSpace: true }
+        : { ch, order: shuffled[cursor++] ?? 0, isSpace: false }
+    );
+  }, [text]);
+
+  return (
+    <span aria-label={text} className={`inline-flex items-baseline ${className}`}>
+      <span aria-hidden="true" className="inline-flex">
+        {chars.map((item, idx) =>
+          item.isSpace ? (
+            <span key={idx}>&nbsp;</span>
+          ) : (
+            <span
+              key={idx}
+              className="rf-hover-char inline-block"
+              style={{ '--rf-i': item.order } as React.CSSProperties}
+            >
+              {item.ch}
+            </span>
+          )
+        )}
+      </span>
+    </span>
+  );
+};
 
 interface DrawRuleProps {
   className?: string;
@@ -204,7 +417,7 @@ interface SectionChoreoProps {
  * Orchestrated section header (`data-choreo`) combining:
  * 1) Drawn horizontal rule (0ms)
  * 2) Eyebrow blur-slide + tick (120ms)
- * 3) Headline blur-to-sharp reveal (180ms)
+ * 3) Headline reveal (180ms)
  */
 export const SectionChoreoHeader: React.FC<SectionChoreoProps> = ({
   eyebrow,
