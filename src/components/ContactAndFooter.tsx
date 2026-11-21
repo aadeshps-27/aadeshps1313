@@ -2,7 +2,6 @@ import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
-  Copy,
   Mail,
   MessageSquare,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ import {
   RfFlickerText,
   SectionChoreoHeader,
 } from './MotionPrimitives';
-import { LiveClock } from './LiveClock';
 import {
   drawSignatureStrokes,
   SignaturePadModal,
@@ -434,11 +432,6 @@ export const ContactAndFooter: React.FC = () => {
     return copied;
   };
 
-  const handleCopyEmail = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const ok = await copyTextToClipboard(PROFILE.email, e.currentTarget);
-    if (ok) showToast(PROFILE.email);
-  };
-
   const buildLetterTranscript = (ticketId?: string) => {
     const lines = [
       `DATE: ${todayStr}`,
@@ -591,7 +584,7 @@ export const ContactAndFooter: React.FC = () => {
                       <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
                         {PROFILE.role}
                       </p>
-                      <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] truncate">
+                      <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] break-words">
                         <a
                           href={`mailto:${PROFILE.email}`}
                           className="hover:text-[#C94B00] dark:hover:text-[#FF721A] hover:underline underline-offset-4 transition-colors"
@@ -672,7 +665,7 @@ export const ContactAndFooter: React.FC = () => {
                           if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
                         }}
                         placeholder="you@studio.com"
-                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
                       <span
                         aria-hidden="true"
@@ -708,7 +701,7 @@ export const ContactAndFooter: React.FC = () => {
                         value={source}
                         onChange={(e) => setSource(e.target.value)}
                         placeholder="A friend, LinkedIn, Instagram, a search… (optional)"
-                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
                       <span
                         aria-hidden="true"
@@ -739,7 +732,7 @@ export const ContactAndFooter: React.FC = () => {
                         if (errors.body) setErrors((prev) => ({ ...prev, body: undefined }));
                       }}
                       placeholder="What are we making?"
-                      className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                      className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                     />
                   </label>
                   {errors.body && (
@@ -809,7 +802,7 @@ export const ContactAndFooter: React.FC = () => {
                         if (errors.sign) setErrors((prev) => ({ ...prev, sign: undefined }));
                       }}
                       placeholder="Your name"
-                      className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[13px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373] focus:underline decoration-[#FF721A] underline-offset-4"
+                      className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[13px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373] focus:underline decoration-[#FF721A] underline-offset-4"
                     />
 
                     {hasDrawnSig && !sentInfo && (
@@ -831,8 +824,38 @@ export const ContactAndFooter: React.FC = () => {
                     </p>
                   )}
 
+                  {/* Rubber Stamp / Seal on Dispatch — flows cleanly below signature on mobile, floats right on sm+ */}
+                  <AnimatePresence>
+                    {sentInfo && (
+                      <motion.div
+                        aria-hidden="true"
+                        initial={
+                          prefersReducedMotion
+                            ? { opacity: 0.94 }
+                            : { opacity: 0, scale: 1.28, rotate: -13 }
+                        }
+                        animate={{ opacity: 0.94, scale: 1, rotate: -7 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.34, ease: ARTCRAFT_EASE }}
+                        className="pointer-events-none mt-6 ml-auto w-40 sm:mt-0 sm:ml-0 sm:absolute sm:right-10 sm:bottom-28 lg:bottom-32 sm:w-44 select-none z-10"
+                      >
+                        <div className="border-2 border-[#C94B00] dark:border-[#FF721A] bg-[#C94B00]/[0.05] dark:bg-[#FF721A]/[0.08] p-1 text-[#C94B00] dark:text-[#FF721A]">
+                          <div className="border border-current/60 px-2.5 py-1.5 text-center tracking-[0.1em]">
+                            <p className="text-[9px] font-bold leading-tight">AADESH PS · PRESS</p>
+                            <p className="text-xs sm:text-sm font-extrabold tracking-[0.16em] border-y border-current my-1 py-0.5 leading-tight">
+                              DISPATCHED
+                            </p>
+                            <p className="text-[9px] tabular-nums leading-tight">
+                              {sentInfo.jobId} · {sentInfo.viaLabel.toUpperCase()}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Footer Status + Dispatch Buttons */}
-                  <div className="mt-9 pt-4 border-t border-[#1A1A1A]/15 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="mt-8 sm:mt-9 pt-4 border-t border-[#1A1A1A]/15 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <p className="text-[11px] tracking-[0.06em] uppercase leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                       ONE REPLY, NO NEWSLETTER ·{' '}
                       <span
@@ -895,34 +918,6 @@ export const ContactAndFooter: React.FC = () => {
                       )}
                     </div>
                   </div>
-
-                  {/* Rubber Stamp Overlay on Dispatch */}
-                  <AnimatePresence>
-                    {sentInfo && (
-                      <motion.div
-                        aria-hidden="true"
-                        initial={
-                          prefersReducedMotion
-                            ? { opacity: 0.9 }
-                            : { opacity: 0, scale: 1.35, rotate: -14 }
-                        }
-                        animate={{ opacity: 0.9, scale: 1, rotate: -9 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.34, ease: ARTCRAFT_EASE }}
-                        className="pointer-events-none absolute right-6 sm:right-10 bottom-24 sm:bottom-20 w-36 sm:w-44 select-none mix-blend-multiply dark:mix-blend-screen"
-                      >
-                        <div className="border-2 border-[#C94B00] dark:border-[#FF721A] px-3 py-2 text-[#C94B00] dark:text-[#FF721A] text-center tracking-[0.12em]">
-                          <p className="text-[10px] font-bold">AADESH PS · PRESS</p>
-                          <p className="text-sm font-extrabold tracking-[0.16em] border-y border-current my-1 py-0.5">
-                            DISPATCHED
-                          </p>
-                          <p className="text-[9px] tabular-nums">
-                            {sentInfo.jobId} · {sentInfo.viaLabel.toUpperCase()}
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
               </motion.form>
             </ParallaxLayer>
@@ -1020,85 +1015,6 @@ export const ContactAndFooter: React.FC = () => {
                 </p>
               </motion.aside>
             </ParallaxLayer>
-          </div>
-
-          {/* Direct Channels & Local Clock Strip */}
-          <div className="pt-8 border-t border-[#E5E5E5] dark:border-[#262626] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
-            <div className="flex items-center justify-between sm:justify-start gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
-                  Direct Email
-                </p>
-                <a
-                  href={`mailto:${PROFILE.email}`}
-                  className="text-sm font-medium text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate block"
-                >
-                  {PROFILE.email}
-                </a>
-              </div>
-              <button
-                type="button"
-                onClick={handleCopyEmail}
-                aria-label="Copy email address"
-                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-              >
-                <Copy size={13} aria-hidden="true" />
-                <span>Copy</span>
-              </button>
-            </div>
-
-            <div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
-                WhatsApp
-              </p>
-              <a
-                href={PROFILE.whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 font-mono text-sm tabular-nums font-medium text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors"
-              >
-                <span>{PROFILE.whatsappDisplay}</span>
-                <ArrowUpRight size={14} aria-hidden="true" />
-              </a>
-            </div>
-
-            <div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
-                Social Channels
-              </p>
-              <div className="mt-1 flex items-center gap-2.5">
-                <MagneticLink
-                  href={PROFILE.linkedinHref}
-                  allowMagnetic={allowMagnetic}
-                  prefersReducedMotion={prefersReducedMotion}
-                  entranceDelay={0.08}
-                  className="inline-flex items-center min-h-[36px] px-3 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                >
-                  LinkedIn
-                </MagneticLink>
-                <MagneticLink
-                  href={PROFILE.instagramHref}
-                  allowMagnetic={allowMagnetic}
-                  prefersReducedMotion={prefersReducedMotion}
-                  entranceDelay={0.14}
-                  className="inline-flex items-center min-h-[36px] px-3 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                >
-                  Instagram
-                </MagneticLink>
-              </div>
-            </div>
-
-            <div className="sm:text-right">
-              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
-                Local Time · {PROFILE.location}
-              </p>
-              <div className="mt-0.5 flex items-center sm:justify-end gap-2">
-                <LiveClock className="text-sm font-medium text-[#0A0A0A] dark:text-white" />
-                <span className="font-mono text-xs text-[#C94B00] dark:text-[#FF721A]">
-                  UTC+5:30
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </section>
