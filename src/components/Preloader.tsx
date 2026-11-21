@@ -116,7 +116,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
           scale: 0.97,
           transition: { duration: 0.34, ease: OSMO_EASE },
         }}
-        className="relative w-[min(64vw,320px)] aspect-[860/160] flex items-center justify-center"
+        className="relative w-[min(46vw,190px)] sm:w-[320px] aspect-[860/160] flex items-center justify-center"
       >
         <svg
           viewBox="0 0 860 160"
@@ -169,10 +169,10 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
                 <motion.path
                   d={glyph.outerPath}
                   stroke="currentColor"
-                  strokeWidth="1.35"
                   strokeLinecap="square"
                   strokeLinejoin="miter"
                   vectorEffect="non-scaling-stroke"
+                  className="stroke-[1.15] sm:stroke-[1.35]"
                   initial={{ pathLength: 0, opacity: 0.35 }}
                   animate={{ pathLength: 1, opacity: 1 }}
                   transition={{
@@ -186,10 +186,10 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
                   <motion.path
                     d={glyph.innerPath}
                     stroke="currentColor"
-                    strokeWidth="1.35"
                     strokeLinecap="square"
                     strokeLinejoin="miter"
                     vectorEffect="non-scaling-stroke"
+                    className="stroke-[1.15] sm:stroke-[1.35]"
                     initial={{ pathLength: 0, opacity: 0.35 }}
                     animate={{ pathLength: 1, opacity: 1 }}
                     transition={{
@@ -223,8 +223,8 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
             cy="82.5"
             r="31"
             stroke="#FF721A"
-            strokeWidth="1.35"
             vectorEffect="non-scaling-stroke"
+            className="stroke-[1.15] sm:stroke-[1.35]"
             initial={{ pathLength: 0, opacity: 0.45 }}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{ duration: 0.68, delay: 0.62, ease: OSMO_EASE }}
