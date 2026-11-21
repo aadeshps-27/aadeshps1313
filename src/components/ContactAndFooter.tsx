@@ -14,6 +14,7 @@ import {
   useSpring,
 } from 'motion/react';
 import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
+import { ContactGridBackground } from './ContactGridBackground';
 import {
   ARTCRAFT_EASE,
   ParallaxLayer,
@@ -388,8 +389,13 @@ export const ContactAndFooter: React.FC = () => {
 
   return (
     <>
-      <section id="contact" className="snap-start pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+      <section
+        id="contact"
+        className="relative overflow-hidden snap-start pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+      >
+        <ContactGridBackground />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             {/* Left Column: Direct Channels */}
             <ParallaxLayer speed={10} className="lg:col-span-5">
@@ -593,7 +599,7 @@ export const ContactAndFooter: React.FC = () => {
                   onSubmit={handleSubmitEmail}
                   noValidate
                   aria-label="Project inquiry form"
-                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-7"
+                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA]/92 dark:bg-[#0A0A0A]/90 backdrop-blur-sm space-y-7"
                 >
                   {/* Simple Header */}
                   <div className="pb-5 border-b border-[#E5E5E5] dark:border-[#262626]">
