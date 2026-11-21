@@ -43,6 +43,7 @@ export default function App() {
   });
 
   const [isPreloading, setIsPreloading] = useState(true);
+  const [isNavRevealed, setIsNavRevealed] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ProjectCategory>('all');
   const [selectedProject, setSelectedProject] = useState<ProjectId | null>(null);
 
@@ -137,7 +138,12 @@ export default function App() {
       });
   };
 
+  const handleRevealNavbar = useCallback(() => {
+    setIsNavRevealed(true);
+  }, []);
+
   const handlePreloaderComplete = useCallback(() => {
+    setIsNavRevealed(true);
     setIsPreloading(false);
   }, []);
 
@@ -165,7 +171,11 @@ export default function App() {
 
         <AnimatePresence>
           {isPreloading && (
-            <Preloader key="site-preloader" onComplete={handlePreloaderComplete} />
+            <Preloader
+              key="site-preloader"
+              onRevealNavbar={handleRevealNavbar}
+              onComplete={handlePreloaderComplete}
+            />
           )}
         </AnimatePresence>
 
@@ -176,7 +186,11 @@ export default function App() {
           aria-hidden={isOverlayOpen || undefined}
           inert={isOverlayOpen}
         >
-          <Navbar theme={theme} onToggleTheme={toggleTheme} />
+          <Navbar
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            brandRevealed={isNavRevealed}
+          />
 
           <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
             <AboutSection

@@ -37,8 +37,8 @@ const MOBILE_COLS = 8;
 
 /**
  * Interactive ReFactory-style tile-grid background for the Contact section.
- * Draws a square tile matrix with 4-directional neighbor orange glow bleed on pointer hover/tap
- * and soft vignette fade masks along all four edges.
+ * Draws a pixel-snapped square tile matrix with 4-directional neighbor orange glow bleed
+ * on pointer hover/tap and seamless 4-edge vignette fade masks.
  */
 export const ContactGridBackground: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,20 +59,26 @@ export const ContactGridBackground: React.FC = () => {
     let cellSize = 48;
     let width = 0;
     let height = 0;
-    let activeIdx: number | null = null;
+    let lastPointerCell: { col: number; row: number } | null = null;
     let inView = true;
     let rafId: number | null = null;
     let lastTime = performance.now();
     let ambientAccumulator = 0;
 
     const isDarkMode = () => document.documentElement.classList.contains('dark');
-
     const randomDelay = () => 0.1 + Math.random() * 0.28;
 
-    const buildGrid = () => {
+    const buildGrid = (preserveState = false) => {
       const rect = container.getBoundingClientRect();
-      width = Math.max(1, Math.round(rect.width));
-      height = Math.max(1, Math.round(rect.height));
+      const nextWidth = Math.max(1, Math.round(rect.width));
+      const nextHeight = Math.max(1, Math.round(rect.height));
+
+      const prevByKey = preserveState
+        ? new Map<string, GridCell>(cells.map((c) => [`${c.col}:${c.row}`, c]))
+        : null;
+
+      width = nextWidth;
+      height = nextHeight;
 
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(width * dpr);
@@ -85,29 +91,36 @@ export const ContactGridBackground: React.FC = () => {
       cellSize = width / cols;
       rows = Math.max(1, Math.ceil(height / cellSize));
 
-      cells = [];
+      const nextCells: GridCell[] = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const x = c * cellSize;
           const y = r * cellSize;
-          cells.push({
+          const prev = prevByKey?.get(`${c}:${r}`);
+          nextCells.push({
             x,
             y,
             cx: x + cellSize / 2,
             cy: y + cellSize / 2,
             col: c,
             row: r,
-            alpha: 0,
-            targetAlpha: 0,
-            decayDelay: 0,
-            decaySpeed: 1.4,
-            neighbors: { above: 0, below: 0, left: 0, right: 0 },
-            neighborTarget: { above: 0, below: 0, left: 0, right: 0 },
-            neighborDelay: { above: 0, below: 0, left: 0, right: 0 },
+            alpha: prev ? prev.alpha : 0,
+            targetAlpha: prev ? prev.targetAlpha : 0,
+            decayDelay: prev ? prev.decayDelay : 0,
+            decaySpeed: prev ? prev.decaySpeed : 1.4,
+            neighbors: prev
+              ? { ...prev.neighbors }
+              : { above: 0, below: 0, left: 0, right: 0 },
+            neighborTarget: prev
+              ? { ...prev.neighborTarget }
+              : { above: 0, below: 0, left: 0, right: 0 },
+            neighborDelay: prev
+              ? { ...prev.neighborDelay }
+              : { above: 0, below: 0, left: 0, right: 0 },
           });
         }
       }
-      activeIdx = null;
+      cells = nextCells;
     };
 
     const getCellAt = (col: number, row: number): GridCell | undefined => {
@@ -147,35 +160,45 @@ export const ContactGridBackground: React.FC = () => {
       }
     };
 
+    const igniteAmbientInnerCell = () => {
+      if (cells.length === 0) return;
+      const minRow = rows >= 3 ? 1 : 0;
+      const maxRow = rows >= 3 ? rows - 2 : rows - 1;
+      const minCol = cols >= 4 ? 1 : 0;
+      const maxCol = cols >= 4 ? cols - 2 : cols - 1;
+
+      const r = minRow + Math.floor(Math.random() * (maxRow - minRow + 1));
+      const c = minCol + Math.floor(Math.random() * (maxCol - minCol + 1));
+      igniteCell(r * cols + c);
+    };
+
     const stepAndDraw = (now: number) => {
       const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
       lastTime = now;
 
       const dark = isDarkMode();
       const baseBorder = dark
-        ? 'rgba(168, 168, 168, 0.14)'
+        ? 'rgba(255, 255, 255, 0.095)'
         : 'rgba(10, 10, 10, 0.08)';
 
       ctx.clearRect(0, 0, width, height);
 
-      // Gentle ambient cell ignition so the architectural grid breathes even before cursor interaction
+      // Gentle ambient cell ignition inside visible area
       if (!prefersReducedMotion) {
         ambientAccumulator += dt;
-        if (ambientAccumulator >= 1.35 && cells.length > 0) {
+        if (ambientAccumulator >= 1.25 && cells.length > 0) {
           ambientAccumulator = 0;
-          const randIdx = Math.floor(Math.random() * cells.length);
-          igniteCell(randIdx);
+          igniteAmbientInnerCell();
         }
       }
 
-      // Update animation physics
+      // Update cell & neighbor decay physics
       if (!prefersReducedMotion) {
         for (let i = 0; i < cells.length; i++) {
           const cell = cells[i];
 
-          // Main cell alpha
           if (cell.targetAlpha > 0) {
-            cell.alpha += (1 - cell.alpha) * Math.min(1, dt * 10);
+            cell.alpha += (1 - cell.alpha) * Math.min(1, dt * 11);
             if (cell.alpha > 0.92) {
               cell.targetAlpha = 0;
             }
@@ -189,13 +212,12 @@ export const ContactGridBackground: React.FC = () => {
             cell.alpha = 0;
           }
 
-          // 4-neighbor edge bleed physics
           const dirs = ['above', 'below', 'left', 'right'] as const;
           for (let d = 0; d < 4; d++) {
             const key = dirs[d];
             if (cell.neighborTarget[key] > 0) {
               cell.neighbors[key] +=
-                (1 - cell.neighbors[key]) * Math.min(1, dt * 9);
+                (1 - cell.neighbors[key]) * Math.min(1, dt * 9.5);
               if (cell.neighbors[key] > 0.9) {
                 cell.neighborTarget[key] = 0;
               }
@@ -212,17 +234,25 @@ export const ContactGridBackground: React.FC = () => {
         }
       }
 
-      // Pass 1: Base grid lines
+      // Pass 1: Single-pass pixel-snapped orthogonal mesh (no double-drawn borders)
       ctx.strokeStyle = baseBorder;
       ctx.lineWidth = 1;
-      for (let i = 0; i < cells.length; i++) {
-        const cell = cells[i];
-        ctx.strokeRect(cell.x, cell.y, cellSize, cellSize);
+      ctx.beginPath();
+      for (let c = 0; c <= cols; c++) {
+        const px = Math.round(c * cellSize) + 0.5;
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, height);
       }
+      for (let r = 0; r <= rows; r++) {
+        const py = Math.round(r * cellSize) + 0.5;
+        ctx.moveTo(0, py);
+        ctx.lineTo(width, py);
+      }
+      ctx.stroke();
 
       if (!prefersReducedMotion) {
-        // Pass 2: Neighbor directional orange edge bleed gradients
-        const bleedDist = cellSize * 0.42;
+        // Pass 2: 4-directional neighbor orange edge bleed gradients
+        const bleedDist = cellSize * 0.45;
         for (let i = 0; i < cells.length; i++) {
           const cell = cells[i];
           const n = cell.neighbors;
@@ -245,21 +275,26 @@ export const ContactGridBackground: React.FC = () => {
             const [val, x0, y0, x1, y1] = edges[e];
             if (val <= 0.005) continue;
             const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-            grad.addColorStop(0, `rgba(255, 114, 26, ${(0.28 * val).toFixed(3)})`);
-            grad.addColorStop(0.6, `rgba(255, 114, 26, ${(0.09 * val).toFixed(3)})`);
+            grad.addColorStop(0, `rgba(255, 114, 26, ${(0.32 * val).toFixed(3)})`);
+            grad.addColorStop(0.6, `rgba(255, 114, 26, ${(0.1 * val).toFixed(3)})`);
             grad.addColorStop(1, 'rgba(255, 114, 26, 0)');
             ctx.fillStyle = grad;
             ctx.fillRect(cell.x, cell.y, cellSize, cellSize);
           }
 
           ctx.restore();
-          ctx.strokeStyle = `rgba(255, 114, 26, ${(maxNeighbor * 0.2).toFixed(3)})`;
+          ctx.strokeStyle = `rgba(255, 114, 26, ${(maxNeighbor * 0.24).toFixed(3)})`;
           ctx.lineWidth = 1;
-          ctx.strokeRect(cell.x, cell.y, cellSize, cellSize);
+          ctx.strokeRect(
+            Math.round(cell.x) + 0.5,
+            Math.round(cell.y) + 0.5,
+            Math.max(1, Math.round(cellSize)),
+            Math.max(1, Math.round(cellSize))
+          );
         }
 
-        // Pass 3: Active hovered/ignited cells with radial rim glow
-        const glowRadius = cellSize * 0.85;
+        // Pass 3: Active hovered/ignited cells with radial #FF721A rim glow
+        const glowRadius = cellSize * 0.88;
         for (let i = 0; i < cells.length; i++) {
           const cell = cells[i];
           if (cell.alpha <= 0.005) continue;
@@ -277,22 +312,27 @@ export const ContactGridBackground: React.FC = () => {
             cell.cy,
             glowRadius
           );
-          radial.addColorStop(0, 'rgba(255, 114, 26, 0)');
+          radial.addColorStop(0, 'rgba(255, 114, 26, 0.03)');
           radial.addColorStop(
-            0.58,
-            `rgba(255, 114, 26, ${(0.18 * cell.alpha).toFixed(3)})`
+            0.55,
+            `rgba(255, 114, 26, ${(0.22 * cell.alpha).toFixed(3)})`
           );
           radial.addColorStop(
             1,
-            `rgba(255, 114, 26, ${(0.38 * cell.alpha).toFixed(3)})`
+            `rgba(255, 114, 26, ${(0.44 * cell.alpha).toFixed(3)})`
           );
           ctx.fillStyle = radial;
           ctx.fillRect(cell.x, cell.y, cellSize, cellSize);
           ctx.restore();
 
-          ctx.strokeStyle = `rgba(255, 114, 26, ${(0.48 * cell.alpha).toFixed(3)})`;
-          ctx.lineWidth = 1.1;
-          ctx.strokeRect(cell.x, cell.y, cellSize, cellSize);
+          ctx.strokeStyle = `rgba(255, 114, 26, ${(0.56 * cell.alpha).toFixed(3)})`;
+          ctx.lineWidth = 1.25;
+          ctx.strokeRect(
+            Math.round(cell.x) + 0.5,
+            Math.round(cell.y) + 0.5,
+            Math.max(1, Math.round(cellSize)),
+            Math.max(1, Math.round(cellSize))
+          );
         }
       }
 
@@ -325,20 +365,38 @@ export const ContactGridBackground: React.FC = () => {
         e.clientY < rect.top ||
         e.clientY > rect.bottom
       ) {
-        activeIdx = null;
+        lastPointerCell = null;
         return;
       }
 
       const localX = e.clientX - rect.left;
       const localY = e.clientY - rect.top;
-      const col = Math.floor(localX / cellSize);
-      const row = Math.floor(localY / cellSize);
-      const idx = row * cols + col;
+      const col = Math.max(0, Math.min(cols - 1, Math.floor(localX / cellSize)));
+      const row = Math.max(0, Math.min(rows - 1, Math.floor(localY / cellSize)));
 
-      if (col >= 0 && col < cols && row >= 0 && row < rows && idx !== activeIdx) {
-        activeIdx = idx;
-        igniteCell(idx);
+      if (
+        lastPointerCell &&
+        lastPointerCell.col === col &&
+        lastPointerCell.row === row
+      ) {
+        return;
       }
+
+      if (lastPointerCell) {
+        // Interpolate along fast cursor movement so the trail stays continuous
+        const dCol = col - lastPointerCell.col;
+        const dRow = row - lastPointerCell.row;
+        const steps = Math.min(10, Math.max(Math.abs(dCol), Math.abs(dRow)));
+        for (let s = 1; s <= steps; s++) {
+          const ic = Math.round(lastPointerCell.col + (dCol * s) / steps);
+          const ir = Math.round(lastPointerCell.row + (dRow * s) / steps);
+          igniteCell(ir * cols + ic);
+        }
+      } else {
+        igniteCell(row * cols + col);
+      }
+
+      lastPointerCell = { col, row };
     };
 
     const handlePointerDown = (e: PointerEvent) => {
@@ -359,7 +417,7 @@ export const ContactGridBackground: React.FC = () => {
       }
     };
 
-    buildGrid();
+    buildGrid(false);
     stepAndDraw(performance.now());
 
     const observer =
@@ -382,7 +440,7 @@ export const ContactGridBackground: React.FC = () => {
     const resizeObserver =
       typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(() => {
-            buildGrid();
+            buildGrid(true);
             if (prefersReducedMotion) {
               stepAndDraw(performance.now());
             }
@@ -393,9 +451,8 @@ export const ContactGridBackground: React.FC = () => {
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });
 
-    // Redraw static grid immediately if theme toggles during reduced motion
     const themeObserver = new MutationObserver(() => {
-      if (prefersReducedMotion) {
+      if (rafId === null) {
         stepAndDraw(performance.now());
       }
     });
@@ -419,15 +476,15 @@ export const ContactGridBackground: React.FC = () => {
       ref={containerRef}
       aria-hidden="true"
       data-grid="contact"
-      className="pointer-events-none select-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] sm:w-[calc(100%-3rem)] max-w-7xl z-0 overflow-hidden"
+      className="pointer-events-none select-none absolute inset-0 z-0 overflow-hidden"
     >
-      <canvas ref={canvasRef} className="block w-full h-full opacity-90 dark:opacity-75" />
+      <canvas ref={canvasRef} className="block w-full h-full" />
 
-      {/* 4-edge ReFactory vignette fade masks blending seamlessly into light/dark canvas */}
-      <div className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white dark:from-black to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white dark:from-black to-transparent" />
-      <div className="absolute inset-y-0 left-0 w-10 sm:w-16 bg-gradient-to-r from-white dark:from-black to-transparent" />
-      <div className="absolute inset-y-0 right-0 w-10 sm:w-16 bg-gradient-to-l from-white dark:from-black to-transparent" />
+      {/* 4-edge vignette fade masks blending seamlessly into section bg-white / dark:bg-black */}
+      <div className="absolute inset-x-0 top-0 h-16 sm:h-24 bg-gradient-to-b from-white via-white/75 dark:from-black dark:via-black/75 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-16 sm:h-24 bg-gradient-to-t from-white via-white/75 dark:from-black dark:via-black/75 to-transparent" />
+      <div className="absolute inset-y-0 left-0 w-10 sm:w-20 bg-gradient-to-r from-white dark:from-black to-transparent" />
+      <div className="absolute inset-y-0 right-0 w-10 sm:w-20 bg-gradient-to-l from-white dark:from-black to-transparent" />
     </div>
   );
 };

@@ -1,13 +1,23 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
+import {
+  AnimatePresence,
+  LayoutGroup,
+  animate,
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
+} from 'motion/react';
 import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
-import { ARTCRAFT_EASE, RfButtonFlickerText } from './MotionPrimitives';
+import { NavbarLogoParticles } from './NavbarLogoParticles';
+import { ARTCRAFT_EASE, OSMO_EASE, RfButtonFlickerText } from './MotionPrimitives';
 import { playNavSelect } from '../utils/spatialAudio';
 
 interface NavbarProps {
   theme: 'light' | 'dark';
   onToggleTheme: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  brandRevealed?: boolean;
 }
 
 const SUN_RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -96,14 +106,49 @@ const AnimatedThemeIcon: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   );
 };
 
-export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  theme,
+  onToggleTheme,
+  brandRevealed = true,
+}) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const headerRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
   const [activeHref, setActiveHref] = useState<string>('#about');
   const [scrolled, setScrolled] = useState(false);
+  const [logoHoverCount, setLogoHoverCount] = useState(0);
+  const [maskDone, setMaskDone] = useState(
+    () => prefersReducedMotion || brandRevealed
+  );
+  const revealPct = useMotionValue(
+    prefersReducedMotion || brandRevealed ? 120 : 0
+  );
+  const brandMask = useMotionTemplate`linear-gradient(90deg, #000 calc(${revealPct}% - 14%), transparent ${revealPct}%)`;
   const isDark = theme === 'dark';
+
+  // Skhiladze-style horizontal mask-wipe brand reveal synchronized with preloader dot landing
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      revealPct.set(120);
+      setMaskDone(true);
+      return;
+    }
+
+    if (!brandRevealed) {
+      revealPct.set(0);
+      setMaskDone(false);
+      return;
+    }
+
+    const controls = animate(revealPct, 120, {
+      duration: 0.72,
+      ease: OSMO_EASE,
+      onComplete: () => setMaskDone(true),
+    });
+
+    return () => controls.stop();
+  }, [brandRevealed, prefersReducedMotion, revealPct]);
 
   const navLinks = [
     { label: 'About', href: '#about' },
@@ -234,32 +279,74 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
     >
       {/* Clear right-edge architectural scroll ruler (26px mobile / 34px md+) */}
       <div className="max-w-7xl mx-auto pl-4 pr-8 sm:pl-6 sm:pr-9 md:pr-12 lg:pl-10 lg:pr-14 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-6 lg:gap-8">
-        {/* Zone 1: Brand wordmark blended seamlessly in Light & Dark modes */}
+        {/* Zone 1: Brand wordmark revealed via Skhiladze horizontal wipe + particle flock */}
         <motion.a
           href="#top"
-          onClick={(e) => handleDesktopLinkClick(e, '#top')}
+          onClick={(e) => {
+            setLogoHoverCount((c) => c + 1);
+            handleDesktopLinkClick(e, '#top');
+          }}
+          onPointerEnter={(e) => {
+            if (e.pointerType !== 'touch') {
+              setLogoHoverCount((c) => c + 1);
+            }
+          }}
           aria-label={PROFILE.name}
           whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.02 }}
           whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
           transition={NAV_LINK_SPRING}
-          className="inline-flex items-center shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-sm"
+          className="relative inline-flex items-center shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-sm"
         >
-          <img
-            src={BRAND_LOGO_URL}
-            alt={PROFILE.name}
-            loading="eager"
-            decoding="sync"
-            fetchPriority="high"
-            referrerPolicy="no-referrer"
-            className="h-8 sm:h-9 lg:h-10 w-auto max-w-[160px] sm:max-w-[200px] object-contain object-left select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
+          <motion.div
+            style={
+              prefersReducedMotion || maskDone
+                ? undefined
+                : {
+                    maskImage: brandMask,
+                    WebkitMaskImage: brandMask,
+                  }
+            }
+            className="relative inline-flex items-center"
+          >
+            <img
+              src={BRAND_LOGO_URL}
+              alt={PROFILE.name}
+              loading="eager"
+              decoding="sync"
+              fetchPriority="high"
+              referrerPolicy="no-referrer"
+              className="h-8 sm:h-9 lg:h-10 w-auto max-w-[160px] sm:max-w-[200px] object-contain object-left select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen transition-[filter] duration-200"
+            />
+            {/* Exact landing target coordinate matching the signature #FF721A dot (x: 81.3%, y: 50%) */}
+            <span
+              data-nav-brand-target="true"
+              aria-hidden="true"
+              className="pointer-events-none absolute left-[81.3%] top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 sm:w-3 sm:h-3"
+            />
+          </motion.div>
+          <NavbarLogoParticles
+            brandRevealed={brandRevealed}
+            hoverPulseKey={logoHoverCount}
+            theme={theme}
           />
         </motion.a>
 
         {/* Zone 2: Clean single-line navigation links with active & hover tracking hairline */}
         <LayoutGroup id="navbar-hover-indicator">
-          <nav
+          <motion.nav
             aria-label="Primary Navigation"
             onMouseLeave={() => setHoveredHref(null)}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={
+              prefersReducedMotion || brandRevealed
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 8 }
+            }
+            transition={{
+              duration: prefersReducedMotion ? 0 : 0.62,
+              delay: prefersReducedMotion ? 0 : 0.06,
+              ease: OSMO_EASE,
+            }}
             className="hidden md:flex items-center md:gap-6 lg:gap-8 text-sm font-medium text-[#525252] dark:text-[#A3A3A3]"
           >
             {navLinks.map((item) => {
@@ -295,11 +382,24 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
                 </motion.a>
               );
             })}
-          </nav>
+          </motion.nav>
         </LayoutGroup>
 
         {/* Zone 3: Animated Morphing Theme Toggle + CTA */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={
+            prefersReducedMotion || brandRevealed
+              ? { opacity: 1, y: 0 }
+              : { opacity: 0, y: 8 }
+          }
+          transition={{
+            duration: prefersReducedMotion ? 0 : 0.62,
+            delay: prefersReducedMotion ? 0 : 0.12,
+            ease: OSMO_EASE,
+          }}
+          className="flex items-center gap-2.5 sm:gap-3 shrink-0"
+        >
           <motion.button
             type="button"
             onClick={onToggleTheme}
@@ -353,7 +453,7 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
           >
             {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
           </motion.button>
-        </div>
+        </motion.div>
       </div>
 
       {/* Mobile Navigation Drawer */}

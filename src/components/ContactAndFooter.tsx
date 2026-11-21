@@ -391,7 +391,7 @@ export const ContactAndFooter: React.FC = () => {
     <>
       <section
         id="contact"
-        className="relative overflow-hidden snap-start pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+        className="relative overflow-hidden snap-start bg-white dark:bg-black pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
       >
         <ContactGridBackground />
 
@@ -599,7 +599,7 @@ export const ContactAndFooter: React.FC = () => {
                   onSubmit={handleSubmitEmail}
                   noValidate
                   aria-label="Project inquiry form"
-                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA]/92 dark:bg-[#0A0A0A]/90 backdrop-blur-sm space-y-7"
+                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA]/85 dark:bg-[#0A0A0A]/80 backdrop-blur-md space-y-7"
                 >
                   {/* Simple Header */}
                   <div className="pb-5 border-b border-[#E5E5E5] dark:border-[#262626]">
