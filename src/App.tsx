@@ -12,6 +12,7 @@ import { CaseStudyModal } from './components/CaseStudyModal';
 import { BackToTopButton } from './components/BackToTopButton';
 import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { InteractiveDotGrid } from './components/InteractiveDotGrid';
+import { SmoothKeyboardNavigation } from './components/SmoothKeyboardNavigation';
 import {
   FloatingAudioToggle,
   SpatialAudioProvider,
@@ -180,6 +181,7 @@ export default function App() {
         </AnimatePresence>
 
         <CustomCursor />
+        <SmoothKeyboardNavigation disabled={isOverlayOpen} />
         <ScrollProgressBar isModalOpen={isOverlayOpen} />
 
         <div

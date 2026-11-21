@@ -4,6 +4,7 @@ import {
   motion,
   useReducedMotion,
 } from 'motion/react';
+import { smoothScrollToY } from '../utils/smoothScroll';
 
 interface ScrollProgressBarProps {
   isModalOpen?: boolean;
@@ -245,12 +246,8 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
     (ratio: number, instant: boolean) => {
       const maxScroll = Math.max(1, metrics.docH - metrics.vh);
       const targetTop = ratio * maxScroll;
-      window.scrollTo({
-        top: targetTop,
-        behavior:
-          instant || prefersReducedMotion
-            ? ('instant' as ScrollBehavior)
-            : 'smooth',
+      smoothScrollToY(targetTop, {
+        immediate: instant || Boolean(prefersReducedMotion),
       });
     },
     [metrics.docH, metrics.vh, prefersReducedMotion]

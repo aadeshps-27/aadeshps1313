@@ -13,6 +13,7 @@ import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
 import { NavbarLogoParticles } from './NavbarLogoParticles';
 import { ARTCRAFT_EASE, OSMO_EASE, RfButtonFlickerText } from './MotionPrimitives';
 import { playNavSelect } from '../utils/spatialAudio';
+import { smoothScrollToSectionId } from '../utils/smoothScroll';
 
 interface NavbarProps {
   theme: 'light' | 'dark';
@@ -113,6 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const headerRef = useRef<HTMLElement>(null);
+  const desktopLinkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
   const [activeHref, setActiveHref] = useState<string>('#about');
@@ -230,20 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const scrollToSection = (href: string) => {
     const id = href.replace(/^#/, '');
-    if (id === 'top') {
-      window.scrollTo({
-        top: 0,
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-      });
-      return;
-    }
-    const target = document.getElementById(id);
-    if (target) {
-      target.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
-    }
+    smoothScrollToSectionId(id);
   };
 
   const handleDesktopLinkClick = (
@@ -253,6 +242,28 @@ export const Navbar: React.FC<NavbarProps> = ({
     e.preventDefault();
     playNavSelect(e.currentTarget);
     scrollToSection(href);
+  };
+
+  const handleDesktopLinkKeyDown = (
+    e: React.KeyboardEvent<HTMLAnchorElement>,
+    idx: number
+  ) => {
+    const total = navLinks.length;
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const nextEl = desktopLinkRefs.current[(idx + 1) % total];
+      nextEl?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevEl = desktopLinkRefs.current[(idx - 1 + total) % total];
+      prevEl?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      desktopLinkRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      desktopLinkRefs.current[total - 1]?.focus();
+    }
   };
 
   const handleMobileLinkClick = (
@@ -349,15 +360,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             className="hidden md:flex items-center md:gap-6 lg:gap-8 text-sm font-medium text-[#525252] dark:text-[#A3A3A3]"
           >
-            {navLinks.map((item) => {
+            {navLinks.map((item, idx) => {
               const isHighlighted = indicatorHref === item.href;
               const isActiveSection = activeHref === item.href;
               return (
                 <motion.a
                   key={item.href}
+                  ref={(el) => {
+                    desktopLinkRefs.current[idx] = el;
+                  }}
                   href={item.href}
                   aria-current={isActiveSection ? 'location' : undefined}
                   onClick={(e) => handleDesktopLinkClick(e, item.href)}
+                  onKeyDown={(e) => handleDesktopLinkKeyDown(e, idx)}
                   onMouseEnter={() => setHoveredHref(item.href)}
                   onFocus={() => setHoveredHref(item.href)}
                   onBlur={() => setHoveredHref((prev) => (prev === item.href ? null : prev))}
