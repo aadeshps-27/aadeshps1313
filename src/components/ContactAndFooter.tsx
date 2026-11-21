@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
@@ -24,14 +24,21 @@ import {
 } from './MotionPrimitives';
 import { LiveClock } from './LiveClock';
 import {
+  drawSignatureStrokes,
+  SignaturePadModal,
+  SignatureStrokes,
+} from './SignaturePadModal';
+import {
   playCopyConfirm,
   playNavSelect,
 } from '../utils/spatialAudio';
 
+type InquiryKind = 'A collaboration' | 'Just a hello';
+
 interface FormErrors {
-  name?: string;
   email?: string;
-  message?: string;
+  body?: string;
+  sign?: string;
 }
 
 interface MagneticLinkTooltip {
@@ -51,6 +58,42 @@ interface MagneticLinkProps {
   tooltip?: MagneticLinkTooltip;
 }
 
+const INQUIRY_KINDS: InquiryKind[] = [
+  'A collaboration',
+  'Just a hello',
+];
+
+const MONTHS_SHORT = [
+  'JAN',
+  'FEB',
+  'MAR',
+  'APR',
+  'MAY',
+  'JUN',
+  'JUL',
+  'AUG',
+  'SEP',
+  'OCT',
+  'NOV',
+  'DEC',
+];
+
+function formatLetterDate(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const mon = MONTHS_SHORT[date.getMonth()] ?? 'JAN';
+  const year = date.getFullYear();
+  return `${day} ${mon} ${year}`;
+}
+
+function formatReceivedStampTime(date: Date): string {
+  return date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
+  });
+}
+
 const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 20, mass: 0.45 };
 const ENTRANCE_SPRING = {
   type: 'spring' as const,
@@ -63,26 +106,6 @@ const INTERACTION_SPRING = {
   stiffness: 460,
   damping: 22,
   mass: 0.5,
-};
-
-const CHANNEL_LIST_VARIANTS = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.085,
-      delayChildren: 0.08,
-    },
-  },
-};
-
-const CHANNEL_ITEM_VARIANTS = {
-  hidden: { opacity: 0, y: 26, scale: 0.96 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: ENTRANCE_SPRING,
-  },
 };
 
 const MagneticLink: React.FC<MagneticLinkProps> = ({
@@ -160,9 +183,9 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
       initial={
         prefersReducedMotion
           ? false
-          : { opacity: 0, y: 20, scale: 0.92, rotate: -1.5 }
+          : { opacity: 0, y: 16, scale: 0.94 }
       }
-      whileInView={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: 'some' }}
       transition={
         prefersReducedMotion
@@ -277,16 +300,32 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
 export const ContactAndFooter: React.FC = () => {
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
-  const [focusedField, setFocusedField] = useState<
-    'name' | 'email' | 'message' | null
-  >(null);
-  const [name, setName] = useState('');
+
+  // Correspondence Letter State
+  const [kind, setKind] = useState<InquiryKind>('A collaboration');
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
+  const [source, setSource] = useState('');
+  const [body, setBody] = useState('');
+  const [name, setName] = useState('');
+  const [signatureStrokes, setSignatureStrokes] = useState<SignatureStrokes>([]);
+  const [sigModalOpen, setSigModalOpen] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [copiedEmail, setCopiedEmail] = useState(false);
-  const [sentNotice, setSentNotice] = useState<string | null>(null);
+
+  // Intake Ticket / Stamp State
+  const [sentInfo, setSentInfo] = useState<{
+    jobId: string;
+    receivedAt: string;
+    replyBy: string;
+    viaLabel: 'Email' | 'WhatsApp';
+  } | null>(null);
+
+  const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const sigPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const sigTriggerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const todayStr = useMemo(() => formatLetterDate(new Date()), []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -307,27 +346,66 @@ export const ContactAndFooter: React.FC = () => {
     };
   }, []);
 
-  const validate = (): boolean => {
-    const nextErrors: FormErrors = {};
-    if (!name.trim()) nextErrors.name = 'Please enter your name.';
-    if (!email.trim()) {
-      nextErrors.email = 'Please enter your email address.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      nextErrors.email = 'Please enter a valid email address.';
-    }
-    if (!message.trim()) nextErrors.message = 'Please share a brief note about your project.';
+  // Auto-grow ruled letter textarea cleanly in 30px line increments
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const nextHeight = Math.max(180, el.scrollHeight);
+    el.style.height = `${nextHeight}px`;
+  }, [body]);
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+  // Render inline signature preview canvas & re-tint automatically on Light/Dark theme switch
+  useEffect(() => {
+    const renderPreview = () => {
+      const canvas = sigPreviewCanvasRef.current;
+      if (!canvas) return;
+      const dark = document.documentElement.classList.contains('dark');
+      const ink = dark ? '#F5F5F5' : '#1B2440';
+      drawSignatureStrokes(canvas, signatureStrokes, ink, 2.2);
+    };
+
+    renderPreview();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' && sigPreviewCanvasRef.current
+        ? new ResizeObserver(renderPreview)
+        : null;
+    if (sigPreviewCanvasRef.current) {
+      resizeObserver?.observe(sigPreviewCanvasRef.current);
+    }
+
+    const themeObserver = new MutationObserver(renderPreview);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => {
+      resizeObserver?.disconnect();
+      themeObserver.disconnect();
+    };
+  }, [signatureStrokes]);
+
+  const hasDrawnSig = signatureStrokes.length > 0;
+  const isSigned = hasDrawnSig || name.trim().length > 0;
+
+  const showToast = (label: string) => {
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+    setCopiedNotice(label);
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopiedNotice(null);
+      copyTimerRef.current = null;
+    }, 2400);
   };
 
-  const handleCopyEmail = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const sourceEl = e.currentTarget;
+  const copyTextToClipboard = async (text: string, sourceEl?: HTMLElement | null) => {
     let copied = false;
-
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(PROFILE.email);
+        await navigator.clipboard.writeText(text);
         copied = true;
       }
     } catch {
@@ -337,7 +415,7 @@ export const ContactAndFooter: React.FC = () => {
     if (!copied) {
       try {
         const textarea = document.createElement('textarea');
-        textarea.value = PROFILE.email;
+        textarea.value = text;
         textarea.setAttribute('readonly', '');
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
@@ -350,437 +428,698 @@ export const ContactAndFooter: React.FC = () => {
       }
     }
 
-    if (copied) {
+    if (copied && sourceEl) {
       playCopyConfirm(sourceEl);
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-      setCopiedEmail(true);
-      copyTimerRef.current = window.setTimeout(() => {
-        setCopiedEmail(false);
-        copyTimerRef.current = null;
-      }, 2400);
     }
+    return copied;
   };
 
-  const handleSubmitEmail = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCopyEmail = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const ok = await copyTextToClipboard(PROFILE.email, e.currentTarget);
+    if (ok) showToast(PROFILE.email);
+  };
+
+  const buildLetterTranscript = (ticketId?: string) => {
+    const lines = [
+      `DATE: ${todayStr}`,
+      `RE :: ${kind}`,
+      `FROM :: ${email.trim()}`,
+    ];
+    if (source.trim()) lines.push(`VIA :: ${source.trim()}`);
+    if (ticketId) lines.push(`JOB :: ${ticketId}`);
+    lines.push('', `Dear ${PROFILE.shortName},`, '', body.trim(), '', 'Sincerely,', name.trim() || '(Hand-signed)');
+    return lines.join('\n');
+  };
+
+  const validateLetter = (): boolean => {
+    const next: FormErrors = {};
+    if (!email.trim()) {
+      next.email = 'Please include your reply email address.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      next.email = 'That email address does not look complete.';
+    }
+    if (!body.trim()) {
+      next.body = 'Write a short note on what you are making.';
+    }
+    if (!isSigned) {
+      next.sign = 'Please sign above or enter your name.';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const stampAndLogTicket = (viaLabel: 'Email' | 'WhatsApp') => {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const seq = String((now.getMinutes() % 89) + 10);
+    const jobId = `AP-${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}-${seq}`;
+    setSentInfo({
+      jobId,
+      receivedAt: formatReceivedStampTime(now),
+      replyBy: formatLetterDate(tomorrow),
+      viaLabel,
+    });
+    return jobId;
+  };
+
+  const handleSendLetter = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validateLetter()) return;
 
     playNavSelect(e.currentTarget);
-    const subject = encodeURIComponent(`Portfolio inquiry from ${name.trim()}`);
-    const body = encodeURIComponent(
-      `Hi Aadesh,\n\nName: ${name.trim()}\nEmail: ${email.trim()}\n\n${message.trim()}`
-    );
-
-    window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${body}`;
-    setSentNotice('Opened your email client with your message.');
+    const jobId = stampAndLogTicket('Email');
+    const subject = encodeURIComponent(`[${kind}] Note from ${name.trim() || email.trim()}`);
+    const mailBody = encodeURIComponent(buildLetterTranscript(jobId));
+    window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${mailBody}`;
   };
 
   const handleSendWhatsApp = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!validate()) return;
+    if (!validateLetter()) return;
+
     playNavSelect(e.currentTarget);
-    const text = encodeURIComponent(
-      `Hi Aadesh, I'm ${name.trim()} (${email.trim()}). ${message.trim()}`
-    );
+    const jobId = stampAndLogTicket('WhatsApp');
+    const text = encodeURIComponent(buildLetterTranscript(jobId));
     window.location.href = `${PROFILE.whatsappHref}?text=${text}`;
-    setSentNotice('Redirecting to WhatsApp with your message.');
   };
+
+  const handleKeepCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const transcript = buildLetterTranscript(sentInfo?.jobId);
+    const ok = await copyTextToClipboard(transcript, e.currentTarget);
+    if (ok) showToast('Letter copy saved to clipboard');
+  };
+
+  const handleResetLetter = () => {
+    setSentInfo(null);
+    setErrors({});
+  };
+
+  const stubStatus = sentInfo
+    ? 'RECEIVED'
+    : isSigned
+      ? 'SIGNED · READY'
+      : 'BEING WRITTEN';
 
   return (
     <>
       <section
         id="contact"
-        className="relative overflow-hidden snap-start bg-white dark:bg-black pt-12 pb-14 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
+        className="relative overflow-hidden snap-start bg-white dark:bg-black pt-12 pb-16 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 border-b border-[#E5E5E5] dark:border-[#262626]"
       >
         <ContactGridBackground />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-            {/* Left Column: Direct Channels */}
-            <ParallaxLayer speed={10} className="lg:col-span-5">
-              <motion.div
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 space-y-10 sm:space-y-12">
+          {/* Editorial Section Header */}
+          <div className="max-w-2xl space-y-3">
+            <SectionChoreoHeader eyebrow="04. Connection">
+              <RfFlickerText
+                as="h2"
+                mode="heading"
+                className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
+                style={{ textWrap: 'balance' }}
+                segments={[
+                  { text: "Let's build something " },
+                  {
+                    text: 'meaningful',
+                    className:
+                      'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
+                  },
+                  { text: ' together.' },
+                ]}
+              />
+            </SectionChoreoHeader>
+            <p className="text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+              Compose a short note on the desk below, sign it by hand or name, and dispatch it
+              directly via email or WhatsApp.
+            </p>
+          </div>
+
+          {/* Correspondence Desk: Bond Letterhead Sheet + Thermal Press Intake Stub */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+            {/* Left / Primary: Archival Bond Stationery Sheet */}
+            <ParallaxLayer speed={10} className="lg:col-span-8">
+              <motion.form
+                onSubmit={handleSendLetter}
+                noValidate
+                aria-label="Project inquiry letter"
                 initial={
                   prefersReducedMotion
                     ? false
                     : { opacity: 0, y: 24, filter: 'blur(8px)' }
                 }
                 whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                viewport={{ once: true, amount: 0.15 }}
-                transition={{ duration: 0.75, ease: ARTCRAFT_EASE }}
-                className="space-y-6 sm:space-y-8"
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{ duration: 0.72, ease: ARTCRAFT_EASE }}
+                className="relative bg-[#F3F2EE]/95 dark:bg-[#111111]/95 backdrop-blur-md text-[#1A1A1A] dark:text-[#F5F5F5] font-mono text-[13px] sm:text-[14px] leading-[30px] border border-[#E2DFD7] dark:border-[#262626] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_16px_42px_rgba(10,10,10,0.08)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_60px_rgba(0,0,0,0.65)]"
               >
-              <div className="space-y-3 sm:space-y-4">
-                <SectionChoreoHeader eyebrow="04. Connection">
-                  <RfFlickerText
-                    as="h2"
-                    mode="heading"
-                    className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
-                    style={{ textWrap: 'balance' }}
-                    segments={[
-                      { text: "Let's build something " },
-                      {
-                        text: 'meaningful',
-                        className:
-                          'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
-                      },
-                      { text: ' together.' },
-                    ]}
-                  />
-                </SectionChoreoHeader>
-                <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                  Have a web application, brand system, or applied electronics collaboration in
-                  mind? Reach out directly via email or WhatsApp.
-                </p>
-              </div>
-
-              <motion.div
-                variants={prefersReducedMotion ? undefined : CHANNEL_LIST_VARIANTS}
-                initial={prefersReducedMotion ? false : 'hidden'}
-                whileInView="visible"
-                viewport={{ once: true, amount: 'some' }}
-                className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]"
-              >
-                <motion.div
-                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
-                  className="py-4 flex items-center justify-between gap-4"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <motion.span
-                        aria-hidden="true"
-                        initial={prefersReducedMotion ? false : { scale: 0 }}
-                        whileInView={{ scale: 1 }}
-                        viewport={{ once: true, amount: 'some' }}
-                        transition={{ ...ENTRANCE_SPRING, delay: 0.22 }}
-                        className="inline-block w-1.5 h-1.5 bg-[#FF721A]"
+                <div className="relative p-6 sm:p-10 lg:p-12">
+                  {/* Letterhead Header */}
+                  <header className="relative flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-5 pb-5 border-b border-[#1A1A1A]/20 dark:border-white/15">
+                    <div className="shrink-0">
+                      <img
+                        src={BRAND_LOGO_URL}
+                        alt={PROFILE.name}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="h-9 sm:h-10 w-auto object-contain select-none mix-blend-multiply dark:invert dark:hue-rotate-180 dark:mix-blend-screen"
                       />
-                      <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Email</p>
                     </div>
-                    <motion.a
-                      href={`mailto:${PROFILE.email}`}
-                      whileHover={prefersReducedMotion ? undefined : { x: 4 }}
-                      whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
-                      transition={INTERACTION_SPRING}
-                      className="group/email relative inline-block max-w-full font-medium text-sm sm:text-base text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate"
+                    <div className="min-w-0 leading-[1.45]">
+                      <p className="font-display text-base sm:text-lg font-semibold tracking-tight text-[#0A0A0A] dark:text-white">
+                        {PROFILE.name}
+                      </p>
+                      <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
+                        {PROFILE.role}
+                      </p>
+                      <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] truncate">
+                        <a
+                          href={`mailto:${PROFILE.email}`}
+                          className="hover:text-[#C94B00] dark:hover:text-[#FF721A] hover:underline underline-offset-4 transition-colors"
+                        >
+                          {PROFILE.email}
+                        </a>
+                        {' · '}
+                        {PROFILE.location}
+                      </p>
+                    </div>
+                  </header>
+
+                  {/* Date + Salutation */}
+                  <p className="mt-7 text-xs tracking-[0.04em] text-[#525252] dark:text-[#A3A3A3]">
+                    {todayStr}
+                  </p>
+                  <p className="mt-1.5 text-[15px] font-medium text-[#0A0A0A] dark:text-white">
+                    Dear {PROFILE.shortName},
+                  </p>
+
+                  {/* RE :: Inquiry Type Radio Selector */}
+                  <fieldset className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-2 border-0 p-0">
+                    <legend className="sr-only">Inquiry subject</legend>
+                    <span
+                      aria-hidden="true"
+                      className="text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] mr-1"
                     >
-                      <span>{PROFILE.email}</span>
+                      RE ::
+                    </span>
+                    {INQUIRY_KINDS.map((option) => {
+                      const selected = kind === option;
+                      return (
+                        <label
+                          key={option}
+                          className="relative inline-flex items-center gap-1.5 cursor-pointer text-[13px] select-none py-0.5 text-[#1A1A1A] dark:text-[#E5E5E5] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors"
+                        >
+                          <input
+                            type="radio"
+                            name="inquiry_kind"
+                            value={option}
+                            checked={selected}
+                            disabled={Boolean(sentInfo)}
+                            onChange={() => setKind(option)}
+                            className="sr-only peer"
+                          />
+                          <span
+                            aria-hidden="true"
+                            className={`font-mono text-xs peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#FF721A] ${
+                              selected
+                                ? 'text-[#C94B00] dark:text-[#FF721A] font-bold'
+                                : 'text-[#525252] dark:text-[#A3A3A3]'
+                            }`}
+                          >
+                            {selected ? '[X]' : '[ ]'}
+                          </span>
+                          <span className={selected ? 'font-semibold' : ''}>{option}</span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
+
+                  {/* FROM :: Email Field */}
+                  <div className="mt-3">
+                    <label className="group/field relative flex items-baseline gap-3 pb-0.5">
+                      <span className="flex-none min-w-[4.8em] text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
+                        FROM ::
+                      </span>
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        readOnly={Boolean(sentInfo)}
+                        value={email}
+                        aria-invalid={Boolean(errors.email)}
+                        aria-describedby={errors.email ? 'letter-note-email' : undefined}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                        }}
+                        placeholder="you@studio.com"
+                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                      />
                       <span
                         aria-hidden="true"
-                        className="block h-[1.5px] w-full bg-[#FF721A] origin-left scale-x-0 group-hover/email:scale-x-100 group-focus-visible/email:scale-x-100 transition-transform duration-300 ease-out"
-                      />
-                    </motion.a>
-                  </div>
-                  <motion.button
-                    type="button"
-                    onClick={handleCopyEmail}
-                    whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.03 }}
-                    whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
-                    transition={INTERACTION_SPRING}
-                    aria-label="Copy email address"
-                    className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                  >
-                    <AnimatePresence mode="wait" initial={false}>
-                      {copiedEmail ? (
-                        <motion.span
-                          key="copied"
-                          initial={prefersReducedMotion ? false : { scale: 0.75, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.75, opacity: 0 }}
-                          transition={INTERACTION_SPRING}
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          <Check size={14} className="text-[#C94B00] dark:text-[#FF721A]" aria-hidden="true" />
-                          <span>Copied!</span>
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          key="copy"
-                          initial={prefersReducedMotion ? false : { scale: 0.75, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.75, opacity: 0 }}
-                          transition={INTERACTION_SPRING}
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          <Copy size={14} aria-hidden="true" />
-                          <span>Copy Email</span>
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </motion.button>
-                </motion.div>
-
-                <motion.a
-                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
-                  href={PROFILE.whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileHover={prefersReducedMotion ? undefined : { x: 4 }}
-                  whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
-                  transition={INTERACTION_SPRING}
-                  className="py-4 flex items-center justify-between gap-4 group"
-                >
-                  <div>
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">WhatsApp</p>
-                    <p className="font-mono text-sm sm:text-base tabular-nums font-medium text-[#0A0A0A] dark:text-white group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] transition-colors">
-                      {PROFILE.whatsappDisplay}
-                    </p>
-                  </div>
-                  <ArrowUpRight
-                    size={16}
-                    className="text-[#525252] dark:text-[#A3A3A3] group-hover:text-[#C94B00] dark:group-hover:text-[#FF721A] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-                    aria-hidden="true"
-                  />
-                </motion.a>
-
-                <motion.div
-                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
-                  className="py-4 flex flex-wrap items-center justify-between gap-3"
-                >
-                  <div>
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Social</p>
-                    <p className="text-xs text-[#737373] dark:text-[#737373] mt-0.5">
-                      Connect directly
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <MagneticLink
-                      href={PROFILE.linkedinHref}
-                      allowMagnetic={allowMagnetic}
-                      prefersReducedMotion={prefersReducedMotion}
-                      entranceDelay={0.2}
-                      className="inline-flex items-center justify-center min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                    >
-                      LinkedIn
-                    </MagneticLink>
-                    <MagneticLink
-                      href={PROFILE.instagramHref}
-                      allowMagnetic={allowMagnetic}
-                      prefersReducedMotion={prefersReducedMotion}
-                      entranceDelay={0.28}
-                      className="inline-flex items-center justify-center min-h-[40px] px-3.5 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                    >
-                      Instagram
-                    </MagneticLink>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={prefersReducedMotion ? undefined : CHANNEL_ITEM_VARIANTS}
-                  className="py-4 flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">
-                      Local Time · {PROFILE.location}
-                    </p>
-                    <LiveClock className="text-sm sm:text-base font-medium text-[#0A0A0A] dark:text-white" />
-                  </div>
-                  <span className="font-mono text-xs text-[#C94B00] dark:text-[#FF721A]">
-                    UTC+5:30
-                  </span>
-                </motion.div>
-              </motion.div>
-              </motion.div>
-            </ParallaxLayer>
-
-            {/* Right Column: Minimal Editorial Underlined Note Form */}
-            <ParallaxLayer speed={20} className="lg:col-span-7">
-              <motion.div
-                initial={
-                  prefersReducedMotion
-                    ? false
-                    : { opacity: 0, y: 24, filter: 'blur(8px)' }
-                }
-                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                viewport={{ once: true, amount: 0.15 }}
-                transition={{ duration: 0.78, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
-              >
-                <form
-                  onSubmit={handleSubmitEmail}
-                  noValidate
-                  aria-label="Project inquiry form"
-                  className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA]/85 dark:bg-[#0A0A0A]/80 backdrop-blur-md space-y-7"
-                >
-                  {/* Simple Header */}
-                  <div className="pb-5 border-b border-[#E5E5E5] dark:border-[#262626]">
-                    <h3 className="font-serif italic text-xl sm:text-2xl text-[#0A0A0A] dark:text-white">
-                      Send a note
-                    </h3>
-                  </div>
-
-                  {/* Clean Underlined Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="contact-name"
-                        className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
-                      >
-                        Name
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="contact-name"
-                          type="text"
-                          value={name}
-                          aria-invalid={Boolean(errors.name)}
-                          onFocus={() => setFocusedField('name')}
-                          onBlur={() => setFocusedField((prev) => (prev === 'name' ? null : prev))}
-                          onChange={(e) => {
-                            setName(e.target.value);
-                            if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
-                          }}
-                          placeholder="Aarav Menon"
-                          className={`w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors ${
-                            errors.name
-                              ? 'border-red-600 dark:border-red-500'
-                              : 'border-[#D4D4D4] dark:border-[#333333]'
-                          }`}
-                        />
-                        <motion.span
-                          aria-hidden="true"
-                          initial={false}
-                          animate={{ scaleX: focusedField === 'name' ? 1 : 0 }}
-                          transition={
-                            prefersReducedMotion
-                              ? { duration: 0 }
-                              : { duration: 0.24, ease: ARTCRAFT_EASE }
-                          }
-                          style={{ transformOrigin: 'left center' }}
-                          className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
-                        />
-                      </div>
-                      {errors.name && (
-                        <p className="text-xs text-red-600 dark:text-red-400">{errors.name}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="contact-email"
-                        className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
-                      >
-                        Email
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="contact-email"
-                          type="email"
-                          value={email}
-                          aria-invalid={Boolean(errors.email)}
-                          onFocus={() => setFocusedField('email')}
-                          onBlur={() => setFocusedField((prev) => (prev === 'email' ? null : prev))}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-                          }}
-                          placeholder="you@example.com"
-                          className={`w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors ${
-                            errors.email
-                              ? 'border-red-600 dark:border-red-500'
-                              : 'border-[#D4D4D4] dark:border-[#333333]'
-                          }`}
-                        />
-                        <motion.span
-                          aria-hidden="true"
-                          initial={false}
-                          animate={{ scaleX: focusedField === 'email' ? 1 : 0 }}
-                          transition={
-                            prefersReducedMotion
-                              ? { duration: 0 }
-                              : { duration: 0.24, ease: ARTCRAFT_EASE }
-                          }
-                          style={{ transformOrigin: 'left center' }}
-                          className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
-                        />
-                      </div>
-                      {errors.email && (
-                        <p className="text-xs text-red-600 dark:text-red-400">{errors.email}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="contact-message"
-                      className="block font-mono text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3]"
-                    >
-                      Message
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        id="contact-message"
-                        rows={3}
-                        value={message}
-                        aria-invalid={Boolean(errors.message)}
-                        onFocus={() => setFocusedField('message')}
-                        onBlur={() => setFocusedField((prev) => (prev === 'message' ? null : prev))}
-                        onChange={(e) => {
-                          setMessage(e.target.value);
-                          if (errors.message) setErrors((prev) => ({ ...prev, message: undefined }));
-                        }}
-                        placeholder="Tell me a bit about what you'd like to build..."
-                        className={`block w-full py-2.5 bg-transparent border-b text-sm sm:text-base text-[#0A0A0A] dark:text-white placeholder:text-[#A3A3A3] dark:placeholder:text-[#525252] focus:outline-none transition-colors resize-y ${
-                          errors.message
-                            ? 'border-red-600 dark:border-red-500'
-                            : 'border-[#D4D4D4] dark:border-[#333333]'
+                        className={`pointer-events-none absolute inset-x-0 bottom-0 h-px transition-colors duration-200 ${
+                          errors.email
+                            ? 'bg-red-600 dark:bg-red-500'
+                            : 'bg-[#1A1A1A]/20 dark:bg-white/15 group-focus-within/field:bg-[#FF721A]'
                         }`}
                       />
-                      <motion.span
-                        aria-hidden="true"
-                        initial={false}
-                        animate={{ scaleX: focusedField === 'message' ? 1 : 0 }}
-                        transition={
-                          prefersReducedMotion
-                            ? { duration: 0 }
-                            : { duration: 0.24, ease: ARTCRAFT_EASE }
-                        }
-                        style={{ transformOrigin: 'left center' }}
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#FF721A]"
-                      />
-                    </div>
-                    {errors.message && (
-                      <p className="text-xs text-red-600 dark:text-red-400">{errors.message}</p>
+                    </label>
+                    {errors.email && (
+                      <p
+                        id="letter-note-email"
+                        className="mt-1 text-[11px] leading-snug text-red-600 dark:text-red-400"
+                      >
+                        {errors.email}
+                      </p>
                     )}
                   </div>
 
-                  {/* Clean Action Row */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                    <motion.button
-                      type="submit"
-                      whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
-                      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                      className="rf-btn-flicker w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF721A] text-[#0A0A0A] text-sm font-bold hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                    >
-                      <Mail size={15} aria-hidden="true" />
-                      <RfButtonFlickerText text="Send Email" />
-                    </motion.button>
-
-                    <motion.button
-                      type="button"
-                      onClick={handleSendWhatsApp}
-                      whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
-                      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                      className="rf-btn-flicker w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-sm font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-                    >
-                      <MessageSquare size={15} aria-hidden="true" />
-                      <RfButtonFlickerText text="WhatsApp" />
-                    </motion.button>
+                  {/* VIA :: Optional Referral Field */}
+                  <div className="mt-2.5">
+                    <label className="group/field relative flex items-baseline gap-3 pb-0.5">
+                      <span className="flex-none min-w-[4.8em] text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
+                        VIA ::
+                      </span>
+                      <input
+                        type="text"
+                        name="source"
+                        maxLength={120}
+                        autoComplete="off"
+                        readOnly={Boolean(sentInfo)}
+                        value={source}
+                        onChange={(e) => setSource(e.target.value)}
+                        placeholder="A friend, LinkedIn, Instagram, a search… (optional)"
+                        className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[#1A1A1A]/20 dark:bg-white/15 group-focus-within/field:bg-[#FF721A] transition-colors duration-200"
+                      />
+                    </label>
                   </div>
 
-                  {sentNotice && (
+                  {/* Ruled Stationery Letter Body */}
+                  <label
+                    className={`block mt-5 letter-ruled-paper ${
+                      errors.body ? 'letter-ruled-paper-error' : ''
+                    }`}
+                  >
+                    <span className="sr-only">The letter</span>
+                    <textarea
+                      ref={textareaRef}
+                      name="body"
+                      rows={6}
+                      maxLength={6000}
+                      required
+                      readOnly={Boolean(sentInfo)}
+                      value={body}
+                      aria-invalid={Boolean(errors.body)}
+                      aria-describedby={errors.body ? 'letter-note-body' : undefined}
+                      onChange={(e) => {
+                        setBody(e.target.value);
+                        if (errors.body) setErrors((prev) => ({ ...prev, body: undefined }));
+                      }}
+                      placeholder="What are we making?"
+                      className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
+                    />
+                  </label>
+                  {errors.body && (
                     <p
-                      role="status"
-                      className="text-xs font-medium text-[#C94B00] dark:text-[#FF721A]"
+                      id="letter-note-body"
+                      className="mt-1.5 text-[11px] leading-snug text-red-600 dark:text-red-400"
                     >
-                      {sentNotice}
+                      {errors.body}
                     </p>
                   )}
-                </form>
-              </motion.div>
+
+                  {/* Closing + Signature Pad Box */}
+                  <p className="mt-6 text-[15px] font-medium text-[#0A0A0A] dark:text-white">
+                    Sincerely,
+                  </p>
+
+                  <div
+                    ref={sigTriggerRef}
+                    role="button"
+                    tabIndex={sentInfo ? -1 : 0}
+                    aria-label="Sign your name"
+                    aria-haspopup="dialog"
+                    aria-disabled={Boolean(sentInfo)}
+                    onClick={() => {
+                      if (!sentInfo) setSigModalOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!sentInfo && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        setSigModalOpen(true);
+                      }
+                    }}
+                    className={`relative mt-2 h-20 sm:h-24 w-full max-w-md border-b transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] ${
+                      errors.sign
+                        ? 'border-red-600 dark:border-red-500'
+                        : 'border-[#1A1A1A]/25 dark:border-white/20 hover:border-[#FF721A]'
+                    } ${sentInfo ? 'cursor-default' : 'cursor-pointer'}`}
+                  >
+                    <canvas
+                      ref={sigPreviewCanvasRef}
+                      aria-hidden="true"
+                      className="absolute inset-0 block w-full h-full pointer-events-none"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute left-0 bottom-2 text-xs text-[#737373] dark:text-[#A3A3A3] transition-opacity duration-200 ${
+                        hasDrawnSig ? 'opacity-0' : 'opacity-80'
+                      }`}
+                    >
+                      sign here (click or tap)
+                    </span>
+                  </div>
+
+                  {/* Typed Name Line + Clear Signature */}
+                  <div className="mt-2 max-w-md flex items-baseline justify-between gap-4">
+                    <input
+                      type="text"
+                      name="name"
+                      autoComplete="name"
+                      readOnly={Boolean(sentInfo)}
+                      value={name}
+                      aria-label="Your name"
+                      aria-invalid={Boolean(errors.sign)}
+                      aria-describedby={errors.sign ? 'letter-note-sign' : undefined}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (errors.sign) setErrors((prev) => ({ ...prev, sign: undefined }));
+                      }}
+                      placeholder="Your name"
+                      className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-[15px] sm:text-[13px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373] focus:underline decoration-[#FF721A] underline-offset-4"
+                    />
+
+                    {hasDrawnSig && !sentInfo && (
+                      <button
+                        type="button"
+                        onClick={() => setSignatureStrokes([])}
+                        className="text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                      >
+                        clear signature
+                      </button>
+                    )}
+                  </div>
+                  {errors.sign && (
+                    <p
+                      id="letter-note-sign"
+                      className="mt-1 text-[11px] leading-snug text-red-600 dark:text-red-400"
+                    >
+                      {errors.sign}
+                    </p>
+                  )}
+
+                  {/* Footer Status + Dispatch Buttons */}
+                  <div className="mt-9 pt-4 border-t border-[#1A1A1A]/15 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <p className="text-[11px] tracking-[0.06em] uppercase leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
+                      ONE REPLY, NO NEWSLETTER ·{' '}
+                      <span
+                        aria-live="polite"
+                        className={
+                          sentInfo || isSigned
+                            ? 'text-[#C94B00] dark:text-[#FF721A] font-semibold'
+                            : ''
+                        }
+                      >
+                        {sentInfo
+                          ? 'RECEIVED'
+                          : isSigned
+                            ? 'SIGNED'
+                            : 'NOT YET SIGNED'}
+                      </span>
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      {!sentInfo ? (
+                        <>
+                          <motion.button
+                            type="submit"
+                            whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
+                            whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+                            className="rf-btn-flicker min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-[#0A0A0A] text-white dark:bg-[#FF721A] dark:text-[#0A0A0A] text-xs font-bold tracking-[0.04em] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            <Mail size={14} aria-hidden="true" />
+                            <RfButtonFlickerText text="Send it" />
+                          </motion.button>
+
+                          <motion.button
+                            type="button"
+                            onClick={handleSendWhatsApp}
+                            whileHover={prefersReducedMotion ? undefined : { y: -1.5 }}
+                            whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+                            className="rf-btn-flicker min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-[#1A1A1A]/25 dark:border-white/20 bg-white/60 dark:bg-[#1A1A1A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            <MessageSquare size={14} aria-hidden="true" />
+                            <RfButtonFlickerText text="WhatsApp" />
+                          </motion.button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleKeepCopy}
+                            className="min-h-[40px] px-2 text-[11px] tracking-[0.06em] uppercase underline underline-offset-4 text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            Keep a copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetLetter}
+                            className="min-h-[40px] px-4 py-2 rounded-lg border border-[#1A1A1A]/25 dark:border-white/20 text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            Write another
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rubber Stamp Overlay on Dispatch */}
+                  <AnimatePresence>
+                    {sentInfo && (
+                      <motion.div
+                        aria-hidden="true"
+                        initial={
+                          prefersReducedMotion
+                            ? { opacity: 0.9 }
+                            : { opacity: 0, scale: 1.35, rotate: -14 }
+                        }
+                        animate={{ opacity: 0.9, scale: 1, rotate: -9 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.34, ease: ARTCRAFT_EASE }}
+                        className="pointer-events-none absolute right-6 sm:right-10 bottom-24 sm:bottom-20 w-36 sm:w-44 select-none mix-blend-multiply dark:mix-blend-screen"
+                      >
+                        <div className="border-2 border-[#C94B00] dark:border-[#FF721A] px-3 py-2 text-[#C94B00] dark:text-[#FF721A] text-center tracking-[0.12em]">
+                          <p className="text-[10px] font-bold">AADESH PS · PRESS</p>
+                          <p className="text-sm font-extrabold tracking-[0.16em] border-y border-current my-1 py-0.5">
+                            DISPATCHED
+                          </p>
+                          <p className="text-[9px] tabular-nums">
+                            {sentInfo.jobId} · {sentInfo.viaLabel.toUpperCase()}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.form>
             </ParallaxLayer>
+
+            {/* Right: Thermal Press Job Ticket Stub */}
+            <ParallaxLayer speed={18} className="lg:col-span-4 lg:sticky lg:top-24">
+              <motion.aside
+                aria-label="Job ticket"
+                initial={
+                  prefersReducedMotion
+                    ? false
+                    : { opacity: 0, y: 26, filter: 'blur(6px)' }
+                }
+                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.75, delay: prefersReducedMotion ? 0 : 0.1, ease: ARTCRAFT_EASE }}
+                className={`w-full max-w-[330px] mx-auto lg:max-w-none bg-[#F7F7F4]/95 dark:bg-[#161616]/95 backdrop-blur-md text-[#1A1A1A] dark:text-[#F5F5F5] font-mono uppercase tracking-[0.04em] p-6 border border-[#E5E3DC] dark:border-[#2A2A2A] shadow-[0_6px_22px_rgba(10,10,10,0.08)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.55)] transition-transform duration-300 ${
+                  prefersReducedMotion ? '' : 'lg:rotate-[1deg] hover:lg:rotate-0'
+                }`}
+              >
+                <p className="text-xs font-semibold text-[#0A0A0A] dark:text-white">
+                  AADESH PS :: PRESS
+                </p>
+                <p className="mt-0.5 pb-2.5 text-[10px] text-[#525252] dark:text-[#A3A3A3] border-b border-dashed border-[#1A1A1A]/25 dark:border-white/20">
+                  INTAKE · COUNTER 01
+                </p>
+
+                <dl className="mt-3 text-[11px] leading-[1.6]">
+                  <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">JOB</dt>
+                    <dd
+                      className={`text-right tabular-nums ${
+                        sentInfo
+                          ? 'text-[#0A0A0A] dark:text-white font-semibold'
+                          : 'text-[#737373] dark:text-[#737373]'
+                      }`}
+                    >
+                      {sentInfo ? sentInfo.jobId : '——'}
+                    </dd>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">RECEIVED</dt>
+                    <dd
+                      className={`text-right tabular-nums ${
+                        sentInfo
+                          ? 'text-[#0A0A0A] dark:text-white font-semibold'
+                          : 'text-[#737373] dark:text-[#737373]'
+                      }`}
+                    >
+                      {sentInfo ? sentInfo.receivedAt : '——'}
+                    </dd>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">REPLY BY</dt>
+                    <dd
+                      className={`text-right tabular-nums ${
+                        sentInfo
+                          ? 'text-[#0A0A0A] dark:text-white font-semibold'
+                          : 'text-[#737373] dark:text-[#737373]'
+                      }`}
+                    >
+                      {sentInfo ? sentInfo.replyBy : '——'}
+                    </dd>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">STATUS</dt>
+                    <dd
+                      className={`text-right font-semibold ${
+                        sentInfo || isSigned
+                          ? 'text-[#C94B00] dark:text-[#FF721A]'
+                          : 'text-[#0A0A0A] dark:text-white'
+                      }`}
+                    >
+                      {stubStatus}
+                    </dd>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">FILE UNDER</dt>
+                    <dd className="text-right font-semibold text-[#0A0A0A] dark:text-white">
+                      {kind.toUpperCase()}
+                    </dd>
+                  </div>
+                </dl>
+
+                <span
+                  aria-hidden="true"
+                  className="letter-stub-bars block h-[26px] mt-4 text-[#1A1A1A] dark:text-[#E5E5E5]"
+                />
+                <p className="mt-2 text-[10px] text-[#525252] dark:text-[#A3A3A3]">
+                  KEEP THIS HALF
+                </p>
+              </motion.aside>
+            </ParallaxLayer>
+          </div>
+
+          {/* Direct Channels & Local Clock Strip */}
+          <div className="pt-8 border-t border-[#E5E5E5] dark:border-[#262626] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
+            <div className="flex items-center justify-between sm:justify-start gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
+                  Direct Email
+                </p>
+                <a
+                  href={`mailto:${PROFILE.email}`}
+                  className="text-sm font-medium text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors truncate block"
+                >
+                  {PROFILE.email}
+                </a>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyEmail}
+                aria-label="Copy email address"
+                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                <Copy size={13} aria-hidden="true" />
+                <span>Copy</span>
+              </button>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
+                WhatsApp
+              </p>
+              <a
+                href={PROFILE.whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-mono text-sm tabular-nums font-medium text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors"
+              >
+                <span>{PROFILE.whatsappDisplay}</span>
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
+                Social Channels
+              </p>
+              <div className="mt-1 flex items-center gap-2.5">
+                <MagneticLink
+                  href={PROFILE.linkedinHref}
+                  allowMagnetic={allowMagnetic}
+                  prefersReducedMotion={prefersReducedMotion}
+                  entranceDelay={0.08}
+                  className="inline-flex items-center min-h-[36px] px-3 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                >
+                  LinkedIn
+                </MagneticLink>
+                <MagneticLink
+                  href={PROFILE.instagramHref}
+                  allowMagnetic={allowMagnetic}
+                  prefersReducedMotion={prefersReducedMotion}
+                  entranceDelay={0.14}
+                  className="inline-flex items-center min-h-[36px] px-3 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                >
+                  Instagram
+                </MagneticLink>
+              </div>
+            </div>
+
+            <div className="sm:text-right">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-[#525252] dark:text-[#A3A3A3]">
+                Local Time · {PROFILE.location}
+              </p>
+              <div className="mt-0.5 flex items-center sm:justify-end gap-2">
+                <LiveClock className="text-sm font-medium text-[#0A0A0A] dark:text-white" />
+                <span className="font-mono text-xs text-[#C94B00] dark:text-[#FF721A]">
+                  UTC+5:30
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Interactive Signature Slip Modal */}
+      <SignaturePadModal
+        open={sigModalOpen}
+        initialStrokes={signatureStrokes}
+        onClose={() => {
+          setSigModalOpen(false);
+          window.requestAnimationFrame(() => sigTriggerRef.current?.focus());
+        }}
+        onDone={(strokes) => {
+          setSignatureStrokes(strokes);
+          if (strokes.length > 0 && errors.sign) {
+            setErrors((prev) => ({ ...prev, sign: undefined }));
+          }
+          setSigModalOpen(false);
+          window.requestAnimationFrame(() => sigTriggerRef.current?.focus());
+        }}
+      />
 
       {/* Quiet Editorial Footer with bottom clearance for floating Back-to-Top button */}
       <footer className="snap-end pt-10 pb-20 sm:pb-10">
@@ -842,7 +1181,7 @@ export const ContactAndFooter: React.FC = () => {
 
       {/* Brief 'Copied!' Toast Notification */}
       <AnimatePresence>
-        {copiedEmail && (
+        {copiedNotice && (
           <motion.div
             key="email-copied-toast"
             role="status"
@@ -859,7 +1198,7 @@ export const ContactAndFooter: React.FC = () => {
               </span>
               <span>Copied!</span>
               <span className="text-[#A3A3A3] dark:text-[#525252] font-mono font-normal truncate max-w-[200px] sm:max-w-none">
-                {PROFILE.email}
+                {copiedNotice}
               </span>
             </div>
           </motion.div>

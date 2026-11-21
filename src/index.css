@@ -315,6 +315,59 @@ html.theme-animating * {
   opacity: 1;
 }
 
+/* Carter-inspired stationery ruled paper & thermal intake barcode */
+.letter-ruled-paper {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    rgba(10, 10, 10, 0.14) 29px 30px
+  );
+}
+
+.dark .letter-ruled-paper {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    rgba(255, 255, 255, 0.12) 29px 30px
+  );
+}
+
+.letter-ruled-paper:focus-within {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    rgba(10, 10, 10, 0.34) 29px 30px
+  );
+}
+
+.dark .letter-ruled-paper:focus-within {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    rgba(255, 114, 26, 0.42) 29px 30px
+  );
+}
+
+.letter-ruled-paper-error {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 29px,
+    rgba(220, 38, 38, 0.52) 29px 30px
+  ) !important;
+}
+
+.letter-stub-bars {
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0 2px,
+    transparent 2px 4px,
+    currentColor 4px 5px,
+    transparent 5px 9px,
+    currentColor 9px 12px,
+    transparent 12px 14px
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-rf-split] .rf-char {
     color: inherit !important;
