@@ -57,6 +57,7 @@ export const AiCharacterMotion: React.FC = () => {
   const stageRef = useRef<HTMLDivElement>(null);
   const tapComboRef = useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: 0 });
   const lastPointerRef = useRef<{ x: number; y: number; t: number }>({ x: 0, y: 0, t: 0 });
+  const dragEndedAtRef = useRef<number>(0);
   const celebratedBottomRef = useRef(false);
   const thoughtTimerRef = useRef<number | null>(null);
 
@@ -322,21 +323,19 @@ export const AiCharacterMotion: React.FC = () => {
         lookVectorRef.current = { x: 0, y: 0 };
       }, 3600);
 
-      // Detect rapid cursor whips near companion to flare stabilizer wings
+      // Detect rapid cursor whips near companion to flare stabilizer wings (skip first sample where t === 0)
       const now = performance.now();
-      const dt = Math.max(8, now - lastPointerRef.current.t);
-      const pSpeed =
-        Math.hypot(
-          e.clientX - lastPointerRef.current.x,
-          e.clientY - lastPointerRef.current.y
-        ) / dt;
+      const prevPtr = lastPointerRef.current;
       lastPointerRef.current = { x: e.clientX, y: e.clientY, t: now };
-
-      if (pSpeed > 2.4 && dist < 360) {
-        setIsFastPointer(true);
-        setMood((prev) => (prev === 'tracking' || prev === 'sleep' ? 'surprised' : prev));
-        if (fastTimer !== null) window.clearTimeout(fastTimer);
-        fastTimer = window.setTimeout(() => setIsFastPointer(false), 320);
+      if (prevPtr.t > 0) {
+        const dt = Math.max(8, now - prevPtr.t);
+        const pSpeed = Math.hypot(e.clientX - prevPtr.x, e.clientY - prevPtr.y) / dt;
+        if (pSpeed > 2.4 && dist < 360) {
+          setIsFastPointer(true);
+          setMood((prev) => (prev === 'tracking' || prev === 'sleep' ? 'surprised' : prev));
+          if (fastTimer !== null) window.clearTimeout(fastTimer);
+          fastTimer = window.setTimeout(() => setIsFastPointer(false), 320);
+        }
       }
 
       if (dist < 180) {
@@ -627,8 +626,9 @@ export const AiCharacterMotion: React.FC = () => {
     }
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
       e.preventDefault();
+      const maxX = typeof window !== 'undefined' ? Math.max(40, Math.min(280, window.innerWidth - 160)) : 280;
       setRoamFacing(1);
-      rawRoamX.set(Math.min(280, rawRoamX.get() + step));
+      rawRoamX.set(Math.min(maxX, rawRoamX.get() + step));
     } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
       e.preventDefault();
       setRoamFacing(-1);
@@ -708,13 +708,16 @@ export const AiCharacterMotion: React.FC = () => {
           setPulseKey((k) => k + 1);
         }}
         onDragEnd={() => {
+          dragEndedAtRef.current = performance.now();
           setIsDragging(false);
           setHopKey((k) => k + 1);
           setMood('happy');
           setPulseKey((k) => k + 1);
         }}
         onTap={() => {
-          if (!isDragging) triggerReaction();
+          if (!isDragging && performance.now() - dragEndedAtRef.current > 220) {
+            triggerReaction();
+          }
         }}
         onDoubleClick={triggerSpin}
         whileDrag={prefersReducedMotion ? undefined : { scale: 1.12 }}
@@ -727,7 +730,7 @@ export const AiCharacterMotion: React.FC = () => {
                 rotate: roamTilt,
               }
         }
-        className="relative w-24 h-28 flex flex-col items-center justify-end cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-2xl touch-none"
+        className="relative w-[104px] h-[120px] flex flex-col items-center justify-end cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-2xl touch-none"
       >
         {/* Expanding Orange Pulse Wave on Click / Drag */}
         <AnimatePresence>
@@ -996,7 +999,7 @@ export const AiCharacterMotion: React.FC = () => {
                 : { opacity: 0, x: -6, scale: 0.96, filter: 'blur(4px)' }
             }
             transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
-            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/[0.97] dark:bg-[#0A0A0A]/[0.97] shadow-xl flex flex-col gap-2 max-w-[275px]"
+            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/[0.97] dark:bg-[#0A0A0A]/[0.97] shadow-xl flex flex-col gap-2 max-w-[min(275px,calc(100vw-8.5rem))]"
           >
             <p className="text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3] px-1">
               {promptCopy.line}

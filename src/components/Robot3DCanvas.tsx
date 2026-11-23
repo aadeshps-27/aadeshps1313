@@ -584,8 +584,8 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     const container = mountRef.current;
     if (!container || typeof window === 'undefined') return;
 
-    const width = container.clientWidth || 96;
-    const height = container.clientHeight || 108;
+    const width = container.clientWidth || 104;
+    const height = container.clientHeight || 116;
 
     // Software WebGL detection from GPU renderer string
     const isSoftwareGl = (() => {
@@ -612,7 +612,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.12;
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height, false);
@@ -624,8 +624,8 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 30);
-    camera.position.set(0, 0.06, 4.45);
-    camera.lookAt(0, 0.04, 0);
+    camera.position.set(0, 0.02, 5.25);
+    camera.lookAt(0, 0.0, 0);
 
     // Mandatory studio environment reflection via RoomEnvironment
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -735,10 +735,10 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     scene.add(robotRoot);
 
     const headPivot = new THREE.Group();
-    headPivot.position.set(0, 0.2, 0);
+    headPivot.position.set(0, 0.25, 0);
     robotRoot.add(headPivot);
 
-    // 1. Primary Head Shell (ExtrudeGeometry with smooth bevels)
+    // 1. Primary Head Shell (ExtrudeGeometry with smooth bevels; front plane sits at z = +0.42)
     const headShape = createRoundedRectShape(1.16, 0.86, 0.28);
     const headGeo = new THREE.ExtrudeGeometry(headShape, {
       depth: 0.56,
@@ -754,7 +754,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     const headMesh = new THREE.Mesh(headGeo, chassisMat);
     headPivot.add(headMesh);
 
-    // 2. Front Recessed Visor Bezel Frame
+    // 2. Front Recessed Visor Bezel Frame (cleanly proud of head shell front plane z = 0.42)
     const bezelShape = createBezelFrameShape(1.06, 0.68, 0.2, 0.94, 0.56, 0.15);
     const bezelGeo = new THREE.ExtrudeGeometry(bezelShape, {
       depth: 0.08,
@@ -764,24 +764,23 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
       bevelSegments: 3,
       curveSegments: 16,
     });
-    bezelGeo.translate(0, 0, 0.37);
+    bezelGeo.translate(0, 0, 0.39);
     disposables.push(bezelGeo);
     const bezelMesh = new THREE.Mesh(bezelGeo, visorBezelMat);
     headPivot.add(bezelMesh);
 
-    // 3. Glossy OLED Visor Faceplate
+    // 3. Glossy OLED Visor Faceplate (edges at z = 0.432 > 0.42 so they never sink into head shell)
     const visorGeo = new THREE.PlaneGeometry(0.96, 0.58, 12, 1);
-    // Subtle convex curvature along X for authentic 3D visor depth
     const vPos = visorGeo.attributes.position;
     for (let i = 0; i < vPos.count; i++) {
       const vx = vPos.getX(i);
-      const curveZ = Math.cos((vx / 0.48) * (Math.PI / 2)) * 0.045;
+      const curveZ = Math.cos((vx / 0.48) * (Math.PI / 2)) * 0.04;
       vPos.setZ(i, curveZ);
     }
     visorGeo.computeVertexNormals();
     disposables.push(visorGeo);
     const visorMesh = new THREE.Mesh(visorGeo, visorDisplayMat);
-    visorMesh.position.set(0, 0, 0.405);
+    visorMesh.position.set(0, 0, 0.432);
     headPivot.add(visorMesh);
 
     // 4. Metallic Ear Hub Collars
@@ -861,41 +860,41 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
     // 7. Neck Collar + Sculpted Lathe Torso Pod + Reactor Core + Thruster
     const torsoGroup = new THREE.Group();
-    torsoGroup.position.set(0, -0.42, 0);
+    torsoGroup.position.set(0, -0.46, 0);
     robotRoot.add(torsoGroup);
 
-    const neckGeo = new THREE.TorusGeometry(0.24, 0.045, 12, 28);
+    const neckGeo = new THREE.TorusGeometry(0.24, 0.048, 12, 28);
     neckGeo.rotateX(Math.PI / 2);
     disposables.push(neckGeo);
     const neckMesh = new THREE.Mesh(neckGeo, metalTrimMat);
-    neckMesh.position.set(0, 0.12, 0);
+    neckMesh.position.set(0, 0.14, 0);
     torsoGroup.add(neckMesh);
 
     const torsoProfile = [
-      new THREE.Vector2(0.0, -0.34),
+      new THREE.Vector2(0.001, -0.34),
       new THREE.Vector2(0.18, -0.34),
       new THREE.Vector2(0.32, -0.24),
       new THREE.Vector2(0.42, -0.08),
       new THREE.Vector2(0.38, 0.06),
       new THREE.Vector2(0.22, 0.12),
-      new THREE.Vector2(0.0, 0.12),
+      new THREE.Vector2(0.001, 0.12),
     ];
     const torsoGeo = new THREE.LatheGeometry(torsoProfile, 28);
     disposables.push(torsoGeo);
     const torsoMesh = new THREE.Mesh(torsoGeo, chassisMat);
     torsoGroup.add(torsoMesh);
 
-    const chestBezelGeo = new THREE.TorusGeometry(0.12, 0.022, 10, 24);
+    const chestBezelGeo = new THREE.TorusGeometry(0.12, 0.024, 10, 24);
     disposables.push(chestBezelGeo);
     const chestBezel = new THREE.Mesh(chestBezelGeo, metalTrimMat);
-    chestBezel.position.set(0, -0.1, 0.39);
+    chestBezel.position.set(0, -0.09, 0.408);
     torsoGroup.add(chestBezel);
 
-    const chestCoreGeo = new THREE.SphereGeometry(0.082, 18, 18);
+    const chestCoreGeo = new THREE.SphereGeometry(0.084, 18, 18);
     disposables.push(chestCoreGeo);
     const chestCore = new THREE.Mesh(chestCoreGeo, coreGlowMat);
-    chestCore.position.set(0, -0.1, 0.38);
-    chestCore.scale.z = 0.55;
+    chestCore.position.set(0, -0.09, 0.4);
+    chestCore.scale.z = 0.58;
     torsoGroup.add(chestCore);
 
     const nozzleGeo = new THREE.CylinderGeometry(0.17, 0.24, 0.11, 20);
@@ -904,9 +903,9 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     nozzleMesh.position.set(0, -0.37, 0);
     torsoGroup.add(nozzleMesh);
 
-    const plumeGeo = new THREE.ConeGeometry(0.16, 0.42, 18);
+    const plumeGeo = new THREE.ConeGeometry(0.15, 0.36, 18);
     plumeGeo.rotateX(Math.PI);
-    plumeGeo.translate(0, -0.21, 0);
+    plumeGeo.translate(0, -0.18, 0);
     disposables.push(plumeGeo);
     const thrusterPlume = new THREE.Mesh(plumeGeo, thrusterMat);
     thrusterPlume.position.set(0, -0.4, 0);
@@ -915,22 +914,23 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
     // 8. Orbiting Calibration Gimbal Torus + Instanced Calibration Nodes
     const orbitalPivot = new THREE.Group();
-    orbitalPivot.position.set(0, 0.1, -0.08);
+    orbitalPivot.position.set(0, 0.12, -0.08);
     orbitalPivot.rotation.set(0.38, 0.12, -0.22);
     robotRoot.add(orbitalPivot);
 
-    const orbitRingGeo = new THREE.TorusGeometry(1.16, 0.015, 10, 64);
+    const orbitRadius = 1.08;
+    const orbitRingGeo = new THREE.TorusGeometry(orbitRadius, 0.015, 10, 64);
     disposables.push(orbitRingGeo);
     const orbitRingMesh = new THREE.Mesh(orbitRingGeo, accentMat);
     orbitalPivot.add(orbitRingMesh);
 
-    const nodeGeo = new THREE.SphereGeometry(0.042, 12, 12);
+    const nodeGeo = new THREE.SphereGeometry(0.04, 12, 12);
     disposables.push(nodeGeo);
     const orbitNodes = new THREE.InstancedMesh(nodeGeo, coreGlowMat, 4);
     const dummy = new THREE.Object3D();
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2;
-      dummy.position.set(Math.cos(ang) * 1.16, Math.sin(ang) * 1.16, 0);
+      dummy.position.set(Math.cos(ang) * orbitRadius, Math.sin(ang) * orbitRadius, 0);
       dummy.scale.setScalar(i % 2 === 0 ? 1.1 : 0.78);
       dummy.updateMatrix();
       orbitNodes.setMatrixAt(i, dummy.matrix);
@@ -958,8 +958,8 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
     // ResizeObserver for crisp layout transitions
     const handleResize = () => {
-      const w = container.clientWidth || 96;
-      const h = container.clientHeight || 108;
+      const w = container.clientWidth || 104;
+      const h = container.clientHeight || 116;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
@@ -982,30 +982,49 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     let blinkTimer = 2.8;
     let blinkAmount = 0;
     let lastVisorDrawTime = -1;
-    let frameId = 0;
+    let rafId = 0;
+    let timerId = 0;
     let disposed = false;
+
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+    };
+    const handleContextRestored = () => {
+      lastVisorDrawTime = -1;
+      visorTexture.needsUpdate = true;
+      if (liveStateRef.current.prefersReducedMotion) {
+        requestOnDemandRender();
+      } else if (!disposed) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+    renderer.domElement.addEventListener('webglcontextlost', handleContextLost);
+    renderer.domElement.addEventListener('webglcontextrestored', handleContextRestored);
 
     const updateFrame = (dt: number, elapsed: number) => {
       const s = liveStateRef.current;
+      const stepDt = s.prefersReducedMotion ? 10 : dt;
 
       // Keep signature logo orange (#FF721A) chassis while adapting contrast accents for Light/Dark themes
       chassisMat.emissiveIntensity = THREE.MathUtils.damp(
         chassisMat.emissiveIntensity,
         isDarkTheme ? 0.1 : 0.06,
         10,
-        dt
+        stepDt
       );
       chassisMat.roughness = THREE.MathUtils.damp(
         chassisMat.roughness,
         isDarkTheme ? 0.24 : 0.28,
         10,
-        dt
+        stepDt
       );
       chassisMat.metalness = THREE.MathUtils.damp(
         chassisMat.metalness,
         isDarkTheme ? 0.16 : 0.12,
         10,
-        dt
+        stepDt
       );
 
       const targetWingColor = isDarkTheme ? _darkWingColor : _lightWingColor;
@@ -1014,13 +1033,13 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
         accentMat.roughness,
         isDarkTheme ? 0.26 : 0.34,
         10,
-        dt
+        stepDt
       );
       accentMat.metalness = THREE.MathUtils.damp(
         accentMat.metalness,
         isDarkTheme ? 0.55 : 0.38,
         10,
-        dt
+        stepDt
       );
 
       // Detect hop pulse & section-change micro-perk
@@ -1137,8 +1156,8 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
         smoothScrollVel * 0.14 +
         (s.mood === 'sleep' ? 0.24 : 0);
 
-      smoothYaw = THREE.MathUtils.damp(smoothYaw, targetYaw, 10, dt);
-      smoothPitch = THREE.MathUtils.damp(smoothPitch, targetPitch, 10, dt);
+      smoothYaw = THREE.MathUtils.damp(smoothYaw, targetYaw, 10, stepDt);
+      smoothPitch = THREE.MathUtils.damp(smoothPitch, targetPitch, 10, stepDt);
 
       headPivot.rotation.y = smoothYaw;
       headPivot.rotation.x = smoothPitch;
@@ -1150,22 +1169,22 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
             ? -0.12
             : idleRoll * idleBlend - smoothYaw * 0.18,
         8,
-        dt
+        stepDt
       );
 
       // Torso follow-through & scroll kinetic banking
-      torsoGroup.rotation.y = THREE.MathUtils.damp(torsoGroup.rotation.y, smoothYaw * 0.42, 8, dt);
+      torsoGroup.rotation.y = THREE.MathUtils.damp(torsoGroup.rotation.y, smoothYaw * 0.42, 8, stepDt);
       torsoGroup.rotation.x = THREE.MathUtils.damp(
         torsoGroup.rotation.x,
         smoothPitch * 0.32 + smoothScrollVel * 0.22,
         9,
-        dt
+        stepDt
       );
       torsoGroup.rotation.z = THREE.MathUtils.damp(
         torsoGroup.rotation.z,
         -smoothYaw * 0.18,
         8,
-        dt
+        stepDt
       );
 
       // Root levitation, hover depth lean, dance bounce, spin & squash/stretch
@@ -1179,12 +1198,12 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
               ? idleFloatY
               : Math.sin(elapsed * 2.1) * 0.065;
 
-      robotRoot.position.y = floatY + hopArc * 0.22 + perkArc * 0.11;
+      robotRoot.position.y = floatY + hopArc * 0.2 + perkArc * 0.1;
       robotRoot.position.x = THREE.MathUtils.damp(
         robotRoot.position.x,
         s.prefersReducedMotion ? 0 : smoothYaw * 0.14 + idleFloatX,
         8,
-        dt
+        stepDt
       );
       robotRoot.position.z = THREE.MathUtils.damp(
         robotRoot.position.z,
@@ -1192,11 +1211,11 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
           ? 0
           : (s.isHovered ? 0.15 : 0) + idleZoomZ + absScrollVel * 0.08,
         8,
-        dt
+        stepDt
       );
 
       const targetSpin = s.prefersReducedMotion ? 0 : s.spinCount * Math.PI * 2;
-      currentSpinY = THREE.MathUtils.damp(currentSpinY, targetSpin, 7, dt);
+      currentSpinY = THREE.MathUtils.damp(currentSpinY, targetSpin, 7, stepDt);
       const danceTwist = s.danceActive && !s.prefersReducedMotion ? Math.sin(elapsed * 8.2) * 0.24 : 0;
       const dizzySway = s.mood === 'dizzy' && !s.prefersReducedMotion ? Math.sin(elapsed * 10) * 0.18 : 0;
       robotRoot.rotation.y = currentSpinY + danceTwist;
@@ -1206,11 +1225,11 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
 
       const scaleBoost =
         s.mood === 'surprised' ? 1.07 : s.isHovered || s.isDragging ? 1.045 : 1.0;
-      const stretchY = scaleBoost + hopArc * 0.12 + perkArc * 0.06;
-      const squashXZ = scaleBoost - hopArc * 0.06 - perkArc * 0.03;
-      robotRoot.scale.x = THREE.MathUtils.damp(robotRoot.scale.x, squashXZ, 12, dt);
-      robotRoot.scale.y = THREE.MathUtils.damp(robotRoot.scale.y, stretchY, 12, dt);
-      robotRoot.scale.z = THREE.MathUtils.damp(robotRoot.scale.z, squashXZ, 12, dt);
+      const stretchY = scaleBoost + hopArc * 0.1 + perkArc * 0.05;
+      const squashXZ = scaleBoost - hopArc * 0.05 - perkArc * 0.025;
+      robotRoot.scale.x = THREE.MathUtils.damp(robotRoot.scale.x, squashXZ, 12, stepDt);
+      robotRoot.scale.y = THREE.MathUtils.damp(robotRoot.scale.y, stretchY, 12, stepDt);
+      robotRoot.scale.z = THREE.MathUtils.damp(robotRoot.scale.z, squashXZ, 12, stepDt);
 
       // Wing articulations (Wave, Dance, Drag, Fast pointer, Scroll sweep, Section idle, Cursor counter-balance)
       const scrollWingSweep = absScrollVel * 0.34;
@@ -1218,8 +1237,8 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
         Math.sin(elapsed * 2.2) * 0.05 + sectionWingLeft + perkArc * 0.24 + scrollWingSweep;
       let targetRightWingZ =
         -Math.sin(elapsed * 2.2) * 0.05 + sectionWingRight - perkArc * 0.24 - scrollWingSweep;
-      let targetLeftWingX = smoothPitch * 0.3 + smoothScrollVel * 0.28;
-      let targetRightWingX = smoothPitch * 0.3 + smoothScrollVel * 0.28;
+      let targetLeftWingX = s.prefersReducedMotion ? 0 : smoothPitch * 0.3 + smoothScrollVel * 0.28;
+      let targetRightWingX = s.prefersReducedMotion ? 0 : smoothPitch * 0.3 + smoothScrollVel * 0.28;
 
       if (!s.prefersReducedMotion) {
         if (s.waveActive || s.mood === 'wave') {
@@ -1238,12 +1257,15 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
           targetLeftWingZ += Math.max(0, smoothYaw) * 0.14;
           targetRightWingZ += Math.min(0, smoothYaw) * 0.14;
         }
+      } else {
+        targetLeftWingZ = 0;
+        targetRightWingZ = 0;
       }
 
-      leftWingPivot.rotation.z = THREE.MathUtils.damp(leftWingPivot.rotation.z, targetLeftWingZ, 12, dt);
-      rightWingPivot.rotation.z = THREE.MathUtils.damp(rightWingPivot.rotation.z, targetRightWingZ, 12, dt);
-      leftWingPivot.rotation.x = THREE.MathUtils.damp(leftWingPivot.rotation.x, targetLeftWingX, 10, dt);
-      rightWingPivot.rotation.x = THREE.MathUtils.damp(rightWingPivot.rotation.x, targetRightWingX, 10, dt);
+      leftWingPivot.rotation.z = THREE.MathUtils.damp(leftWingPivot.rotation.z, targetLeftWingZ, 12, stepDt);
+      rightWingPivot.rotation.z = THREE.MathUtils.damp(rightWingPivot.rotation.z, targetRightWingZ, 12, stepDt);
+      leftWingPivot.rotation.x = THREE.MathUtils.damp(leftWingPivot.rotation.x, targetLeftWingX, 10, stepDt);
+      rightWingPivot.rotation.x = THREE.MathUtils.damp(rightWingPivot.rotation.x, targetRightWingX, 10, stepDt);
 
       // Antenna wobble & beacon glow
       const antennaTargetZ = s.prefersReducedMotion
@@ -1253,12 +1275,12 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
           : s.mood === 'sleep'
             ? -0.18
             : Math.sin(elapsed * 2.4) * 0.06 - smoothYaw * 0.15;
-      antennaPivot.rotation.z = THREE.MathUtils.damp(antennaPivot.rotation.z, antennaTargetZ, 10, dt);
+      antennaPivot.rotation.z = THREE.MathUtils.damp(antennaPivot.rotation.z, antennaTargetZ, 10, stepDt);
       antennaPivot.rotation.x = THREE.MathUtils.damp(
         antennaPivot.rotation.x,
         s.prefersReducedMotion ? 0 : smoothScrollVel * 0.35,
         10,
-        dt
+        stepDt
       );
       antennaHalo.rotation.z = s.prefersReducedMotion
         ? 0
@@ -1275,13 +1297,13 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
       coreGlowMat.emissiveIntensity = coreIntensity;
       coreGlowMat.emissive.lerp(
         s.mood === 'overdrive' || s.activeSection === 'contact' ? _orangeHot : _orangeBase,
-        0.18
+        s.prefersReducedMotion ? 1 : Math.min(1, dt * 10)
       );
       underFillLight.intensity = THREE.MathUtils.damp(
         underFillLight.intensity,
         (s.activeSection === 'contact' ? 1.45 : 1.1) + absScrollVel * 0.8 + perkArc * 0.4,
         8,
-        dt
+        stepDt
       );
 
       // Orbital ring rotation & cursor parallax
@@ -1363,7 +1385,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     function afterDraw(cb: () => void) {
       const gl = renderer.getContext() as WebGL2RenderingContext;
       if (!gl || typeof gl.fenceSync !== 'function') {
-        frameId = window.setTimeout(cb, 80);
+        timerId = window.setTimeout(cb, 80);
         return;
       }
       const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -1372,13 +1394,13 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
         if (disposed) return;
         const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
         if (state === gl.UNSIGNALED) {
-          frameId = window.setTimeout(poll, 5);
+          timerId = window.setTimeout(poll, 5);
         } else {
           if (sync) gl.deleteSync(sync);
-          frameId = window.setTimeout(cb, 80);
+          timerId = window.setTimeout(cb, 80);
         }
       };
-      frameId = window.setTimeout(poll, 5);
+      timerId = window.setTimeout(poll, 5);
     }
 
     // Coalesced on-demand renderer (used when prefersReducedMotion is enabled)
@@ -1391,7 +1413,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
         return;
       }
       renderBusy = true;
-      frameId = window.requestAnimationFrame(() => {
+      rafId = window.requestAnimationFrame(() => {
         if (disposed) return;
         renderDirty = false;
         updateFrame(0.016, clock.getElapsedTime());
@@ -1429,7 +1451,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
       if (isSoftwareGl) {
         afterDraw(tick);
       } else {
-        frameId = window.requestAnimationFrame(tick);
+        rafId = window.requestAnimationFrame(tick);
       }
     };
 
@@ -1437,14 +1459,16 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     if (liveStateRef.current.prefersReducedMotion) {
       requestOnDemandRender();
     } else {
-      frameId = window.requestAnimationFrame(tick);
+      rafId = window.requestAnimationFrame(tick);
     }
 
     return () => {
       disposed = true;
       renderDirtyTriggerRef.current = null;
-      window.cancelAnimationFrame(frameId);
-      window.clearTimeout(frameId);
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
       themeObserver.disconnect();
       resizeObserver?.disconnect();
       envTarget.dispose();
@@ -1462,7 +1486,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     <div
       ref={mountRef}
       aria-hidden="true"
-      className="pointer-events-none w-[96px] h-[108px] -mb-1 select-none"
+      className="pointer-events-none w-[104px] h-[116px] -mb-1 select-none"
     />
   );
 };
