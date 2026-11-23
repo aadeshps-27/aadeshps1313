@@ -908,3 +908,99 @@ export function playRobotIdleMechanical(
     osc.stop(t0 + 0.042);
   });
 }
+
+// Engine Room Ambient Hum state & controls
+let engineOsc1: OscillatorNode | null = null;
+let engineOsc2: OscillatorNode | null = null;
+let engineGain: GainNode | null = null;
+let engineFilter: BiquadFilterNode | null = null;
+let engineRunning = false;
+
+export function updateEngineRoomHum(scrollProgress: number, enabled: boolean): void {
+  const ctx = getReadyContext(false);
+  if (!ctx || !enabled || !state.hasUserGesture || state.ctx?.state !== 'running') {
+    if (engineRunning) {
+      stopEngineRoomHum();
+    }
+    return;
+  }
+
+  if (!engineRunning) {
+    startEngineRoomHum(ctx);
+  }
+
+  if (engineGain && engineFilter && ctx) {
+    const now = ctx.currentTime;
+    // Map scroll progress [0, 1] to subtle engine room rumble gain [0.002, 0.016]
+    const targetGain = 0.002 + Math.min(1, Math.max(0, scrollProgress)) * 0.014;
+    engineGain.gain.setTargetAtTime(targetGain, now, 0.15);
+
+    // Dynamic filter cutoff based on scroll (warmer rumble to machinery drone)
+    const targetCutoff = 80 + scrollProgress * 140;
+    engineFilter.frequency.setTargetAtTime(targetCutoff, now, 0.2);
+  }
+}
+
+function startEngineRoomHum(ctx: AudioContext): void {
+  if (engineRunning) return;
+  try {
+    engineOsc1 = ctx.createOscillator();
+    engineOsc1.type = 'triangle';
+    engineOsc1.frequency.setValueAtTime(55, ctx.currentTime); // A1 sub-bass
+
+    engineOsc2 = ctx.createOscillator();
+    engineOsc2.type = 'sine';
+    engineOsc2.frequency.setValueAtTime(110, ctx.currentTime); // A2 harmonic
+
+    engineFilter = ctx.createBiquadFilter();
+    engineFilter.type = 'lowpass';
+    engineFilter.frequency.setValueAtTime(95, ctx.currentTime);
+    engineFilter.Q.setValueAtTime(2.4, ctx.currentTime);
+
+    engineGain = ctx.createGain();
+    engineGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+
+    engineOsc1.connect(engineFilter);
+    engineOsc2.connect(engineFilter);
+    engineFilter.connect(engineGain);
+
+    if (state.masterGain) {
+      engineGain.connect(state.masterGain);
+    } else {
+      engineGain.connect(ctx.destination);
+    }
+
+    engineOsc1.start();
+    engineOsc2.start();
+    engineRunning = true;
+  } catch {
+    engineRunning = false;
+  }
+}
+
+function stopEngineRoomHum(): void {
+  if (!engineRunning) return;
+  try {
+    const now = state.ctx ? state.ctx.currentTime : 0;
+    if (engineGain && state.ctx) {
+      engineGain.gain.setTargetAtTime(0.0001, now, 0.1);
+    }
+    window.setTimeout(() => {
+      try {
+        engineOsc1?.stop();
+        engineOsc1?.disconnect();
+        engineOsc2?.stop();
+        engineOsc2?.disconnect();
+        engineFilter?.disconnect();
+        engineGain?.disconnect();
+      } catch {}
+      engineOsc1 = null;
+      engineOsc2 = null;
+      engineFilter = null;
+      engineGain = null;
+      engineRunning = false;
+    }, 150);
+  } catch {
+    engineRunning = false;
+  }
+}

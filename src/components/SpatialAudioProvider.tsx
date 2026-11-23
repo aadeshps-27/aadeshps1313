@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion, useScroll } from 'motion/react';
 import {
   getAudioEnabled,
   playFilterTab,
   setAudioEnabled,
   subscribeAudioEnabled,
+  updateEngineRoomHum,
 } from '../utils/spatialAudio';
 import { useLanguage } from './LanguageProvider';
 
@@ -25,22 +26,33 @@ export const SpatialAudioProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [enabled, setEnabledState] = useState<boolean>(() => getAudioEnabled());
+  const { scrollYProgress } = useScroll();
 
   useEffect(() => {
     return subscribeAudioEnabled(setEnabledState);
   }, []);
 
+  useEffect(() => {
+    const unsub = scrollYProgress.on('change', (latest) => {
+      updateEngineRoomHum(latest, enabled);
+    });
+    updateEngineRoomHum(scrollYProgress.get(), enabled);
+    return () => unsub();
+  }, [scrollYProgress, enabled]);
+
   const setEnabled = useCallback((next: boolean) => {
     setAudioEnabled(next);
-  }, []);
+    updateEngineRoomHum(scrollYProgress.get(), next);
+  }, [scrollYProgress]);
 
   const toggleAudio = useCallback((sourceEl?: HTMLElement | null) => {
     const next = !getAudioEnabled();
     setAudioEnabled(next);
+    updateEngineRoomHum(scrollYProgress.get(), next);
     if (next) {
       playFilterTab(2, 3, sourceEl);
     }
-  }, []);
+  }, [scrollYProgress]);
 
   return (
     <SpatialAudioContext.Provider value={{ enabled, toggleAudio, setEnabled }}>

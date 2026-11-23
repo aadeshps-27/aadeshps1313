@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import {
   motion,
   useMotionValue,
@@ -232,7 +232,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 }
                 className="group flex-1 flex flex-col rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A]/80 transition-colors duration-200 overflow-hidden"
               >
-                <div className="rf-reticle-corners relative flex-1 min-h-[300px] sm:min-h-[360px] lg:min-h-[380px] overflow-hidden bg-[#F5F5F5] dark:bg-[#111111]">
+                <div className="rf-reticle-corners relative w-full overflow-hidden bg-[#F5F5F5] dark:bg-[#111111]">
                   {/* Subtle ambient radial studio backdrop */}
                   <div
                     aria-hidden="true"
@@ -285,7 +285,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     <line x1="372" y1="200" x2="386" y2="200" stroke="currentColor" strokeWidth="1.2" />
                   </motion.svg>
 
-                  {/* Stylized Geometric Engineer Portrait */}
+                  {/* Stylized Geometric Engineer Portrait with Natural Proportions */}
                   <motion.div
                     animate={
                       prefersReducedMotion
@@ -293,7 +293,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                         : { scale: portraitHovered ? 1.035 : 1 }
                     }
                     transition={{ duration: 0.45, ease: ARTCRAFT_EASE }}
-                    className="relative z-10 w-full h-full"
+                    className="relative z-10 w-full"
                   >
                     <SafeImage
                       src={profile.portraitImage}
@@ -302,7 +302,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                       priority="high"
                       loading="eager"
                       decoding="async"
-                      className="w-full h-full object-cover object-top"
+                      className="w-full h-auto object-contain object-top"
                     />
                   </motion.div>
 
@@ -316,10 +316,10 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 {/* Clean Typography Caption Footer */}
                 <div className="px-5 py-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-3 bg-white dark:bg-[#0A0A0A]">
                   <div className="min-w-0">
-                    <p className="font-display text-sm sm:text-base font-bold text-[#0A0A0A] dark:text-white truncate">
+                    <p className="font-display text-sm sm:text-base font-bold text-[#0A0A0A] dark:text-white leading-snug">
                       {profile.name}
                     </p>
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3] truncate">
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3] leading-snug">
                       {profile.education}
                     </p>
                   </div>
@@ -484,6 +484,94 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 </motion.button>
               </ParallaxLayer>
             ))}
+          </div>
+
+          {/* Architectural Scroll-Down Indicator guiding toward Selected Works */}
+          <div className="pt-2 sm:pt-4 flex items-center gap-4 sm:gap-6">
+            <span
+              aria-hidden="true"
+              className="hidden sm:block h-px flex-1 bg-gradient-to-r from-transparent to-[#E5E5E5] dark:to-[#262626]"
+            />
+
+            <motion.button
+              type="button"
+              aria-label={t.about.scrollToWorksAria}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.35 }}
+              whileHover={prefersReducedMotion ? undefined : { y: 2 }}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
+              transition={{ duration: 0.5, ease: ARTCRAFT_EASE }}
+              onClick={(e) => {
+                playFilterTab(1, 2, e.currentTarget);
+                const el = document.getElementById('work');
+                el?.scrollIntoView({
+                  behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                });
+              }}
+              className="group mx-auto inline-flex items-center gap-3 px-4 py-2 min-h-[44px] rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A]"
+            >
+              <span
+                aria-hidden="true"
+                className="relative w-px h-5 bg-[#E5E5E5] dark:bg-[#262626] overflow-hidden shrink-0"
+              >
+                {prefersReducedMotion ? (
+                  <span className="absolute bottom-0 left-0 w-full h-2 bg-[#FF721A]" />
+                ) : (
+                  <motion.span
+                    animate={{ y: ['-100%', '220%'] }}
+                    transition={{
+                      duration: 1.6,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                    className="block w-full h-2.5 bg-[#FF721A]"
+                  />
+                )}
+              </span>
+
+              <span className="font-mono text-[11px] tabular-nums font-semibold tracking-wide text-[#525252] dark:text-[#A3A3A3] group-hover:text-[#0A0A0A] dark:group-hover:text-white transition-colors whitespace-nowrap">
+                <span className="text-[#C94B00] dark:text-[#FF721A] mr-1.5">02</span>
+                {t.about.scrollToWorks}
+              </span>
+
+              <span
+                aria-hidden="true"
+                className="flex flex-col items-center -space-y-1.5 text-[#C94B00] dark:text-[#FF721A]"
+              >
+                {[0, 1].map((idx) => (
+                  <motion.span
+                    key={idx}
+                    animate={
+                      prefersReducedMotion
+                        ? undefined
+                        : {
+                            y: [0, 2.5, 0],
+                            opacity: [0.3, 1, 0.3],
+                          }
+                    }
+                    transition={
+                      prefersReducedMotion
+                        ? undefined
+                        : {
+                            duration: 1.4,
+                            delay: idx * 0.22,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                          }
+                    }
+                    className="inline-flex leading-none"
+                  >
+                    <ChevronDown size={13} strokeWidth={2.2} />
+                  </motion.span>
+                ))}
+              </span>
+            </motion.button>
+
+            <span
+              aria-hidden="true"
+              className="hidden sm:block h-px flex-1 bg-gradient-to-l from-transparent to-[#E5E5E5] dark:to-[#262626]"
+            />
           </div>
         </div>
       </div>

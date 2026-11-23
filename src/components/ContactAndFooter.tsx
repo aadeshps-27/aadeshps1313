@@ -18,6 +18,7 @@ import {
 import { BRAND_LOGO_URL } from '../data/portfolio';
 import { TranslationBundle } from '../i18n/translations';
 import { ContactGridBackground } from './ContactGridBackground';
+import { MachineStateIndicator } from './MachineStateIndicator';
 import { useLanguage } from './LanguageProvider';
 import {
   ARTCRAFT_EASE,
@@ -1804,31 +1805,35 @@ export const ContactAndFooter: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
-            <MagneticLink
-              href={profile.linkedinHref}
-              allowMagnetic={allowMagnetic}
-              prefersReducedMotion={prefersReducedMotion}
-              entranceDelay={0.05}
-              tooltip={{ platform: t.contact.footer.linkedin, detail: 'in/aadeshps27' }}
-              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-            >
-              {t.contact.footer.linkedin}
-            </MagneticLink>
-            <MagneticLink
-              href={profile.instagramHref}
-              allowMagnetic={allowMagnetic}
-              prefersReducedMotion={prefersReducedMotion}
-              entranceDelay={0.14}
-              tooltip={{
-                platform: t.contact.footer.instagram,
-                detail: '@_aadeshps',
-                align: 'end',
-              }}
-              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-            >
-              {t.contact.footer.instagram}
-            </MagneticLink>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <MachineStateIndicator />
+
+            <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
+              <MagneticLink
+                href={profile.linkedinHref}
+                allowMagnetic={allowMagnetic}
+                prefersReducedMotion={prefersReducedMotion}
+                entranceDelay={0.05}
+                tooltip={{ platform: t.contact.footer.linkedin, detail: 'in/aadeshps27' }}
+                className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                {t.contact.footer.linkedin}
+              </MagneticLink>
+              <MagneticLink
+                href={profile.instagramHref}
+                allowMagnetic={allowMagnetic}
+                prefersReducedMotion={prefersReducedMotion}
+                entranceDelay={0.14}
+                tooltip={{
+                  platform: t.contact.footer.instagram,
+                  detail: '@_aadeshps',
+                  align: 'end',
+                }}
+                className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              >
+                {t.contact.footer.instagram}
+              </MagneticLink>
+            </div>
           </div>
         </div>
       </footer>

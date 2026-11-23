@@ -67,6 +67,8 @@ export interface TranslationBundle {
     secondPara: string;
     coreDisciplines: string;
     selectDisciplineHint: string;
+    scrollToWorks: string;
+    scrollToWorksAria: string;
     experienceEyebrow: string;
     experienceTitle: string;
     experienceSubtitle: string;
@@ -422,6 +424,8 @@ const EN_TRANSLATIONS: TranslationBundle = {
       'Whether calibrating an RF trilateration filter on an ESP32 or refining bezier curves in Affinity and Illustrator, I bring disciplined engineering clarity to expressive creative execution.',
     coreDisciplines: 'Core Disciplines',
     selectDisciplineHint: 'Select a discipline to filter Selected Works ↓',
+    scrollToWorks: 'Scroll to Works',
+    scrollToWorksAria: 'Scroll down to Selected Works section',
     experienceEyebrow: '03. Journey',
     experienceTitle: 'Experience & Academic Foundation',
     experienceSubtitle:
@@ -834,6 +838,8 @@ const ML_TRANSLATIONS: TranslationBundle = {
       'ESP32-ൽ ഒരു RF ട്രൈലാറ്ററേഷൻ ഫിൽട്ടർ ട്യൂൺ ചെയ്യുമ്പോഴും Affinity, Illustrator എന്നിവയിൽ ബെസിയർ വരകൾ മിനുക്കുമ്പോഴും, കൃത്യമായ എഞ്ചിനീയറിംഗ് ചിട്ടയും സർഗ്ഗാത്മകതയും ഞാൻ ഒരുമിപ്പിക്കുന്നു.',
     coreDisciplines: 'പ്രധാന മേഖലകൾ',
     selectDisciplineHint: 'തിരഞ്ഞെടുത്ത സൃഷ്ടികൾ ഫിൽട്ടർ ചെയ്യാൻ ഒരു മേഖല തിരഞ്ഞെടുക്കുക ↓',
+    scrollToWorks: 'സൃഷ്ടികളിലേക്ക്',
+    scrollToWorksAria: 'തിരഞ്ഞെടുത്ത സൃഷ്ടികളിലേക്ക് താഴേക്ക് സ്ക്രോൾ ചെയ്യുക',
     experienceEyebrow: '03. യാത്ര',
     experienceTitle: 'പ്രവൃത്തിപരിചയവും വിദ്യാഭ്യാസ അടിത്തറയും',
     experienceSubtitle:

@@ -41,49 +41,52 @@ interface WorksSectionProps {
 
 const FILTER_KEYS: ProjectCategory[] = ['all', 'design', 'robotics', 'rf'];
 
-const GRID_STAGGER_VARIANTS: Variants = {
+interface CardRevealCustom {
+  prefersReduced: boolean;
+  index: number;
+}
+
+const GRID_EXIT_VARIANTS: Variants = {
   hidden: {},
-  visible: (prefersReduced: boolean) => ({
-    transition: prefersReduced
-      ? { staggerChildren: 0 }
-      : {
-          staggerChildren: 0.11,
-          delayChildren: 0.04,
-        },
-  }),
-  exit: (prefersReduced: boolean) => ({
-    transition: prefersReduced
-      ? { staggerChildren: 0 }
-      : {
-          staggerChildren: 0.05,
-          staggerDirection: -1,
-        },
-  }),
+  visible: {},
+  exit: {
+    transition: {
+      when: 'afterChildren',
+      staggerChildren: 0.04,
+      staggerDirection: -1,
+    },
+  },
 };
 
 const CARD_REVEAL_VARIANTS: Variants = {
-  hidden: (prefersReduced: boolean) =>
+  hidden: ({ prefersReduced }: CardRevealCustom) =>
     prefersReduced
       ? { opacity: 1 }
-      : { opacity: 0, y: 28, scale: 0.975, filter: 'blur(8px)' },
-  visible: (prefersReduced: boolean) => ({
+      : { opacity: 0, y: 36, scale: 0.975 },
+  visible: ({ prefersReduced, index }: CardRevealCustom) => ({
     opacity: 1,
     y: 0,
     scale: 1,
-    filter: 'blur(0px)',
     transition: prefersReduced
       ? { duration: 0 }
-      : { duration: 0.65, ease: ARTCRAFT_EASE },
+      : {
+          duration: 0.62,
+          delay: Math.min(index, 4) * 0.12,
+          ease: ARTCRAFT_EASE,
+        },
   }),
-  exit: (prefersReduced: boolean) =>
+  exit: ({ prefersReduced, index }: CardRevealCustom) =>
     prefersReduced
       ? { opacity: 0, transition: { duration: 0 } }
       : {
           opacity: 0,
-          y: -16,
+          y: -18,
           scale: 0.98,
-          filter: 'blur(6px)',
-          transition: { duration: 0.22, ease: ARTCRAFT_EASE },
+          transition: {
+            duration: 0.22,
+            delay: index * 0.04,
+            ease: ARTCRAFT_EASE,
+          },
         },
 };
 
@@ -91,6 +94,7 @@ interface MagneticProjectCardProps {
   project: ProjectSummary;
   index: number;
   isLeadFeatured: boolean;
+  hasSwitchedFilter: boolean;
   allowParallax: boolean;
   prefersReducedMotion: boolean;
   onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
@@ -102,6 +106,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
   project,
   index,
   isLeadFeatured,
+  hasSwitchedFilter,
   allowParallax,
   prefersReducedMotion,
   onOpenProject,
@@ -217,8 +222,17 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
   return (
     <motion.div
       data-reveal=""
-      custom={prefersReducedMotion}
+      custom={{ prefersReduced: prefersReducedMotion, index }}
       variants={CARD_REVEAL_VARIANTS}
+      initial={prefersReducedMotion ? false : 'hidden'}
+      animate={hasSwitchedFilter ? 'visible' : undefined}
+      whileInView={hasSwitchedFilter ? undefined : 'visible'}
+      exit="exit"
+      viewport={
+        hasSwitchedFilter
+          ? undefined
+          : { once: true, amount: 0.12, margin: '0px 0px -24px 0px' }
+      }
       layout={!prefersReducedMotion}
       transition={{ layout: layoutTransition }}
       className={
@@ -275,11 +289,17 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
         {/* Media Container with scroll settle & inner depth parallax */}
         <motion.div
           layout={!prefersReducedMotion}
-          initial={prefersReducedMotion ? false : { scale: 1.04 }}
-          animate={{ scale: 1 }}
+          initial={prefersReducedMotion ? false : { scale: 1.05 }}
+          animate={hasSwitchedFilter ? { scale: 1 } : undefined}
+          whileInView={hasSwitchedFilter ? undefined : { scale: 1 }}
+          viewport={
+            hasSwitchedFilter
+              ? undefined
+              : { once: true, amount: 0.12, margin: '0px 0px -24px 0px' }
+          }
           transition={{
             duration: 0.72,
-            delay: prefersReducedMotion ? 0 : index * 0.08 + 0.06,
+            delay: prefersReducedMotion ? 0 : Math.min(index, 4) * 0.12 + 0.06,
             ease: ARTCRAFT_EASE,
             layout: layoutTransition,
           }}
@@ -677,23 +697,14 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Bento Grid with Staggered Category Filter Transitions & Layout Expansion */}
+        {/* Dynamic Bento Grid with Scroll-Triggered Stagger Reveal & Category Transitions */}
         <LayoutGroup id="works-cards-layout">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait">
             <motion.div
               key={activeFilter}
               data-reveal-group=""
-              custom={prefersReducedMotion}
-              variants={GRID_STAGGER_VARIANTS}
-              initial="hidden"
-              animate={hasSwitchedFilter ? 'visible' : undefined}
-              whileInView={hasSwitchedFilter ? undefined : 'visible'}
+              variants={GRID_EXIT_VARIANTS}
               exit="exit"
-              viewport={
-                hasSwitchedFilter
-                  ? undefined
-                  : { once: true, amount: 'some', margin: '0px 0px -48px 0px' }
-              }
               className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8"
             >
               {filteredProjects.map((project, index) => (
@@ -702,6 +713,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                   project={project}
                   index={index}
                   isLeadFeatured={activeFilter === 'all' && index === 0}
+                  hasSwitchedFilter={hasSwitchedFilter}
                   allowParallax={allowParallax}
                   prefersReducedMotion={prefersReducedMotion}
                   onOpenProject={onOpenProject}
