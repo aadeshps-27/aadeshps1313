@@ -16,6 +16,7 @@ import {
 import { getLocalizedReadingTime } from '../i18n/translations';
 import { useLanguage } from './LanguageProvider';
 import { SafeImage } from './SafeImage';
+import { CaseStudyRadarStack } from './CaseStudyRadarStack';
 import { InlineAudioToggle } from './SpatialAudioProvider';
 import {
   playModalClose,
@@ -647,6 +648,12 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <ProjectTimelineStepper
             projectId={project.id}
             phases={timelinePhases[project.id]}
+            prefersReducedMotion={Boolean(prefersReducedMotion)}
+          />
+
+          {/* Engineering Competency Radar & Categorized Tech Stack */}
+          <CaseStudyRadarStack
+            projectId={project.id}
             prefersReducedMotion={Boolean(prefersReducedMotion)}
           />
         </header>

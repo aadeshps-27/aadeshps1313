@@ -130,6 +130,36 @@ export interface TranslationBundle {
     phaseWord: string;
     prevPhaseAria: string;
     nextPhaseAria: string;
+    competency: {
+      eyebrow: string;
+      title: string;
+      subtitle: string;
+      envelopeToggle: string;
+      activeLegend: string;
+      envelopeLegend: string;
+      radarAria: string;
+      stackHeading: string;
+      focusHint: string;
+      axes: {
+        frontendUi: string;
+        visualDesign: string;
+        embeddedFirmware: string;
+        rfTelemetry: string;
+        sensorsDsp: string;
+        systemsArch: string;
+      };
+      categories: {
+        visualVector: string;
+        frontendMotion: string;
+        architectureCraft: string;
+        embeddedActuation: string;
+        sensorsVision: string;
+        commsOperator: string;
+        rfCompute: string;
+        inertialDsp: string;
+        simulationFirmware: string;
+      };
+    };
     creative: {
       sec1: string;
       sec1Intro: string;
@@ -472,6 +502,37 @@ const EN_TRANSLATIONS: TranslationBundle = {
     phaseWord: 'Phase',
     prevPhaseAria: 'Previous project phase',
     nextPhaseAria: 'Next project phase',
+    competency: {
+      eyebrow: 'Stack & Competency Snapshot',
+      title: 'Engineering Competency Radar',
+      subtitle:
+        'Cross-disciplinary proficiency profile mapped alongside categorized tools and hardware.',
+      envelopeToggle: 'Overall Profile',
+      activeLegend: 'Project Focus',
+      envelopeLegend: 'Portfolio Envelope',
+      radarAria: 'Engineering competency radar chart',
+      stackHeading: 'Categorized Tech Stack',
+      focusHint: 'Hover or tap an axis or category to highlight its stack',
+      axes: {
+        frontendUi: 'UI & Frontend',
+        visualDesign: 'Visual & Vector',
+        embeddedFirmware: 'Embedded & MCU',
+        rfTelemetry: 'RF & Telemetry',
+        sensorsDsp: 'Sensors & DSP',
+        systemsArch: 'Systems & UX',
+      },
+      categories: {
+        visualVector: 'Visual & Vector',
+        frontendMotion: 'Frontend & Motion',
+        architectureCraft: 'Architecture & Craft',
+        embeddedActuation: 'Embedded & Actuation',
+        sensorsVision: 'Sensors & Vision',
+        commsOperator: 'RF & Telemetry Link',
+        rfCompute: 'RF & Compute Node',
+        inertialDsp: 'Inertial Fusion & DSP',
+        simulationFirmware: 'Simulation & Toolchain',
+      },
+    },
     creative: {
       sec1: '01. Creative Methodology',
       sec1Intro:
@@ -853,6 +914,37 @@ const ML_TRANSLATIONS: TranslationBundle = {
     phaseWord: 'ഘട്ടം',
     prevPhaseAria: 'മുൻ പ്രോജക്റ്റ് ഘട്ടം',
     nextPhaseAria: 'അടുത്ത പ്രോജക്റ്റ് ഘട്ടം',
+    competency: {
+      eyebrow: 'സാങ്കേതിക ശേഷി അവലോകനം',
+      title: 'എഞ്ചിനീയറിംഗ് കോമ്പിറ്റൻസി റഡാർ',
+      subtitle:
+        'ഈ പ്രോജക്റ്റിലെ വിവിധ മേഖലകളിലെ പ്രാവീണ്യവും വിഭാഗീകരിച്ച ടെക് സ്റ്റാക്കും.',
+      envelopeToggle: 'മൊത്തം പ്രൊഫൈൽ',
+      activeLegend: 'പ്രോജക്റ്റ് ശ്രദ്ധ',
+      envelopeLegend: 'ആകെ ശേഷി',
+      radarAria: 'എഞ്ചിനീയറിംഗ് ശേഷി റഡാർ ചാർട്ട്',
+      stackHeading: 'വിഭാഗീകരിച്ച ടെക് സ്റ്റാക്ക്',
+      focusHint: 'കൂടുതൽ വിവരങ്ങൾക്ക് ഒരു വിഭാഗമോ ആക്സിസോ തിരഞ്ഞെടുക്കുക',
+      axes: {
+        frontendUi: 'UI & ഫ്രണ്ട്‌എൻഡ്',
+        visualDesign: 'വിഷ്വൽ & വെക്റ്റർ',
+        embeddedFirmware: 'എംബഡഡ് & MCU',
+        rfTelemetry: 'RF & ടെലിമെട്രി',
+        sensorsDsp: 'സെൻസറുകൾ & DSP',
+        systemsArch: 'സിസ്റ്റംസ് & UX',
+      },
+      categories: {
+        visualVector: 'വിഷ്വൽ & വെക്റ്റർ',
+        frontendMotion: 'ഫ്രണ്ട്‌എൻഡ് & മോഷൻ',
+        architectureCraft: 'ആർക്കിടെക്ചർ & മികവ്',
+        embeddedActuation: 'എംബഡഡ് & കൺട്രോൾ',
+        sensorsVision: 'സെൻസറുകളും വിഷനും',
+        commsOperator: 'RF & ടെലിമെട്രി ലിങ്ക്',
+        rfCompute: 'RF & കമ്പ്യൂട്ട് നോഡ്',
+        inertialDsp: 'സെൻസർ ഫ്യൂഷൻ & DSP',
+        simulationFirmware: 'സിമുലേഷനും ടൂളുകളും',
+      },
+    },
     creative: {
       sec1: '01. ക്രിയേറ്റീവ് പ്രവർത്തനരീതി',
       sec1Intro:
