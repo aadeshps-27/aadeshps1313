@@ -778,3 +778,133 @@ export function playCompanionCue(
   osc.start(now);
   osc.stop(now + 0.11);
 }
+
+export type RobotIdleSoundKind =
+  | 'servo-whir'
+  | 'relay-tick'
+  | 'antenna-ping'
+  | 'gimbal-ratchet';
+
+/**
+ * Whisper-subtle mechanical idle micro-sounds triggered organically while the
+ * 3D robot hovers or performs section-based idle calibration motions.
+ * Respects mute state and strictly requires an existing user gesture unlock.
+ */
+export function playRobotIdleMechanical(
+  kind?: RobotIdleSoundKind,
+  source?: PanSource
+): void {
+  const ctx = getReadyContext(false);
+  if (!ctx || !canPlayThrottle('robot-idle', 3200)) return;
+
+  const pan = source !== undefined ? resolvePan(source) : -0.76;
+  const { input } = createSpatialDestination(ctx, pan, 3400);
+  const now = ctx.currentTime + 0.004;
+
+  const variants: RobotIdleSoundKind[] = [
+    'servo-whir',
+    'relay-tick',
+    'antenna-ping',
+    'gimbal-ratchet',
+  ];
+  const selected = kind ?? variants[Math.floor(Math.random() * variants.length)];
+
+  if (selected === 'servo-whir') {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(175, now);
+    osc.frequency.exponentialRampToValueAtTime(260, now + 0.065);
+    osc.frequency.exponentialRampToValueAtTime(205, now + 0.14);
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(420, now);
+    bp.Q.setValueAtTime(1.8, now);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.018, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+    osc.connect(bp);
+    bp.connect(g);
+    g.connect(input);
+    playSoftClickTransient(ctx, input, now, 2350, 0.011, 0.01);
+
+    osc.start(now);
+    osc.stop(now + 0.16);
+    return;
+  }
+
+  if (selected === 'relay-tick') {
+    playSoftClickTransient(ctx, input, now, 2550, 0.014, 0.01);
+    playSoftClickTransient(ctx, input, now + 0.072, 3050, 0.01, 0.009);
+
+    const ping = ctx.createOscillator();
+    ping.type = 'sine';
+    ping.frequency.setValueAtTime(430, now);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.01, now + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+    ping.connect(g);
+    g.connect(input);
+    ping.start(now);
+    ping.stop(now + 0.045);
+    return;
+  }
+
+  if (selected === 'antenna-ping') {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(987.77, now);
+    osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.08);
+
+    const overtone = ctx.createOscillator();
+    overtone.type = 'sine';
+    overtone.frequency.setValueAtTime(1479.98, now);
+
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.0001, now);
+    g1.gain.linearRampToValueAtTime(0.013, now + 0.006);
+    g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.125);
+
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.0001, now);
+    g2.gain.linearRampToValueAtTime(0.005, now + 0.006);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+
+    osc.connect(g1);
+    g1.connect(input);
+    overtone.connect(g2);
+    g2.connect(input);
+
+    osc.start(now);
+    osc.stop(now + 0.135);
+    overtone.start(now);
+    overtone.stop(now + 0.095);
+    return;
+  }
+
+  // 'gimbal-ratchet': 3 light mechanical stepper notches
+  const stepFreqs = [305, 342, 385];
+  stepFreqs.forEach((f, idx) => {
+    const t0 = now + idx * 0.044;
+    playSoftClickTransient(ctx, input, t0, 2100 + idx * 240, 0.011, 0.008);
+
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(f, t0);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.011, t0 + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.036);
+
+    osc.connect(g);
+    g.connect(input);
+    osc.start(t0);
+    osc.stop(t0 + 0.042);
+  });
+}

@@ -11,7 +11,12 @@ import {
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 import { Robot3DCanvas, RobotMood, RobotSection } from './Robot3DCanvas';
-import { playCompanionCue } from '../utils/spatialAudio';
+import { RobotDataStreamCanvas } from './RobotDataStreamCanvas';
+import {
+  playCompanionCue,
+  playRobotIdleMechanical,
+  RobotIdleSoundKind,
+} from '../utils/spatialAudio';
 import { useLanguage } from './LanguageProvider';
 
 type MoodMode = RobotMood;
@@ -456,6 +461,56 @@ export const AiCharacterMotion: React.FC = () => {
     }, 2400);
     return () => window.clearTimeout(timer);
   }, [waveActive]);
+
+  // Subtle randomized mechanical idle sound effects synced softly to active scroll section
+  useEffect(() => {
+    if (prefersReducedMotion || typeof window === 'undefined') return;
+    let cancelled = false;
+    let idleAudioTimer: number | null = null;
+
+    const sectionPool: Record<RobotSection, RobotIdleSoundKind[]> = {
+      about: ['servo-whir', 'relay-tick'],
+      work: ['gimbal-ratchet', 'antenna-ping', 'relay-tick'],
+      experience: ['relay-tick', 'servo-whir', 'gimbal-ratchet'],
+      contact: ['antenna-ping', 'servo-whir'],
+    };
+
+    const scheduleNextIdleSound = () => {
+      if (cancelled) return;
+      const delayMs = 5500 + Math.random() * 6000;
+      idleAudioTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        const canEmit =
+          !document.hidden &&
+          !isDragging &&
+          !danceActive &&
+          !radarActive &&
+          !waveActive &&
+          mood !== 'sleep' &&
+          mood !== 'overdrive';
+        if (canEmit) {
+          const candidates = sectionPool[activeSection] ?? sectionPool.about;
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          playRobotIdleMechanical(pick, stageRef.current);
+        }
+        scheduleNextIdleSound();
+      }, delayMs);
+    };
+
+    scheduleNextIdleSound();
+    return () => {
+      cancelled = true;
+      if (idleAudioTimer !== null) window.clearTimeout(idleAudioTimer);
+    };
+  }, [
+    prefersReducedMotion,
+    activeSection,
+    mood,
+    isDragging,
+    danceActive,
+    radarActive,
+    waveActive,
+  ]);
 
   const spinDizzyTimerRef = useRef<number | null>(null);
 
@@ -928,6 +983,21 @@ export const AiCharacterMotion: React.FC = () => {
           )}
         </AnimatePresence>
 
+        {/* Subtle Orbital Data Stream Particle Canvas reacting to cursor movement */}
+        <RobotDataStreamCanvas
+          mood={activeMood}
+          activeSection={activeSection}
+          lookRef={lookVectorRef}
+          scrollVelocityRef={scrollVelocityRef}
+          isHovered={isHovered}
+          isDragging={isDragging}
+          isFastPointer={isFastPointer}
+          isNearPointer={isNearPointer}
+          radarActive={radarActive}
+          danceActive={danceActive}
+          prefersReducedMotion={prefersReducedMotion}
+        />
+
         {/* Scroll-velocity lean wrapper */}
         <motion.div
           style={
@@ -938,7 +1008,7 @@ export const AiCharacterMotion: React.FC = () => {
                   y: scrollDriftY,
                 }
           }
-          className="relative flex flex-col items-center"
+          className="relative z-10 flex flex-col items-center"
         >
           <div className="drop-shadow-[0_14px_22px_rgba(10,10,10,0.18)] dark:drop-shadow-[0_14px_26px_rgba(0,0,0,0.82)]">
             <Robot3DCanvas

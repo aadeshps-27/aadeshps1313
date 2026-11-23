@@ -43,11 +43,11 @@ export interface Robot3DCanvasProps {
   prefersReducedMotion: boolean;
 }
 
-const _logoOrange = new THREE.Color('#FF721A');
+const _logoOrange = new THREE.Color('#FD6701');
 const _lightWingColor = new THREE.Color('#181920');
 const _darkWingColor = new THREE.Color('#E5E7EB');
-const _orangeBase = new THREE.Color('#FF721A');
-const _orangeHot = new THREE.Color('#FFB066');
+const _orangeBase = new THREE.Color('#FD6701');
+const _orangeHot = new THREE.Color('#FF9F5A');
 
 function createRoundedRectShape(w: number, h: number, r: number): THREE.Shape {
   const hw = w / 2;
@@ -204,9 +204,9 @@ function drawVisorFace(
   if (activeSection === 'work' && mood === 'tracking') {
     const sweepPos = ((elapsed * 0.45) % 1) * (w + 160) - 80;
     const sweepGrad = ctx.createLinearGradient(sweepPos - 60, 0, sweepPos + 60, 0);
-    sweepGrad.addColorStop(0, 'rgba(255, 114, 26, 0)');
-    sweepGrad.addColorStop(0.5, 'rgba(255, 114, 26, 0.09)');
-    sweepGrad.addColorStop(1, 'rgba(255, 114, 26, 0)');
+    sweepGrad.addColorStop(0, 'rgba(253, 103, 1, 0)');
+    sweepGrad.addColorStop(0.5, 'rgba(253, 103, 1, 0.09)');
+    sweepGrad.addColorStop(1, 'rgba(253, 103, 1, 0)');
     ctx.fillStyle = sweepGrad;
     ctx.fillRect(0, 0, w, h);
   }
@@ -226,13 +226,13 @@ function drawVisorFace(
   ctx.save();
   ctx.translate(gx, gy);
 
-  const orange = '#FF721A';
-  const brightOrange = '#FFA45B';
+  const orange = '#FD6701';
+  const brightOrange = '#FF9C54';
   ctx.fillStyle = orange;
   ctx.strokeStyle = orange;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.shadowColor = 'rgba(255, 114, 26, 0.72)';
+  ctx.shadowColor = 'rgba(253, 103, 1, 0.72)';
   ctx.shadowBlur = mood === 'overdrive' ? 28 : 16;
 
   // Cheek blush for warm / joyful moods
@@ -245,7 +245,7 @@ function drawVisorFace(
     mood === 'wave'
   ) {
     ctx.save();
-    ctx.fillStyle = mood === 'shy' || mood === 'love' ? 'rgba(255, 114, 26, 0.55)' : 'rgba(255, 114, 26, 0.34)';
+    ctx.fillStyle = mood === 'shy' || mood === 'love' ? 'rgba(253, 103, 1, 0.55)' : 'rgba(253, 103, 1, 0.34)';
     ctx.shadowBlur = 12;
     ctx.beginPath();
     ctx.ellipse(w * 0.2, h * 0.69, 26, 13, 0, 0, Math.PI * 2);
@@ -645,7 +645,7 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     rimLight.position.set(-3.2, 2.2, -3.0);
     scene.add(rimLight);
 
-    const underFillLight = new THREE.PointLight('#FF721A', 1.15, 6, 2);
+    const underFillLight = new THREE.PointLight('#FD6701', 1.15, 6, 2);
     underFillLight.position.set(0, -1.6, 1.4);
     scene.add(underFillLight);
 
@@ -658,11 +658,11 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     visorTexture.colorSpace = THREE.SRGBColorSpace;
     visorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // PBR Materials: signature logo orange (#FF721A) chassis + crisp carbon/titanium contrast
+    // PBR Materials: #FD6701 orange chassis + crisp carbon/titanium contrast
     const isInitiallyDark = document.documentElement.classList.contains('dark');
     const chassisMat = new THREE.MeshPhysicalMaterial({
       color: _logoOrange.clone(),
-      emissive: '#FF721A',
+      emissive: '#FD6701',
       emissiveIntensity: isInitiallyDark ? 0.1 : 0.06,
       roughness: isInitiallyDark ? 0.24 : 0.28,
       metalness: isInitiallyDark ? 0.16 : 0.12,
@@ -706,15 +706,15 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     });
 
     const coreGlowMat = new THREE.MeshStandardMaterial({
-      color: '#FFB36B',
-      emissive: '#FF721A',
+      color: '#FFA86A',
+      emissive: '#FD6701',
       emissiveIntensity: 1.75,
       roughness: 0.18,
       metalness: 0.1,
     });
 
     const thrusterMat = new THREE.MeshBasicMaterial({
-      color: '#FF8A38',
+      color: '#FF7D24',
       transparent: true,
       opacity: 0.88,
     });
