@@ -43,8 +43,9 @@ export interface Robot3DCanvasProps {
   prefersReducedMotion: boolean;
 }
 
-const _lightChassisColor = new THREE.Color('#191A20');
-const _darkChassisColor = new THREE.Color('#F3F4F6');
+const _logoOrange = new THREE.Color('#FF721A');
+const _lightWingColor = new THREE.Color('#181920');
+const _darkWingColor = new THREE.Color('#E5E7EB');
 const _orangeBase = new THREE.Color('#FF721A');
 const _orangeHot = new THREE.Color('#FFB066');
 
@@ -632,19 +633,19 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     scene.environment = envTarget.texture;
     pmremGenerator.dispose();
 
-    // Balanced 3-point warm/cool studio lighting rig
-    const hemiLight = new THREE.HemisphereLight('#DBEAFE', '#4B2B1B', 0.85);
+    // Balanced 3-point warm/cool studio lighting rig tuned for logo orange (#FF721A) clarity
+    const hemiLight = new THREE.HemisphereLight('#F8FAFC', '#5C2409', 0.88);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight('#FFF5EB', 2.2);
+    const keyLight = new THREE.DirectionalLight('#FFF7F0', 2.05);
     keyLight.position.set(2.8, 3.8, 4.2);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight('#93C5FD', 1.35);
+    const rimLight = new THREE.DirectionalLight('#BAE6FD', 1.35);
     rimLight.position.set(-3.2, 2.2, -3.0);
     scene.add(rimLight);
 
-    const underFillLight = new THREE.PointLight('#FF721A', 1.1, 6, 2);
+    const underFillLight = new THREE.PointLight('#FF721A', 1.15, 6, 2);
     underFillLight.position.set(0, -1.6, 1.4);
     scene.add(underFillLight);
 
@@ -657,34 +658,36 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     visorTexture.colorSpace = THREE.SRGBColorSpace;
     visorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // PBR Materials with distinct roughness & metalness contrast
+    // PBR Materials: signature logo orange (#FF721A) chassis + crisp carbon/titanium contrast
     const isInitiallyDark = document.documentElement.classList.contains('dark');
     const chassisMat = new THREE.MeshPhysicalMaterial({
-      color: (isInitiallyDark ? _darkChassisColor : _lightChassisColor).clone(),
-      roughness: isInitiallyDark ? 0.3 : 0.36,
-      metalness: isInitiallyDark ? 0.18 : 0.34,
-      clearcoat: 0.65,
-      clearcoatRoughness: 0.2,
+      color: _logoOrange.clone(),
+      emissive: '#FF721A',
+      emissiveIntensity: isInitiallyDark ? 0.1 : 0.06,
+      roughness: isInitiallyDark ? 0.24 : 0.28,
+      metalness: isInitiallyDark ? 0.16 : 0.12,
+      clearcoat: 0.82,
+      clearcoatRoughness: 0.14,
     });
 
     const metalTrimMat = new THREE.MeshStandardMaterial({
-      color: '#9BA2AE',
-      roughness: 0.2,
-      metalness: 0.88,
+      color: '#B4BCC8',
+      roughness: 0.22,
+      metalness: 0.86,
     });
 
-    const accentMat = new THREE.MeshStandardMaterial({
-      color: '#FF721A',
-      roughness: 0.32,
-      metalness: 0.42,
-      emissive: '#FF721A',
-      emissiveIntensity: 0.15,
+    const accentMat = new THREE.MeshPhysicalMaterial({
+      color: (isInitiallyDark ? _darkWingColor : _lightWingColor).clone(),
+      roughness: isInitiallyDark ? 0.26 : 0.34,
+      metalness: isInitiallyDark ? 0.55 : 0.38,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.22,
     });
 
     const visorBezelMat = new THREE.MeshStandardMaterial({
-      color: '#101015',
-      roughness: 0.48,
-      metalness: 0.25,
+      color: '#111116',
+      roughness: 0.44,
+      metalness: 0.28,
     });
 
     const visorDisplayMat = new THREE.MeshPhysicalMaterial({
@@ -703,10 +706,10 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     });
 
     const coreGlowMat = new THREE.MeshStandardMaterial({
-      color: '#FF721A',
+      color: '#FFB36B',
       emissive: '#FF721A',
-      emissiveIntensity: 1.6,
-      roughness: 0.2,
+      emissiveIntensity: 1.75,
+      roughness: 0.18,
       metalness: 0.1,
     });
 
@@ -985,18 +988,37 @@ export const Robot3DCanvas: React.FC<Robot3DCanvasProps> = ({
     const updateFrame = (dt: number, elapsed: number) => {
       const s = liveStateRef.current;
 
-      // Smoothly transition Light/Dark mode chassis color & roughness
-      const targetColor = isDarkTheme ? _darkChassisColor : _lightChassisColor;
-      chassisMat.color.lerp(targetColor, s.prefersReducedMotion ? 1 : Math.min(1, dt * 10));
+      // Keep signature logo orange (#FF721A) chassis while adapting contrast accents for Light/Dark themes
+      chassisMat.emissiveIntensity = THREE.MathUtils.damp(
+        chassisMat.emissiveIntensity,
+        isDarkTheme ? 0.1 : 0.06,
+        10,
+        dt
+      );
       chassisMat.roughness = THREE.MathUtils.damp(
         chassisMat.roughness,
-        isDarkTheme ? 0.3 : 0.36,
+        isDarkTheme ? 0.24 : 0.28,
         10,
         dt
       );
       chassisMat.metalness = THREE.MathUtils.damp(
         chassisMat.metalness,
-        isDarkTheme ? 0.18 : 0.34,
+        isDarkTheme ? 0.16 : 0.12,
+        10,
+        dt
+      );
+
+      const targetWingColor = isDarkTheme ? _darkWingColor : _lightWingColor;
+      accentMat.color.lerp(targetWingColor, s.prefersReducedMotion ? 1 : Math.min(1, dt * 10));
+      accentMat.roughness = THREE.MathUtils.damp(
+        accentMat.roughness,
+        isDarkTheme ? 0.26 : 0.34,
+        10,
+        dt
+      );
+      accentMat.metalness = THREE.MathUtils.damp(
+        accentMat.metalness,
+        isDarkTheme ? 0.55 : 0.38,
         10,
         dt
       );
