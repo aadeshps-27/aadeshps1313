@@ -92,6 +92,42 @@ function formatReceivedStampTime(date: Date): string {
   });
 }
 
+const VALID_EMAIL_RE = /^[^\s@]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+
+function getEmailError(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return 'Please include your reply email address.';
+  }
+  if (trimmed.length > 160) {
+    return 'Email address must be 160 characters or fewer.';
+  }
+  if (trimmed.includes('..') || !VALID_EMAIL_RE.test(trimmed)) {
+    return 'Enter a valid email address (e.g. you@studio.com).';
+  }
+  return undefined;
+}
+
+function getBodyError(value: string): string | undefined {
+  if (!value.trim()) {
+    return 'Write a short note on what you are making.';
+  }
+  if (value.length > 6000) {
+    return 'Message must be 6000 characters or fewer.';
+  }
+  return undefined;
+}
+
+function getSignError(hasDrawn: boolean, typedName: string): string | undefined {
+  if (!hasDrawn && !typedName.trim()) {
+    return 'Please sign above or enter your name.';
+  }
+  if (typedName.trim().length > 120) {
+    return 'Name must be 120 characters or fewer.';
+  }
+  return undefined;
+}
+
 const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 20, mass: 0.45 };
 const ENTRANCE_SPRING = {
   type: 'spring' as const,
@@ -305,9 +341,16 @@ export const ContactAndFooter: React.FC = () => {
   const [source, setSource] = useState('');
   const [body, setBody] = useState('');
   const [name, setName] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [signatureStrokes, setSignatureStrokes] = useState<SignatureStrokes>([]);
   const [sigModalOpen, setSigModalOpen] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<{
+    email: boolean;
+    body: boolean;
+    sign: boolean;
+  }>({ email: false, body: false, sign: false });
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   // Intake Ticket / Stamp State
   const [sentInfo, setSentInfo] = useState<{
@@ -319,6 +362,8 @@ export const ContactAndFooter: React.FC = () => {
 
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const sigPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const sigTriggerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -387,6 +432,10 @@ export const ContactAndFooter: React.FC = () => {
 
   const hasDrawnSig = signatureStrokes.length > 0;
   const isSigned = hasDrawnSig || name.trim().length > 0;
+  const isEmailValid = !getEmailError(email);
+  const isBodyValid = !getBodyError(body);
+  const isSignValid = !getSignError(hasDrawnSig, name);
+  const isFormValid = isEmailValid && isBodyValid && isSignValid;
 
   const showToast = (label: string) => {
     if (copyTimerRef.current !== null) {
@@ -432,32 +481,94 @@ export const ContactAndFooter: React.FC = () => {
     return copied;
   };
 
-  const buildLetterTranscript = (ticketId?: string) => {
-    const lines = [
-      `DATE: ${todayStr}`,
-      `RE :: ${kind}`,
-      `FROM :: ${email.trim()}`,
-    ];
-    if (source.trim()) lines.push(`VIA :: ${source.trim()}`);
-    if (ticketId) lines.push(`JOB :: ${ticketId}`);
-    lines.push('', `Dear ${PROFILE.shortName},`, '', body.trim(), '', 'Sincerely,', name.trim() || '(Hand-signed)');
-    return lines.join('\n');
+  const sanitizeLine = (value: string) =>
+    value.replace(/[\r\n\u0000-\u001f\u007f]/g, ' ').trim();
+
+  const buildFormattedSubmission = (
+    channel: 'Email' | 'WhatsApp',
+    ticket: { jobId: string; receivedAt: string; replyBy: string }
+  ) => {
+    const cleanEmail = sanitizeLine(email);
+    const cleanName = sanitizeLine(name) || '(Hand-signed)';
+    const cleanSource = sanitizeLine(source) || 'Direct visit';
+    const cleanBody = body.trim();
+    const signatureMode =
+      hasDrawnSig && sanitizeLine(name)
+        ? 'Hand-drawn + Typed name'
+        : hasDrawnSig
+          ? 'Hand-drawn signature'
+          : 'Typed name';
+
+    if (channel === 'WhatsApp') {
+      return [
+        '*CONTACT FORM SUBMISSION*',
+        '────────────────────────',
+        `*Ticket ID:* ${ticket.jobId}`,
+        `*Date:* ${todayStr} · ${ticket.receivedAt} IST`,
+        `*Reply By:* ${ticket.replyBy}`,
+        `*Channel:* WhatsApp`,
+        '',
+        '*SENDER DETAILS*',
+        `*Subject (RE):* ${kind}`,
+        `*Name:* ${cleanName}`,
+        `*Email:* ${cleanEmail}`,
+        `*Referral (VIA):* ${cleanSource}`,
+        `*Signature:* ${signatureMode}`,
+        '',
+        '*MESSAGE*',
+        cleanBody,
+      ].join('\n');
+    }
+
+    return [
+      `CONTACT FORM SUBMISSION — ${PROFILE.name.toUpperCase()}`,
+      '----------------------------------------',
+      `Ticket ID     : ${ticket.jobId}`,
+      `Date          : ${todayStr}`,
+      `Time (IST)    : ${ticket.receivedAt}`,
+      `Reply By      : ${ticket.replyBy}`,
+      `Channel       : Email`,
+      '',
+      'SENDER DETAILS',
+      '----------------------------------------',
+      `Subject (RE)  : ${kind}`,
+      `Name          : ${cleanName}`,
+      `Reply Email   : ${cleanEmail}`,
+      `Referral (VIA): ${cleanSource}`,
+      `Signature     : ${signatureMode}`,
+      '',
+      'MESSAGE',
+      '----------------------------------------',
+      cleanBody,
+      '',
+      '----------------------------------------',
+      'Submitted via Portfolio Contact Form',
+    ].join('\r\n');
   };
 
   const validateLetter = (): boolean => {
+    setHasSubmitted(true);
+    setTouched({ email: true, body: true, sign: true });
+
+    const emailErr = getEmailError(email);
+    const bodyErr = getBodyError(body);
+    const signErr = getSignError(hasDrawnSig, name);
+
     const next: FormErrors = {};
-    if (!email.trim()) {
-      next.email = 'Please include your reply email address.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      next.email = 'That email address does not look complete.';
-    }
-    if (!body.trim()) {
-      next.body = 'Write a short note on what you are making.';
-    }
-    if (!isSigned) {
-      next.sign = 'Please sign above or enter your name.';
-    }
+    if (emailErr) next.email = emailErr;
+    if (bodyErr) next.body = bodyErr;
+    if (signErr) next.sign = signErr;
+
     setErrors(next);
+
+    if (emailErr) {
+      emailInputRef.current?.focus();
+    } else if (bodyErr) {
+      textareaRef.current?.focus();
+    } else if (signErr) {
+      nameInputRef.current?.focus();
+    }
+
     return Object.keys(next).length === 0;
   };
 
@@ -465,52 +576,76 @@ export const ContactAndFooter: React.FC = () => {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const seq = String((now.getMinutes() % 89) + 10);
-    const jobId = `AP-${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}-${seq}`;
-    setSentInfo({
-      jobId,
+    const ticket = {
+      jobId: `AP-${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}-${seq}`,
       receivedAt: formatReceivedStampTime(now),
       replyBy: formatLetterDate(tomorrow),
       viaLabel,
-    });
-    return jobId;
+    };
+    setSentInfo(ticket);
+    return ticket;
   };
 
   const handleSendLetter = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (honeypot.trim().length > 0) return;
     if (!validateLetter()) return;
 
     playNavSelect(e.currentTarget);
-    const jobId = stampAndLogTicket('Email');
-    const subject = encodeURIComponent(`[${kind}] Note from ${name.trim() || email.trim()}`);
-    const mailBody = encodeURIComponent(buildLetterTranscript(jobId));
+    const ticket = stampAndLogTicket('Email');
+    const senderLabel = sanitizeLine(name) || sanitizeLine(email);
+    const subject = encodeURIComponent(`[${kind}] ${ticket.jobId} — ${senderLabel}`);
+    const mailBody = encodeURIComponent(buildFormattedSubmission('Email', ticket));
     window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${mailBody}`;
   };
 
   const handleSendWhatsApp = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (honeypot.trim().length > 0) return;
     if (!validateLetter()) return;
 
     playNavSelect(e.currentTarget);
-    const jobId = stampAndLogTicket('WhatsApp');
-    const text = encodeURIComponent(buildLetterTranscript(jobId));
-    window.location.href = `${PROFILE.whatsappHref}?text=${text}`;
+    const ticket = stampAndLogTicket('WhatsApp');
+    const text = encodeURIComponent(buildFormattedSubmission('WhatsApp', ticket));
+    const waUrl = `${PROFILE.whatsappHref}?text=${text}`;
+
+    // Open in a new tab via anchor click so iframe/SPA hosts never navigate into blocked frames
+    const anchor = document.createElement('a');
+    anchor.href = waUrl;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   };
 
   const handleKeepCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const transcript = buildLetterTranscript(sentInfo?.jobId);
+    const activeTicket = sentInfo ?? {
+      jobId: 'DRAFT',
+      receivedAt: formatReceivedStampTime(new Date()),
+      replyBy: formatLetterDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+      viaLabel: 'Email' as const,
+    };
+    const channel = activeTicket.viaLabel === 'WhatsApp' ? 'WhatsApp' : 'Email';
+    const transcript = buildFormattedSubmission(channel, activeTicket);
     const ok = await copyTextToClipboard(transcript, e.currentTarget);
-    if (ok) showToast('Letter copy saved to clipboard');
+    if (ok) showToast('Formatted copy saved to clipboard');
   };
 
   const handleResetLetter = () => {
     setSentInfo(null);
+    setHoneypot('');
     setErrors({});
+    setTouched({ email: false, body: false, sign: false });
+    setHasSubmitted(false);
   };
 
   const stubStatus = sentInfo
     ? 'RECEIVED'
-    : isSigned
-      ? 'SIGNED · READY'
-      : 'BEING WRITTEN';
+    : isFormValid
+      ? 'READY TO SEND'
+      : isSigned
+        ? 'SIGNED · DRAFT'
+        : 'BEING WRITTEN';
 
   return (
     <>
@@ -564,6 +699,23 @@ export const ContactAndFooter: React.FC = () => {
                 transition={{ duration: 0.72, ease: ARTCRAFT_EASE }}
                 className="relative bg-[#F3F2EE]/95 dark:bg-[#111111]/95 backdrop-blur-md text-[#1A1A1A] dark:text-[#F5F5F5] font-mono text-[13px] sm:text-[14px] leading-[30px] border border-[#E2DFD7] dark:border-[#262626] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_16px_42px_rgba(10,10,10,0.08)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_60px_rgba(0,0,0,0.65)]"
               >
+                {/* Honeypot anti-bot trap: hidden from sighted, keyboard, and screen-reader users */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -left-[9999px] top-auto w-px h-px overflow-hidden opacity-0"
+                >
+                  <label htmlFor="contact-website-trap">Website</label>
+                  <input
+                    id="contact-website-trap"
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                  />
+                </div>
+
                 <div className="relative p-6 sm:p-10 lg:p-12">
                   {/* Letterhead Header */}
                   <header className="relative flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-5 pb-5 border-b border-[#1A1A1A]/20 dark:border-white/15">
@@ -653,6 +805,7 @@ export const ContactAndFooter: React.FC = () => {
                         FROM ::
                       </span>
                       <input
+                        ref={emailInputRef}
                         type="email"
                         name="email"
                         required
@@ -661,24 +814,47 @@ export const ContactAndFooter: React.FC = () => {
                         aria-invalid={Boolean(errors.email)}
                         aria-describedby={errors.email ? 'letter-note-email' : undefined}
                         onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                          const nextVal = e.target.value;
+                          setEmail(nextVal);
+                          if (touched.email || hasSubmitted) {
+                            setErrors((prev) => ({ ...prev, email: getEmailError(nextVal) }));
+                          } else if (errors.email && !getEmailError(nextVal)) {
+                            setErrors((prev) => ({ ...prev, email: undefined }));
+                          }
+                        }}
+                        onBlur={() => {
+                          if (sentInfo) return;
+                          setTouched((prev) => ({ ...prev, email: true }));
+                          setErrors((prev) => ({ ...prev, email: getEmailError(email) }));
                         }}
                         placeholder="you@studio.com"
                         className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
+                      {isEmailValid && !errors.email && (
+                        <span
+                          aria-label="Valid email"
+                          className="shrink-0 inline-flex items-center gap-1 text-[10px] tracking-[0.06em] uppercase text-emerald-700 dark:text-emerald-400"
+                        >
+                          <Check size={11} aria-hidden="true" />
+                          <span>valid</span>
+                        </span>
+                      )}
                       <span
                         aria-hidden="true"
                         className={`pointer-events-none absolute inset-x-0 bottom-0 h-px transition-colors duration-200 ${
                           errors.email
                             ? 'bg-red-600 dark:bg-red-500'
-                            : 'bg-[#1A1A1A]/20 dark:bg-white/15 group-focus-within/field:bg-[#FF721A]'
+                            : isEmailValid
+                              ? 'bg-emerald-600/60 dark:bg-emerald-400/50'
+                              : 'bg-[#1A1A1A]/20 dark:bg-white/15 group-focus-within/field:bg-[#FF721A]'
                         }`}
                       />
                     </label>
                     {errors.email && (
                       <p
                         id="letter-note-email"
+                        role="status"
+                        aria-live="polite"
                         className="mt-1 text-[11px] leading-snug text-red-600 dark:text-red-400"
                       >
                         {errors.email}
@@ -728,21 +904,42 @@ export const ContactAndFooter: React.FC = () => {
                       aria-invalid={Boolean(errors.body)}
                       aria-describedby={errors.body ? 'letter-note-body' : undefined}
                       onChange={(e) => {
-                        setBody(e.target.value);
-                        if (errors.body) setErrors((prev) => ({ ...prev, body: undefined }));
+                        const nextVal = e.target.value;
+                        setBody(nextVal);
+                        if (touched.body || hasSubmitted) {
+                          setErrors((prev) => ({ ...prev, body: getBodyError(nextVal) }));
+                        } else if (errors.body && !getBodyError(nextVal)) {
+                          setErrors((prev) => ({ ...prev, body: undefined }));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (sentInfo) return;
+                        setTouched((prev) => ({ ...prev, body: true }));
+                        setErrors((prev) => ({ ...prev, body: getBodyError(body) }));
                       }}
                       placeholder="What are we making?"
                       className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                     />
                   </label>
-                  {errors.body && (
-                    <p
-                      id="letter-note-body"
-                      className="mt-1.5 text-[11px] leading-snug text-red-600 dark:text-red-400"
-                    >
-                      {errors.body}
-                    </p>
-                  )}
+                  <div className="mt-1.5 flex items-baseline justify-between gap-3">
+                    {errors.body ? (
+                      <p
+                        id="letter-note-body"
+                        role="status"
+                        aria-live="polite"
+                        className="text-[11px] leading-snug text-red-600 dark:text-red-400"
+                      >
+                        {errors.body}
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    {body.length > 0 && !sentInfo && (
+                      <span className="text-[10px] tabular-nums tracking-[0.04em] text-[#737373] dark:text-[#737373] shrink-0">
+                        {body.length} / 6000
+                      </span>
+                    )}
+                  </div>
 
                   {/* Closing + Signature Pad Box */}
                   <p className="mt-6 text-[15px] font-medium text-[#0A0A0A] dark:text-white">
@@ -789,17 +986,35 @@ export const ContactAndFooter: React.FC = () => {
                   {/* Typed Name Line + Clear Signature */}
                   <div className="mt-2 max-w-md flex items-baseline justify-between gap-4">
                     <input
+                      ref={nameInputRef}
                       type="text"
                       name="name"
                       autoComplete="name"
+                      maxLength={120}
                       readOnly={Boolean(sentInfo)}
                       value={name}
                       aria-label="Your name"
                       aria-invalid={Boolean(errors.sign)}
                       aria-describedby={errors.sign ? 'letter-note-sign' : undefined}
                       onChange={(e) => {
-                        setName(e.target.value);
-                        if (errors.sign) setErrors((prev) => ({ ...prev, sign: undefined }));
+                        const nextName = e.target.value;
+                        setName(nextName);
+                        if (touched.sign || hasSubmitted) {
+                          setErrors((prev) => ({
+                            ...prev,
+                            sign: getSignError(hasDrawnSig, nextName),
+                          }));
+                        } else if (errors.sign && !getSignError(hasDrawnSig, nextName)) {
+                          setErrors((prev) => ({ ...prev, sign: undefined }));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (sentInfo) return;
+                        setTouched((prev) => ({ ...prev, sign: true }));
+                        setErrors((prev) => ({
+                          ...prev,
+                          sign: getSignError(hasDrawnSig, name),
+                        }));
                       }}
                       placeholder="Your name"
                       className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[13px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373] focus:underline decoration-[#FF721A] underline-offset-4"
@@ -808,7 +1023,15 @@ export const ContactAndFooter: React.FC = () => {
                     {hasDrawnSig && !sentInfo && (
                       <button
                         type="button"
-                        onClick={() => setSignatureStrokes([])}
+                        onClick={() => {
+                          setSignatureStrokes([]);
+                          if (touched.sign || hasSubmitted) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              sign: getSignError(false, name),
+                            }));
+                          }
+                        }}
                         className="text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                       >
                         clear signature
@@ -818,6 +1041,8 @@ export const ContactAndFooter: React.FC = () => {
                   {errors.sign && (
                     <p
                       id="letter-note-sign"
+                      role="status"
+                      aria-live="polite"
                       className="mt-1 text-[11px] leading-snug text-red-600 dark:text-red-400"
                     >
                       {errors.sign}
@@ -861,16 +1086,18 @@ export const ContactAndFooter: React.FC = () => {
                       <span
                         aria-live="polite"
                         className={
-                          sentInfo || isSigned
+                          sentInfo || isFormValid || isSigned
                             ? 'text-[#C94B00] dark:text-[#FF721A] font-semibold'
                             : ''
                         }
                       >
                         {sentInfo
                           ? 'RECEIVED'
-                          : isSigned
-                            ? 'SIGNED'
-                            : 'NOT YET SIGNED'}
+                          : isFormValid
+                            ? 'READY TO SEND'
+                            : isSigned
+                              ? 'SIGNED'
+                              : 'NOT YET SIGNED'}
                       </span>
                     </p>
 
@@ -1029,8 +1256,11 @@ export const ContactAndFooter: React.FC = () => {
         }}
         onDone={(strokes) => {
           setSignatureStrokes(strokes);
-          if (strokes.length > 0 && errors.sign) {
-            setErrors((prev) => ({ ...prev, sign: undefined }));
+          const nextSignErr = getSignError(strokes.length > 0, name);
+          if (strokes.length > 0) {
+            setErrors((prev) => ({ ...prev, sign: nextSignErr }));
+          } else if (touched.sign || hasSubmitted) {
+            setErrors((prev) => ({ ...prev, sign: nextSignErr }));
           }
           setSigModalOpen(false);
           window.requestAnimationFrame(() => sigTriggerRef.current?.focus());

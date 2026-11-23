@@ -13,6 +13,7 @@ import { BackToTopButton } from './components/BackToTopButton';
 import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { InteractiveDotGrid } from './components/InteractiveDotGrid';
 import { SmoothKeyboardNavigation } from './components/SmoothKeyboardNavigation';
+import { DevAnimationHud } from './components/DevAnimationHud';
 import {
   FloatingAudioToggle,
   SpatialAudioProvider,
@@ -251,6 +252,8 @@ export default function App() {
             <AiCharacterMotion key="ai-character-motion" />
           )}
         </AnimatePresence>
+
+        {import.meta.env.DEV && <DevAnimationHud theme={theme} />}
       </div>
     </SpatialAudioProvider>
   );
