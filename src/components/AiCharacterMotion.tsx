@@ -10,28 +10,11 @@ import {
   useVelocity,
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
+import { Robot3DCanvas, RobotMood, RobotSection } from './Robot3DCanvas';
 import { playCompanionCue } from '../utils/spatialAudio';
 import { useLanguage } from './LanguageProvider';
 
-type MoodMode =
-  | 'tracking'
-  | 'happy'
-  | 'love'
-  | 'laugh'
-  | 'curious'
-  | 'surprised'
-  | 'shy'
-  | 'cool'
-  | 'proud'
-  | 'dizzy'
-  | 'scan'
-  | 'wink'
-  | 'excited'
-  | 'dance'
-  | 'radar'
-  | 'wave'
-  | 'overdrive'
-  | 'sleep';
+type MoodMode = RobotMood;
 
 type ThoughtGlyph =
   | 'spark'
@@ -44,7 +27,6 @@ type ThoughtGlyph =
   | 'dizzy'
   | null;
 
-const TRACK_SPRING = { stiffness: 280, damping: 24, mass: 0.45 };
 const ROAM_SPRING = { stiffness: 90, damping: 20, mass: 0.9 };
 const IDLE_SLEEP_MS = 14000;
 
@@ -57,7 +39,6 @@ const SECTION_TARGETS: Record<'about' | 'work' | 'experience' | 'contact', strin
 
 const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
 const OVERDRIVE_ANGLES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-const DANCE_BARS = [0, 1, 2, 3, 4];
 const EMOTION_PRESETS: {
   id: 'happy' | 'love' | 'laugh' | 'cool' | 'shy' | 'surprised';
   glyph: ThoughtGlyph;
@@ -85,7 +66,7 @@ export const AiCharacterMotion: React.FC = () => {
   const [isNearPointer, setIsNearPointer] = useState(false);
   const [isFastPointer, setIsFastPointer] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [activeSection, setActiveSection] = useState<'about' | 'work' | 'experience' | 'contact'>('about');
+  const [activeSection, setActiveSection] = useState<RobotSection>('about');
   const [mood, setMood] = useState<MoodMode>('tracking');
   const [thought, setThought] = useState<ThoughtGlyph>(null);
   const [pulseKey, setPulseKey] = useState(0);
@@ -99,8 +80,9 @@ export const AiCharacterMotion: React.FC = () => {
   const [roamFacing, setRoamFacing] = useState<1 | -1>(1);
 
   // Global cursor vector normalized relative to character center [-1, 1]
-  const rawLookX = useMotionValue(0);
-  const rawLookY = useMotionValue(0);
+  const lookVectorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Normalized scroll velocity [-1, 1] for kinetic 3D banking & thruster boost
+  const scrollVelocityRef = useRef<number>(0);
   // Proximity magnetic lean when pointer comes close to character
   const rawAttractX = useMotionValue(0);
   const rawAttractY = useMotionValue(0);
@@ -108,8 +90,6 @@ export const AiCharacterMotion: React.FC = () => {
   const rawRoamX = useMotionValue(0);
   const rawRoamY = useMotionValue(0);
 
-  const smoothLookX = useSpring(rawLookX, TRACK_SPRING);
-  const smoothLookY = useSpring(rawLookY, TRACK_SPRING);
   const attractX = useSpring(rawAttractX, { stiffness: 220, damping: 20 });
   const attractY = useSpring(rawAttractY, { stiffness: 220, damping: 20 });
   const roamX = useSpring(rawRoamX, ROAM_SPRING);
@@ -124,12 +104,27 @@ export const AiCharacterMotion: React.FC = () => {
   const scrollLean = useTransform(smoothVelocity, [-1800, 0, 1800], [-7, 0, 7]);
   const scrollDriftY = useTransform(smoothVelocity, [-1800, 0, 1800], [5, 0, -5]);
 
-  // Eye optics & head gimbal transforms
-  const eyeX = useTransform(smoothLookX, [-1, 1], [-5, 5]);
-  const eyeY = useTransform(smoothLookY, [-1, 1], [-3.4, 3.4]);
-  const headX = useTransform(smoothLookX, [-1, 1], [-3, 3]);
-  const headY = useTransform(smoothLookY, [-1, 1], [-2.2, 2.2]);
-  const headRotate = useTransform(smoothLookX, [-1, 1], [-6, 6]);
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      scrollVelocityRef.current = 0;
+      return;
+    }
+    let settleTimer: number | null = null;
+    const unsub = smoothVelocity.on('change', (latest) => {
+      const normalized = Math.max(-1, Math.min(1, latest / 1500));
+      scrollVelocityRef.current = Math.abs(normalized) < 0.015 ? 0 : normalized;
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+      if (Math.abs(normalized) >= 0.015) {
+        settleTimer = window.setTimeout(() => {
+          scrollVelocityRef.current = 0;
+        }, 220);
+      }
+    });
+    return () => {
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+      unsub();
+    };
+  }, [smoothVelocity, prefersReducedMotion]);
 
   const flashThought = useCallback((glyph: ThoughtGlyph, durationMs = 1500) => {
     if (thoughtTimerRef.current !== null) {
@@ -162,16 +157,18 @@ export const AiCharacterMotion: React.FC = () => {
   // Track active portfolio section cleanly
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const ids: Array<'about' | 'work' | 'experience' | 'contact'> = [
-      'about',
-      'work',
-      'experience',
-      'contact',
-    ];
+    const ids: RobotSection[] = ['about', 'work', 'experience', 'contact'];
 
     const detectSection = () => {
-      const markerY = window.innerHeight * 0.4;
-      let current: 'about' | 'work' | 'experience' | 'contact' = 'about';
+      const nearBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 80;
+      if (nearBottom) {
+        setActiveSection('contact');
+        return;
+      }
+      const markerY = window.innerHeight * 0.44;
+      let current: RobotSection = 'about';
       for (const id of ids) {
         const el = document.getElementById(id);
         if (!el) continue;
@@ -185,7 +182,11 @@ export const AiCharacterMotion: React.FC = () => {
 
     detectSection();
     window.addEventListener('scroll', detectSection, { passive: true });
-    return () => window.removeEventListener('scroll', detectSection);
+    window.addEventListener('resize', detectSection, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', detectSection);
+      window.removeEventListener('resize', detectSection);
+    };
   }, []);
 
   // Celebrate reaching the bottom contact anchor of the page once per visit
@@ -293,10 +294,12 @@ export const AiCharacterMotion: React.FC = () => {
 
   // Global cursor tracking, velocity reaction, proximity magnetic pull, and element reactions
   useEffect(() => {
-    if (!pointerFine || prefersReducedMotion) return;
+    if (prefersReducedMotion || typeof window === 'undefined') return;
     let fastTimer: number | null = null;
+    let gazeIdleTimer: number | null = null;
 
     const handlePointerMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
       const node = stageRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
@@ -306,9 +309,18 @@ export const AiCharacterMotion: React.FC = () => {
       const rawDx = e.clientX - cx;
       const rawDy = e.clientY - cy;
       const dist = Math.hypot(rawDx, rawDy);
+      const spanX = Math.max(240, window.innerWidth * 0.38);
+      const spanY = Math.max(220, window.innerHeight * 0.38);
 
-      rawLookX.set(Math.max(-1, Math.min(1, rawDx / 320)));
-      rawLookY.set(Math.max(-1, Math.min(1, rawDy / 320)));
+      lookVectorRef.current = {
+        x: Math.max(-1, Math.min(1, rawDx / spanX)),
+        y: Math.max(-1, Math.min(1, rawDy / spanY)),
+      };
+
+      if (gazeIdleTimer !== null) window.clearTimeout(gazeIdleTimer);
+      gazeIdleTimer = window.setTimeout(() => {
+        lookVectorRef.current = { x: 0, y: 0 };
+      }, 3600);
 
       // Detect rapid cursor whips near companion to flare stabilizer wings
       const now = performance.now();
@@ -340,6 +352,7 @@ export const AiCharacterMotion: React.FC = () => {
     };
 
     const handlePointerOver = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
       if (isDragging || danceActive || radarActive || waveActive) return;
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -355,10 +368,10 @@ export const AiCharacterMotion: React.FC = () => {
     };
 
     const handlePointerLeave = () => {
+      if (gazeIdleTimer !== null) window.clearTimeout(gazeIdleTimer);
       setIsNearPointer(false);
       setIsFastPointer(false);
-      rawLookX.set(0);
-      rawLookY.set(0);
+      lookVectorRef.current = { x: 0, y: 0 };
       rawAttractX.set(0);
       rawAttractY.set(0);
     };
@@ -368,19 +381,17 @@ export const AiCharacterMotion: React.FC = () => {
     document.addEventListener('mouseleave', handlePointerLeave);
     return () => {
       if (fastTimer !== null) window.clearTimeout(fastTimer);
+      if (gazeIdleTimer !== null) window.clearTimeout(gazeIdleTimer);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerover', handlePointerOver);
       document.removeEventListener('mouseleave', handlePointerLeave);
     };
   }, [
-    pointerFine,
     prefersReducedMotion,
     isDragging,
     danceActive,
     radarActive,
     waveActive,
-    rawLookX,
-    rawLookY,
     rawAttractX,
     rawAttractY,
   ]);
@@ -716,7 +727,7 @@ export const AiCharacterMotion: React.FC = () => {
                 rotate: roamTilt,
               }
         }
-        className="relative w-16 h-20 flex flex-col items-center justify-end cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-2xl touch-none"
+        className="relative w-24 h-28 flex flex-col items-center justify-end cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FF721A] rounded-2xl touch-none"
       >
         {/* Expanding Orange Pulse Wave on Click / Drag */}
         <AnimatePresence>
@@ -728,7 +739,7 @@ export const AiCharacterMotion: React.FC = () => {
               animate={{ scale: 1.65, opacity: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.65, ease: ARTCRAFT_EASE }}
-              className="pointer-events-none absolute top-3 w-14 h-14 rounded-full border border-[#FF721A]"
+              className="pointer-events-none absolute top-5 w-16 h-16 rounded-full border border-[#FF721A]"
             />
           )}
         </AnimatePresence>
@@ -739,7 +750,7 @@ export const AiCharacterMotion: React.FC = () => {
             <motion.div
               key="radar-waves"
               aria-hidden="true"
-              className="pointer-events-none absolute top-2 w-16 h-16 flex items-center justify-center"
+              className="pointer-events-none absolute top-4 w-20 h-20 flex items-center justify-center"
             >
               {[0, 1, 2].map((waveIdx) => (
                 <motion.span
@@ -765,11 +776,11 @@ export const AiCharacterMotion: React.FC = () => {
             <div
               key={`overdrive-${overdriveCount}`}
               aria-hidden="true"
-              className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2"
+              className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2"
             >
               {OVERDRIVE_ANGLES.map((angle, i) => {
                 const rad = (angle * Math.PI) / 180;
-                const radius = i % 2 === 0 ? 46 : 32;
+                const radius = i % 2 === 0 ? 52 : 36;
                 const tx = Math.cos(rad) * radius;
                 const ty = Math.sin(rad) * radius;
                 return (
@@ -793,12 +804,12 @@ export const AiCharacterMotion: React.FC = () => {
               <div
                 key={`burst-${spinCount}`}
                 aria-hidden="true"
-                className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2"
+                className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2"
               >
                 {SPARK_ANGLES.map((angle) => {
                   const rad = (angle * Math.PI) / 180;
-                  const tx = Math.cos(rad) * 34;
-                  const ty = Math.sin(rad) * 34;
+                  const tx = Math.cos(rad) * 38;
+                  const ty = Math.sin(rad) * 38;
                   return (
                     <motion.span
                       key={angle}
@@ -926,694 +937,26 @@ export const AiCharacterMotion: React.FC = () => {
           }
           className="relative flex flex-col items-center"
         >
-          {/* Hop / Squash-and-Stretch Impulse Wrapper */}
-          <motion.div
-            key={`hop-${hopKey}`}
-            initial={
-              hopKey > 0 && !prefersReducedMotion
-                ? { y: 0, scaleX: 1.18, scaleY: 0.82 }
-                : false
-            }
-            animate={
-              hopKey > 0 && !prefersReducedMotion
-                ? {
-                    y: [0, -14, 0],
-                    scaleX: [1.18, 0.9, 1.06, 1],
-                    scaleY: [0.82, 1.14, 0.94, 1],
-                  }
-                : undefined
-            }
-            transition={{ duration: 0.44, ease: ARTCRAFT_EASE }}
-          >
-            {/* Spin / Dance / Emotional Levitation Wrapper */}
-            <motion.div
-              animate={
-                prefersReducedMotion
-                  ? undefined
-                  : {
-                      y: danceActive
-                        ? [0, -10, 0, -8, 0]
-                        : activeMood === 'laugh'
-                          ? [0, -4, 0, -3, 0]
-                          : activeMood === 'sleep'
-                            ? [0, -2, 0]
-                            : isDragging
-                              ? -4
-                              : [0, -5, 0],
-                      rotate: danceActive
-                        ? [0, -9, 9, -7, 0]
-                        : activeMood === 'dizzy'
-                          ? [0, -8, 8, -5, 0]
-                          : activeMood === 'shy'
-                            ? [0, -5, 4, -3, 0]
-                            : spinCount * 360 + (roamActive ? roamFacing * 3 : 0),
-                      scale:
-                        activeMood === 'surprised'
-                          ? 1.09
-                          : isHovered || isNearPointer
-                            ? 1.06
-                            : 1,
-                    }
-              }
-              transition={{
-                y: danceActive
-                  ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
-                  : activeMood === 'laugh'
-                    ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
-                    : activeMood === 'sleep'
-                      ? { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }
-                      : { duration: 3.1, repeat: Infinity, ease: 'easeInOut' },
-                rotate: danceActive
-                  ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
-                  : activeMood === 'dizzy'
-                    ? { duration: 0.65, repeat: Infinity, ease: 'easeInOut' }
-                    : activeMood === 'shy'
-                      ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' }
-                      : { duration: 0.75, ease: ARTCRAFT_EASE },
-                scale: { duration: 0.22, ease: ARTCRAFT_EASE },
-              }}
-              className="drop-shadow-[0_10px_20px_rgba(10,10,10,0.16)] dark:drop-shadow-[0_10px_22px_rgba(0,0,0,0.75)]"
-            >
-              <motion.svg
-                width="60"
-                height="66"
-                viewBox="0 0 60 66"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                style={
-                  prefersReducedMotion || activeMood === 'sleep'
-                    ? undefined
-                    : {
-                        x: headX,
-                        y: headY,
-                        rotate: headRotate,
-                      }
-                }
-                aria-hidden="true"
-              >
-                {/* Orange orbital calibration ring behind chassis */}
-                <motion.circle
-                  cx="30"
-                  cy="32"
-                  r="25"
-                  stroke="#FF721A"
-                  strokeWidth="1"
-                  strokeDasharray={activeMood === 'overdrive' ? '2 3' : '4 4'}
-                  strokeOpacity={
-                    radarActive || waveActive || activeMood === 'overdrive' || isHovered || isDragging
-                      ? 0.92
-                      : activeMood === 'sleep'
-                        ? 0.2
-                        : 0.45
-                  }
-                  animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-                  transition={{
-                    duration:
-                      activeMood === 'overdrive'
-                        ? 1.4
-                        : radarActive || waveActive
-                          ? 3
-                          : isHovered || isDragging
-                            ? 8
-                            : 22,
-                    repeat: Infinity,
-                    ease: 'linear',
-                  }}
-                  style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
-                />
-
-                {/* Top precision antenna & orange signal orb */}
-                <motion.g
-                  animate={
-                    prefersReducedMotion
-                      ? undefined
-                      : {
-                          rotate: isDragging || activeMood === 'overdrive'
-                            ? [-15, 15, -15]
-                            : radarActive || waveActive
-                              ? [-14, 14, -14]
-                              : isHovered || isFastPointer
-                                ? [-10, 10, -4, 0]
-                                : activeMood === 'sleep'
-                                  ? -8
-                                  : [-3, 3, -3],
-                        }
-                  }
-                  transition={
-                    isDragging || radarActive || waveActive || activeMood === 'overdrive'
-                      ? { duration: 0.32, repeat: Infinity, ease: 'easeInOut' }
-                      : isHovered || isFastPointer
-                        ? { duration: 0.45, ease: ARTCRAFT_EASE }
-                        : { duration: 3.4, repeat: Infinity, ease: 'easeInOut' }
-                  }
-                  style={{ transformOrigin: '30px 18px', transformBox: 'view-box' }}
-                >
-                  <line
-                    x1="30"
-                    y1="18"
-                    x2="30"
-                    y2="9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    className="text-[#0A0A0A] dark:text-white"
-                  />
-                  <motion.circle
-                    cx="30"
-                    cy="7.5"
-                    r="3"
-                    fill="#FF721A"
-                    animate={
-                      (radarActive || waveActive || activeMood === 'overdrive') &&
-                      !prefersReducedMotion
-                        ? { scale: [1, 1.55, 1], opacity: [0.7, 1, 0.7] }
-                        : undefined
-                    }
-                    transition={{ duration: 0.55, repeat: Infinity }}
-                    style={{ transformOrigin: '30px 7.5px', transformBox: 'view-box' }}
-                  />
-                </motion.g>
-
-                {/* Left stabilizer wing */}
-                <motion.rect
-                  x="4"
-                  y="26"
-                  width="5"
-                  height="12"
-                  rx="2.5"
-                  fill="#FF721A"
-                  animate={
-                    prefersReducedMotion
-                      ? undefined
-                      : isDragging || danceActive || isFastPointer
-                        ? { rotate: [0, 28, -14, 28, 0] }
-                        : isHovered
-                          ? { y: [0, -2.5, 0] }
-                          : { y: [0, 1, 0] }
-                  }
-                  transition={{
-                    duration: isDragging || danceActive || isFastPointer ? 0.45 : 1.8,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  }}
-                  style={{ transformOrigin: '9px 32px', transformBox: 'view-box' }}
-                />
-
-                {/* Right stabilizer wing */}
-                <motion.rect
-                  x="51"
-                  y="26"
-                  width="5"
-                  height="12"
-                  rx="2.5"
-                  fill="#FF721A"
-                  animate={
-                    prefersReducedMotion
-                      ? undefined
-                      : isDragging || danceActive || isFastPointer
-                        ? { rotate: [0, -28, 14, -28, 0] }
-                        : isHovered
-                          ? { rotate: [0, -30, 16, -24, 0] }
-                          : { y: [0, 1, 0] }
-                  }
-                  transition={
-                    isDragging || danceActive || isFastPointer
-                      ? { duration: 0.45, repeat: Infinity, ease: 'easeInOut' }
-                      : isHovered
-                        ? { duration: 0.72, ease: ARTCRAFT_EASE }
-                        : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }
-                  }
-                  style={{ transformOrigin: '51px 32px', transformBox: 'view-box' }}
-                />
-
-                {/* Main architectural head shell */}
-                <rect
-                  x="9"
-                  y="17"
-                  width="42"
-                  height="31"
-                  rx="12"
-                  className="fill-[#0A0A0A] dark:fill-white stroke-[#262626] dark:stroke-[#E5E5E5]"
-                  strokeWidth="1.5"
-                />
-
-                {/* Recessed visor aperture */}
-                <rect
-                  x="14"
-                  y="22"
-                  width="32"
-                  height="20"
-                  rx="7"
-                  className="fill-[#141414] dark:fill-[#0A0A0A]"
-                />
-
-                {/* Expressive Visor Optics */}
-                <motion.g
-                  style={
-                    prefersReducedMotion ||
-                    activeMood === 'dance' ||
-                    activeMood === 'radar' ||
-                    activeMood === 'wave' ||
-                    activeMood === 'overdrive' ||
-                    activeMood === 'dizzy' ||
-                    activeMood === 'cool' ||
-                    activeMood === 'sleep'
-                      ? undefined
-                      : {
-                          x: eyeX,
-                          y: eyeY,
-                        }
-                  }
-                >
-                  {/* Warm Visor Cheek Blush for Affectionate / Joyful Emotions */}
-                  {(activeMood === 'happy' ||
-                    activeMood === 'love' ||
-                    activeMood === 'laugh' ||
-                    activeMood === 'shy' ||
-                    activeMood === 'excited') && (
-                    <g opacity={activeMood === 'shy' || activeMood === 'love' ? 0.65 : 0.4}>
-                      <ellipse cx="17.5" cy="36" rx="2.4" ry="1.3" fill="#FF721A" />
-                      <ellipse cx="42.5" cy="36" rx="2.4" ry="1.3" fill="#FF721A" />
-                    </g>
-                  )}
-
-                  <motion.g
-                    animate={
-                      prefersReducedMotion ||
-                      activeMood === 'dance' ||
-                      activeMood === 'radar' ||
-                      activeMood === 'wave' ||
-                      activeMood === 'overdrive' ||
-                      activeMood === 'dizzy' ||
-                      activeMood === 'cool' ||
-                      activeMood === 'sleep'
-                        ? undefined
-                        : { scaleY: [1, 1, 1, 0.08, 1, 1] }
-                    }
-                    transition={{
-                      duration: 4.4,
-                      repeat: Infinity,
-                      times: [0, 0.78, 0.84, 0.87, 0.91, 1],
-                      ease: 'easeInOut',
-                    }}
-                    style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
-                  >
-                    {activeMood === 'dance' ? (
-                      DANCE_BARS.map((barIdx) => (
-                        <motion.rect
-                          key={barIdx}
-                          x={18 + barIdx * 5}
-                          y={27}
-                          width="3"
-                          height="10"
-                          rx="1.5"
-                          fill="#FF721A"
-                          animate={
-                            prefersReducedMotion
-                              ? undefined
-                              : { scaleY: [0.35, 1.1, 0.45, 0.95, 0.35] }
-                          }
-                          transition={{
-                            duration: 0.55,
-                            delay: barIdx * 0.09,
-                            repeat: Infinity,
-                            ease: 'easeInOut',
-                          }}
-                          style={{
-                            transformOrigin: `${19.5 + barIdx * 5}px 37px`,
-                            transformBox: 'view-box',
-                          }}
-                        />
-                      ))
-                    ) : activeMood === 'wave' ? (
-                      <g>
-                        <line
-                          x1="17"
-                          y1="32"
-                          x2="43"
-                          y2="32"
-                          stroke="#FF721A"
-                          strokeOpacity="0.3"
-                          strokeWidth="0.9"
-                        />
-                        <motion.path
-                          d="M17 32 Q20.5 25, 24 32 T31 32 T38 32 T43 32"
-                          stroke="#FF721A"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          fill="none"
-                          animate={
-                            prefersReducedMotion
-                              ? undefined
-                              : {
-                                  d: [
-                                    'M17 32 Q20.5 25, 24 32 T31 32 T38 32 T43 32',
-                                    'M17 32 Q20.5 39, 24 32 T31 32 T38 32 T43 32',
-                                    'M17 32 Q20.5 25, 24 32 T31 32 T38 32 T43 32',
-                                  ],
-                                }
-                          }
-                          transition={{
-                            duration: 0.65,
-                            repeat: Infinity,
-                            ease: 'easeInOut',
-                          }}
-                        />
-                      </g>
-                    ) : activeMood === 'overdrive' ? (
-                      <g>
-                        <motion.path
-                          d="M22.5 26.5L23.7 30.8L28 32L23.7 33.2L22.5 37.5L21.3 33.2L17 32L21.3 30.8Z"
-                          fill="#FF721A"
-                          animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-                          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-                          style={{ transformOrigin: '22.5px 32px', transformBox: 'view-box' }}
-                        />
-                        <motion.path
-                          d="M37.5 26.5L38.7 30.8L43 32L38.7 33.2L37.5 37.5L36.3 33.2L32 32L36.3 30.8Z"
-                          fill="#FF721A"
-                          animate={prefersReducedMotion ? undefined : { rotate: -360 }}
-                          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-                          style={{ transformOrigin: '37.5px 32px', transformBox: 'view-box' }}
-                        />
-                      </g>
-                    ) : activeMood === 'radar' ? (
-                      <g>
-                        <circle
-                          cx="30"
-                          cy="32"
-                          r="7"
-                          stroke="#FF721A"
-                          strokeWidth="1.2"
-                          strokeOpacity="0.45"
-                        />
-                        <circle cx="30" cy="32" r="2" fill="#FF721A" />
-                        <motion.line
-                          x1="30"
-                          y1="32"
-                          x2="30"
-                          y2="25"
-                          stroke="#FF721A"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-                          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-                          style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
-                        />
-                      </g>
-                    ) : activeMood === 'love' ? (
-                      // Pulsing heart optics + sweet smile
-                      <g>
-                        <motion.path
-                          d="M22.5 35.4s-3.5-2.2-3.5-4.7c0-1.3 1-2.2 2.1-2.2.7 0 1.2.4 1.4.8.2-.4.7-.8 1.4-.8 1.1 0 2.1.9 2.1 2.2 0 2.5-3.5 4.7-3.5 4.7Z"
-                          fill="#FF721A"
-                          animate={prefersReducedMotion ? undefined : { scale: [1, 1.18, 1] }}
-                          transition={{ duration: 0.85, repeat: Infinity, ease: 'easeInOut' }}
-                          style={{ transformOrigin: '22.5px 32px', transformBox: 'view-box' }}
-                        />
-                        <motion.path
-                          d="M37.5 35.4s-3.5-2.2-3.5-4.7c0-1.3 1-2.2 2.1-2.2.7 0 1.2.4 1.4.8.2-.4.7-.8 1.4-.8 1.1 0 2.1.9 2.1 2.2 0 2.5-3.5 4.7-3.5 4.7Z"
-                          fill="#FF721A"
-                          animate={prefersReducedMotion ? undefined : { scale: [1, 1.18, 1] }}
-                          transition={{ duration: 0.85, delay: 0.14, repeat: Infinity, ease: 'easeInOut' }}
-                          style={{ transformOrigin: '37.5px 32px', transformBox: 'view-box' }}
-                        />
-                        <path
-                          d="M27.8 37.2Q30 39 32.2 37.2"
-                          stroke="#FF721A"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </g>
-                    ) : activeMood === 'laugh' ? (
-                      // Joyful ^ ^ eyes + laughing open D-mouth
-                      <g>
-                        <path
-                          d="M19.5 32L22.8 28.8L26.1 32"
-                          stroke="#FF721A"
-                          strokeWidth="2.3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M33.9 32L37.2 28.8L40.5 32"
-                          stroke="#FF721A"
-                          strokeWidth="2.3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M27.2 34.8H32.8C32.5 37.6 31.3 38.6 30 38.6C28.7 38.6 27.5 37.6 27.2 34.8Z"
-                          fill="#FF721A"
-                        />
-                      </g>
-                    ) : activeMood === 'surprised' ? (
-                      // Wide O O optics + tiny surprised o mouth
-                      <g>
-                        <circle
-                          cx="22.8"
-                          cy="30.5"
-                          r="3.4"
-                          stroke="#FF721A"
-                          strokeWidth="1.8"
-                          fill="none"
-                        />
-                        <circle cx="22.8" cy="30.5" r="1.2" fill="#FF721A" />
-                        <circle
-                          cx="37.2"
-                          cy="30.5"
-                          r="3.4"
-                          stroke="#FF721A"
-                          strokeWidth="1.8"
-                          fill="none"
-                        />
-                        <circle cx="37.2" cy="30.5" r="1.2" fill="#FF721A" />
-                        <circle cx="30" cy="37.2" r="1.6" fill="#FF721A" />
-                      </g>
-                    ) : activeMood === 'shy' ? (
-                      // Bashful downward curves + sweet wavy mouth
-                      <g>
-                        <path
-                          d="M19.8 31.2C21.2 33.4 24.4 33.4 25.8 31.2"
-                          stroke="#FF721A"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M34.2 31.2C35.6 33.4 38.8 33.4 40.2 31.2"
-                          stroke="#FF721A"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M27.6 36.8C28.5 35.8 29.5 37.6 30.5 36.8C31.3 36.1 32 37.2 32.6 36.6"
-                          stroke="#FF721A"
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </g>
-                    ) : activeMood === 'cool' ? (
-                      // Sharp geometric visor sunglasses + confident smirk
-                      <g>
-                        <line x1="16" y1="29.5" x2="44" y2="29.5" stroke="#FF721A" strokeWidth="1.4" />
-                        <path d="M17.5 29.5H28.2L26.8 34.4C26.4 35.2 25.5 35.6 24.4 35.6H20.2C18.9 35.6 18 34.8 17.8 33.6L17.5 29.5Z" fill="#FF721A" />
-                        <path d="M31.8 29.5H42.5L42.2 33.6C42 34.8 41.1 35.6 39.8 35.6H35.6C34.5 35.6 33.6 35.2 33.2 34.4L31.8 29.5Z" fill="#FF721A" />
-                        <line x1="20" y1="31.3" x2="22.5" y2="33.8" stroke="#0A0A0A" strokeWidth="1.2" strokeLinecap="round" />
-                        <line x1="34.3" y1="31.3" x2="36.8" y2="33.8" stroke="#0A0A0A" strokeWidth="1.2" strokeLinecap="round" />
-                        <path d="M27.6 38.2Q30.6 38.8 32.8 36.8" stroke="#FF721A" strokeWidth="1.4" strokeLinecap="round" fill="none" />
-                      </g>
-                    ) : activeMood === 'proud' ? (
-                      // Confident angled brows + bright eyes + crisp smile
-                      <g>
-                        <line x1="19.5" y1="26.8" x2="25.8" y2="28.2" stroke="#FF721A" strokeWidth="1.6" strokeLinecap="round" />
-                        <line x1="40.5" y1="26.8" x2="34.2" y2="28.2" stroke="#FF721A" strokeWidth="1.6" strokeLinecap="round" />
-                        <rect x="20.6" y="29.4" width="4.4" height="5.4" rx="2.2" fill="#FF721A" />
-                        <rect x="35" y="29.4" width="4.4" height="5.4" rx="2.2" fill="#FF721A" />
-                        <path d="M27.4 37.2Q30 39.2 32.6 37.2" stroke="#FF721A" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-                      </g>
-                    ) : activeMood === 'dizzy' ? (
-                      // Rotating spiral optics
-                      <g>
-                        <motion.path
-                          d="M22.8 32m-3.2 0a3.2 3.2 0 1 0 6.4 0a2.1 2.1 0 1 0-4.2 0a1 1 0 1 0 2 0"
-                          stroke="#FF721A"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          fill="none"
-                          animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-                          transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
-                          style={{ transformOrigin: '22.8px 32px', transformBox: 'view-box' }}
-                        />
-                        <motion.path
-                          d="M37.2 32m-3.2 0a3.2 3.2 0 1 0 6.4 0a2.1 2.1 0 1 0-4.2 0a1 1 0 1 0 2 0"
-                          stroke="#FF721A"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          fill="none"
-                          animate={prefersReducedMotion ? undefined : { rotate: -360 }}
-                          transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
-                          style={{ transformOrigin: '37.2px 32px', transformBox: 'view-box' }}
-                        />
-                      </g>
-                    ) : activeMood === 'sleep' ? (
-                      <>
-                        <line
-                          x1="20"
-                          y1="32.5"
-                          x2="25.5"
-                          y2="32.5"
-                          stroke="#FF721A"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                        />
-                        <line
-                          x1="34.5"
-                          y1="32.5"
-                          x2="40"
-                          y2="32.5"
-                          stroke="#FF721A"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                        />
-                      </>
-                    ) : activeMood === 'happy' ? (
-                      <>
-                        <path
-                          d="M20 33C21.2 29.7 24.8 29.7 26 33"
-                          stroke="#FF721A"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M34 33C35.2 29.7 38.8 29.7 40 33"
-                          stroke="#FF721A"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M27.8 36.8Q30 38.6 32.2 36.8"
-                          stroke="#FF721A"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </>
-                    ) : activeMood === 'excited' || isFastPointer ? (
-                      <>
-                        <circle cx="22.8" cy="31.5" r="3.6" fill="#FF721A" />
-                        <circle cx="37.2" cy="31.5" r="3.6" fill="#FF721A" />
-                        <path
-                          d="M27.6 36.8Q30 39 32.4 36.8"
-                          stroke="#FF721A"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </>
-                    ) : activeMood === 'wink' ? (
-                      <>
-                        <rect
-                          x="20.5"
-                          y="28.5"
-                          width="4.5"
-                          height="7"
-                          rx="2.25"
-                          fill="#FF721A"
-                        />
-                        <path
-                          d="M34 32.5C35.4 30.5 38.6 30.5 40 32.5"
-                          stroke="#FF721A"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M28 37.4Q30.4 38.6 32.2 36.8"
-                          stroke="#FF721A"
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </>
-                    ) : activeMood === 'scan' ? (
-                      <motion.rect
-                        x="18"
-                        y="30.5"
-                        width="24"
-                        height="3"
-                        rx="1.5"
-                        fill="#FF721A"
-                        animate={
-                          prefersReducedMotion
-                            ? undefined
-                            : { opacity: [0.65, 1, 0.65], scaleX: [0.85, 1.05, 0.85] }
-                        }
-                        transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-                        style={{ transformOrigin: '30px 32px', transformBox: 'view-box' }}
-                      />
-                    ) : activeMood === 'curious' ? (
-                      <>
-                        <circle cx="23" cy="32" r="3.4" fill="#FF721A" />
-                        <rect
-                          x="33.5"
-                          y="30.5"
-                          width="6.5"
-                          height="3"
-                          rx="1.5"
-                          fill="#FF721A"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <rect
-                          x="20.5"
-                          y="28.5"
-                          width="4.5"
-                          height="7"
-                          rx="2.25"
-                          fill="#FF721A"
-                        />
-                        <rect
-                          x="35"
-                          y="28.5"
-                          width="4.5"
-                          height="7"
-                          rx="2.25"
-                          fill="#FF721A"
-                        />
-                      </>
-                    )}
-                  </motion.g>
-                </motion.g>
-
-                {/* Articulated torso core + active thruster glow on drag / roam / whip */}
-                <rect
-                  x="21"
-                  y="50"
-                  width="18"
-                  height="7"
-                  rx="3.5"
-                  className="fill-[#0A0A0A] dark:fill-white"
-                />
-                <circle cx="30" cy="53.5" r="1.5" fill="#FF721A" />
-
-                {showThruster && (
-                  <motion.path
-                    d="M25 58 L30 65 L35 58 Z"
-                    fill="#FF721A"
-                    animate={{ scaleY: [0.85, 1.25, 0.85], opacity: [0.75, 1, 0.75] }}
-                    transition={{ duration: 0.25, repeat: Infinity }}
-                    style={{ transformOrigin: '30px 58px', transformBox: 'view-box' }}
-                  />
-                )}
-              </motion.svg>
-            </motion.div>
-          </motion.div>
+          <div className="drop-shadow-[0_14px_22px_rgba(10,10,10,0.18)] dark:drop-shadow-[0_14px_26px_rgba(0,0,0,0.82)]">
+            <Robot3DCanvas
+              mood={activeMood}
+              activeSection={activeSection}
+              lookRef={lookVectorRef}
+              scrollVelocityRef={scrollVelocityRef}
+              isHovered={isHovered}
+              isDragging={isDragging}
+              isFastPointer={isFastPointer}
+              radarActive={radarActive}
+              danceActive={danceActive}
+              waveActive={waveActive}
+              roamActive={roamActive}
+              roamFacing={roamFacing}
+              spinCount={spinCount}
+              hopKey={hopKey}
+              showThruster={showThruster}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          </div>
         </motion.div>
 
         {/* Grounded levitation shadow synced to float cycle */}
@@ -1632,7 +975,7 @@ export const AiCharacterMotion: React.FC = () => {
             repeat: isDragging ? 0 : Infinity,
             ease: 'easeInOut',
           }}
-          className="mt-1 block w-9 h-1.5 rounded-full bg-[#0A0A0A] dark:bg-white blur-[2px]"
+          className="mt-0.5 block w-11 h-1.5 rounded-full bg-[#0A0A0A] dark:bg-white blur-[2px]"
         />
       </motion.div>
 
@@ -1653,7 +996,7 @@ export const AiCharacterMotion: React.FC = () => {
                 : { opacity: 0, x: -6, scale: 0.96, filter: 'blur(4px)' }
             }
             transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
-            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2 max-w-[275px]"
+            className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/[0.97] dark:bg-[#0A0A0A]/[0.97] shadow-xl flex flex-col gap-2 max-w-[275px]"
           >
             <p className="text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3] px-1">
               {promptCopy.line}
