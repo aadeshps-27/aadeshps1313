@@ -1,7 +1,10 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
+  Bold,
   Check,
+  ChevronDown,
+  Italic,
   Mail,
   MessageSquare,
 } from 'lucide-react';
@@ -59,6 +62,14 @@ interface MagneticLinkProps {
 const INQUIRY_KINDS: InquiryKind[] = [
   'A collaboration',
   'Just a hello',
+];
+
+const VIA_SUGGESTIONS = [
+  'LinkedIn',
+  'Instagram',
+  'Friend or Colleague',
+  'Google Search',
+  'Direct Visit',
 ];
 
 const MONTHS_SHORT = [
@@ -126,6 +137,95 @@ function getSignError(hasDrawn: boolean, typedName: string): string | undefined 
     return 'Name must be 120 characters or fewer.';
   }
   return undefined;
+}
+
+function toUnicodeBold(text: string): string {
+  return [...text]
+    .map((ch) => {
+      const code = ch.codePointAt(0);
+      if (code === undefined) return ch;
+      if (code >= 65 && code <= 90) return String.fromCodePoint(0x1d5d4 + code - 65);
+      if (code >= 97 && code <= 122) return String.fromCodePoint(0x1d5ee + code - 97);
+      if (code >= 48 && code <= 57) return String.fromCodePoint(0x1d7ec + code - 48);
+      return ch;
+    })
+    .join('');
+}
+
+function toUnicodeItalic(text: string): string {
+  return [...text]
+    .map((ch) => {
+      const code = ch.codePointAt(0);
+      if (code === undefined) return ch;
+      if (code >= 65 && code <= 90) return String.fromCodePoint(0x1d608 + code - 65);
+      if (code >= 97 && code <= 122) return String.fromCodePoint(0x1d622 + code - 97);
+      return ch;
+    })
+    .join('');
+}
+
+function toUnicodeBoldItalic(text: string): string {
+  return [...text]
+    .map((ch) => {
+      const code = ch.codePointAt(0);
+      if (code === undefined) return ch;
+      if (code >= 65 && code <= 90) return String.fromCodePoint(0x1d63c + code - 65);
+      if (code >= 97 && code <= 122) return String.fromCodePoint(0x1d656 + code - 97);
+      if (code >= 48 && code <= 57) return String.fromCodePoint(0x1d7ec + code - 48);
+      return ch;
+    })
+    .join('');
+}
+
+function formatInlineEmailText(raw: string): string {
+  return raw
+    .replace(
+      /(^|[\s(>])\*_([^\s_*][^*_]*?[^\s_*]|[^\s_*])_\*(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}${toUnicodeBoldItalic(inner)}`
+    )
+    .replace(
+      /(^|[\s(>])_\*([^\s_*][^*_]*?[^\s_*]|[^\s_*])\*_(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}${toUnicodeBoldItalic(inner)}`
+    )
+    .replace(
+      /(^|[\s(>])\*([^\s*][^*\r\n]*?[^\s*]|[^\s*])\*(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}${toUnicodeBold(inner)}`
+    )
+    .replace(
+      /(^|[\s(>])_([^\s_][^_\r\n]*?[^\s_]|[^\s_])_(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}${toUnicodeItalic(inner)}`
+    );
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatInlineHtml(raw: string): string {
+  const escaped = escapeHtml(raw);
+  return escaped
+    .replace(
+      /(^|[\s(>])\*_([^\s_*][^*_]*?[^\s_*]|[^\s_*])_\*(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}<strong><em>${inner}</em></strong>`
+    )
+    .replace(
+      /(^|[\s(>])_\*([^\s_*][^*_]*?[^\s_*]|[^\s_*])\*_(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}<strong><em>${inner}</em></strong>`
+    )
+    .replace(
+      /(^|[\s(>])\*([^\s*][^*\r\n]*?[^\s*]|[^\s*])\*(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}<strong>${inner}</strong>`
+    )
+    .replace(
+      /(^|[\s(>])_([^\s_][^_\r\n]*?[^\s_]|[^\s_])_(?=$|[\s.,!?;:)<])/gm,
+      (_, lead: string, inner: string) => `${lead}<em>${inner}</em>`
+    )
+    .replace(/\r?\n/g, '<br/>');
 }
 
 const MAGNETIC_LINK_SPRING = { stiffness: 320, damping: 20, mass: 0.45 };
@@ -351,6 +451,8 @@ export const ContactAndFooter: React.FC = () => {
     sign: boolean;
   }>({ email: false, body: false, sign: false });
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [viaOpen, setViaOpen] = useState(false);
+  const [viaActiveIndex, setViaActiveIndex] = useState(-1);
 
   // Intake Ticket / Stamp State
   const [sentInfo, setSentInfo] = useState<{
@@ -362,6 +464,9 @@ export const ContactAndFooter: React.FC = () => {
 
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const viaContainerRef = useRef<HTMLDivElement>(null);
+  const viaInputRef = useRef<HTMLInputElement>(null);
+  const viaListboxId = useId();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const sigPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -437,6 +542,14 @@ export const ContactAndFooter: React.FC = () => {
   const isSignValid = !getSignError(hasDrawnSig, name);
   const isFormValid = isEmailValid && isBodyValid && isSignValid;
 
+  const filteredViaSuggestions = useMemo(() => {
+    const query = source.trim().toLowerCase();
+    if (!query) return VIA_SUGGESTIONS;
+    const exact = VIA_SUGGESTIONS.some((item) => item.toLowerCase() === query);
+    if (exact) return VIA_SUGGESTIONS;
+    return VIA_SUGGESTIONS.filter((item) => item.toLowerCase().includes(query));
+  }, [source]);
+
   const showToast = (label: string) => {
     if (copyTimerRef.current !== null) {
       window.clearTimeout(copyTimerRef.current);
@@ -448,21 +561,45 @@ export const ContactAndFooter: React.FC = () => {
     }, 2400);
   };
 
-  const copyTextToClipboard = async (text: string, sourceEl?: HTMLElement | null) => {
+  const copyFormattedToClipboard = async (
+    plainText: string,
+    htmlText: string,
+    sourceEl?: HTMLElement | null
+  ) => {
     let copied = false;
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
+      if (
+        navigator.clipboard &&
+        window.isSecureContext &&
+        typeof ClipboardItem !== 'undefined' &&
+        typeof navigator.clipboard.write === 'function'
+      ) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([plainText], { type: 'text/plain' }),
+            'text/html': new Blob([htmlText], { type: 'text/html' }),
+          }),
+        ]);
+        copied = true;
+      } else if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(plainText);
         copied = true;
       }
     } catch {
-      copied = false;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(plainText);
+          copied = true;
+        }
+      } catch {
+        copied = false;
+      }
     }
 
     if (!copied) {
       try {
         const textarea = document.createElement('textarea');
-        textarea.value = text;
+        textarea.value = plainText;
         textarea.setAttribute('readonly', '');
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
@@ -484,10 +621,55 @@ export const ContactAndFooter: React.FC = () => {
   const sanitizeLine = (value: string) =>
     value.replace(/[\r\n\u0000-\u001f\u007f]/g, ' ').trim();
 
-  const buildFormattedSubmission = (
-    channel: 'Email' | 'WhatsApp',
-    ticket: { jobId: string; receivedAt: string; replyBy: string }
-  ) => {
+  const applyBodyFormat = (marker: '*' | '_') => {
+    const el = textareaRef.current;
+    if (!el || sentInfo) return;
+
+    const start = el.selectionStart ?? body.length;
+    const end = el.selectionEnd ?? body.length;
+    const selected = body.slice(start, end);
+    const placeholder = marker === '*' ? 'bold text' : 'italic text';
+
+    let nextBody: string;
+    let nextSelStart: number;
+    let nextSelEnd: number;
+
+    if (selected.length > 0) {
+      const wrappedAlready =
+        selected.length >= 2 &&
+        selected.startsWith(marker) &&
+        selected.endsWith(marker);
+
+      if (wrappedAlready) {
+        const unwrapped = selected.slice(1, -1);
+        nextBody = body.slice(0, start) + unwrapped + body.slice(end);
+        nextSelStart = start;
+        nextSelEnd = start + unwrapped.length;
+      } else {
+        nextBody = `${body.slice(0, start)}${marker}${selected}${marker}${body.slice(end)}`;
+        nextSelStart = start + 1;
+        nextSelEnd = end + 1;
+      }
+    } else {
+      nextBody = `${body.slice(0, start)}${marker}${placeholder}${marker}${body.slice(end)}`;
+      nextSelStart = start + 1;
+      nextSelEnd = start + 1 + placeholder.length;
+    }
+
+    setBody(nextBody);
+    if (touched.body || hasSubmitted) {
+      setErrors((prev) => ({ ...prev, body: getBodyError(nextBody) }));
+    } else if (errors.body && !getBodyError(nextBody)) {
+      setErrors((prev) => ({ ...prev, body: undefined }));
+    }
+
+    window.requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(nextSelStart, nextSelEnd);
+    });
+  };
+
+  const getSubmissionFields = () => {
     const cleanEmail = sanitizeLine(email);
     const cleanName = sanitizeLine(name) || '(Hand-signed)';
     const cleanSource = sanitizeLine(source) || 'Direct visit';
@@ -498,52 +680,106 @@ export const ContactAndFooter: React.FC = () => {
         : hasDrawnSig
           ? 'Hand-drawn signature'
           : 'Typed name';
+    return { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode };
+  };
+
+  const buildFormattedSubmission = (
+    channel: 'Email' | 'WhatsApp',
+    ticket: { jobId: string; receivedAt: string; replyBy: string }
+  ) => {
+    const { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode } =
+      getSubmissionFields();
 
     if (channel === 'WhatsApp') {
       return [
-        '*CONTACT FORM SUBMISSION*',
+        `*PORTFOLIO CORRESPONDENCE — ${PROFILE.name.toUpperCase()}*`,
+        '_Project Inquiry & Collaboration Dispatch_',
         '────────────────────────',
-        `*Ticket ID:* ${ticket.jobId}`,
-        `*Date:* ${todayStr} · ${ticket.receivedAt} IST`,
-        `*Reply By:* ${ticket.replyBy}`,
-        `*Channel:* WhatsApp`,
         '',
-        '*SENDER DETAILS*',
-        `*Subject (RE):* ${kind}`,
-        `*Name:* ${cleanName}`,
-        `*Email:* ${cleanEmail}`,
-        `*Referral (VIA):* ${cleanSource}`,
-        `*Signature:* ${signatureMode}`,
+        '*DISPATCH SUMMARY*',
+        `• *Reference ID:* ${ticket.jobId}`,
+        `• *Submitted:* ${todayStr} · ${ticket.receivedAt} IST`,
+        `• *Target Reply:* ${ticket.replyBy}`,
+        `• *Channel:* WhatsApp`,
+        '',
+        '*CORRESPONDENT DETAILS*',
+        `• *Subject (RE):* ${kind}`,
+        `• *Name:* ${cleanName}`,
+        `• *Reply Email:* ${cleanEmail}`,
+        `• *Referral (VIA):* ${cleanSource}`,
+        `• *Signature:* _${signatureMode}_`,
         '',
         '*MESSAGE*',
         cleanBody,
+        '',
+        '_Sincerely,_',
+        `*${cleanName}*`,
       ].join('\n');
     }
 
+    const formattedMessageBody = formatInlineEmailText(cleanBody);
+
     return [
-      `CONTACT FORM SUBMISSION — ${PROFILE.name.toUpperCase()}`,
-      '----------------------------------------',
-      `Ticket ID     : ${ticket.jobId}`,
-      `Date          : ${todayStr}`,
-      `Time (IST)    : ${ticket.receivedAt}`,
-      `Reply By      : ${ticket.replyBy}`,
-      `Channel       : Email`,
+      toUnicodeBold(`PORTFOLIO CORRESPONDENCE — ${PROFILE.name.toUpperCase()}`),
+      toUnicodeItalic('Project Inquiry & Collaboration Dispatch'),
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '',
-      'SENDER DETAILS',
-      '----------------------------------------',
-      `Subject (RE)  : ${kind}`,
-      `Name          : ${cleanName}`,
-      `Reply Email   : ${cleanEmail}`,
-      `Referral (VIA): ${cleanSource}`,
-      `Signature     : ${signatureMode}`,
+      toUnicodeBold('DISPATCH SUMMARY'),
+      `• ${toUnicodeBold('Reference ID')}   : ${ticket.jobId}`,
+      `• ${toUnicodeBold('Submitted')}      : ${todayStr} · ${ticket.receivedAt} IST`,
+      `• ${toUnicodeBold('Target Reply')}   : ${ticket.replyBy}`,
+      `• ${toUnicodeBold('Channel')}        : ${channel}`,
       '',
-      'MESSAGE',
-      '----------------------------------------',
-      cleanBody,
+      toUnicodeBold('CORRESPONDENT DETAILS'),
+      `• ${toUnicodeBold('Subject (RE)')}   : ${kind}`,
+      `• ${toUnicodeBold('Name')}           : ${cleanName}`,
+      `• ${toUnicodeBold('Reply Email')}    : ${cleanEmail}`,
+      `• ${toUnicodeBold('Referral (VIA)')} : ${cleanSource}`,
+      `• ${toUnicodeBold('Signature')}      : ${toUnicodeItalic(signatureMode)}`,
       '',
-      '----------------------------------------',
-      'Submitted via Portfolio Contact Form',
+      toUnicodeBold('MESSAGE'),
+      '────────────────────────────────────────────',
+      formattedMessageBody,
+      '────────────────────────────────────────────',
+      '',
+      toUnicodeItalic('Sincerely,'),
+      toUnicodeBold(cleanName),
+      cleanEmail,
     ].join('\r\n');
+  };
+
+  const buildFormattedHtmlSubmission = (
+    channel: 'Email' | 'WhatsApp',
+    ticket: { jobId: string; receivedAt: string; replyBy: string }
+  ) => {
+    const { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode } =
+      getSubmissionFields();
+
+    return [
+      `<div style="font-family:Inter,Arial,sans-serif;color:#111111;line-height:1.6;max-width:600px;">`,
+      `<p style="margin:0;font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">PORTFOLIO CORRESPONDENCE &mdash; ${escapeHtml(PROFILE.name.toUpperCase())}</p>`,
+      `<p style="margin:2px 0 12px;font-size:12px;color:#525252;"><em>Project Inquiry &amp; Collaboration Dispatch</em></p>`,
+      `<hr style="border:none;border-top:2px solid #111111;margin:0 0 14px;" />`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">DISPATCH SUMMARY</p>`,
+      `<p style="margin:0 0 12px;font-size:13px;">`,
+      `<strong>Reference ID:</strong> ${escapeHtml(ticket.jobId)}<br/>`,
+      `<strong>Submitted:</strong> ${escapeHtml(todayStr)} &middot; ${escapeHtml(ticket.receivedAt)} IST<br/>`,
+      `<strong>Target Reply:</strong> ${escapeHtml(ticket.replyBy)}<br/>`,
+      `<strong>Channel:</strong> ${escapeHtml(channel)}`,
+      `</p>`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">CORRESPONDENT DETAILS</p>`,
+      `<p style="margin:0 0 12px;font-size:13px;">`,
+      `<strong>Subject (RE):</strong> ${escapeHtml(kind)}<br/>`,
+      `<strong>Name:</strong> ${escapeHtml(cleanName)}<br/>`,
+      `<strong>Reply Email:</strong> ${escapeHtml(cleanEmail)}<br/>`,
+      `<strong>Referral (VIA):</strong> ${escapeHtml(cleanSource)}<br/>`,
+      `<strong>Signature:</strong> <em>${escapeHtml(signatureMode)}</em>`,
+      `</p>`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">MESSAGE</p>`,
+      `<div style="border-top:1px solid #d4d4d4;border-bottom:1px solid #d4d4d4;padding:10px 0;margin:0 0 14px;font-size:14px;">${formatInlineHtml(cleanBody)}</div>`,
+      `<p style="margin:0;font-size:13px;"><em>Sincerely,</em><br/><strong>${escapeHtml(cleanName)}</strong><br/>${escapeHtml(cleanEmail)}</p>`,
+      `</div>`,
+    ].join('');
   };
 
   const validateLetter = (): boolean => {
@@ -596,7 +832,12 @@ export const ContactAndFooter: React.FC = () => {
     const senderLabel = sanitizeLine(name) || sanitizeLine(email);
     const subject = encodeURIComponent(`[${kind}] ${ticket.jobId} — ${senderLabel}`);
     const mailBody = encodeURIComponent(buildFormattedSubmission('Email', ticket));
-    window.location.href = `mailto:${PROFILE.email}?subject=${subject}&body=${mailBody}`;
+
+    const anchor = document.createElement('a');
+    anchor.href = `mailto:${PROFILE.email}?subject=${subject}&body=${mailBody}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   };
 
   const handleSendWhatsApp = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -627,13 +868,20 @@ export const ContactAndFooter: React.FC = () => {
     };
     const channel = activeTicket.viaLabel === 'WhatsApp' ? 'WhatsApp' : 'Email';
     const transcript = buildFormattedSubmission(channel, activeTicket);
-    const ok = await copyTextToClipboard(transcript, e.currentTarget);
+    const htmlTranscript = buildFormattedHtmlSubmission(channel, activeTicket);
+    const ok = await copyFormattedToClipboard(
+      transcript,
+      htmlTranscript,
+      e.currentTarget
+    );
     if (ok) showToast('Formatted copy saved to clipboard');
   };
 
   const handleResetLetter = () => {
     setSentInfo(null);
     setHoneypot('');
+    setViaOpen(false);
+    setViaActiveIndex(-1);
     setErrors({});
     setTouched({ email: false, body: false, sign: false });
     setHasSubmitted(false);
@@ -862,28 +1110,170 @@ export const ContactAndFooter: React.FC = () => {
                     )}
                   </div>
 
-                  {/* VIA :: Optional Referral Field */}
-                  <div className="mt-2.5">
+                  {/* VIA :: Optional Referral Field with Interactive Suggestions */}
+                  <div
+                    ref={viaContainerRef}
+                    className="relative mt-2.5"
+                    onBlur={(e) => {
+                      if (!viaContainerRef.current?.contains(e.relatedTarget as Node)) {
+                        setViaOpen(false);
+                        setViaActiveIndex(-1);
+                      }
+                    }}
+                  >
                     <label className="group/field relative flex items-baseline gap-3 pb-0.5">
                       <span className="flex-none min-w-[4.8em] text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
                         VIA ::
                       </span>
                       <input
+                        ref={viaInputRef}
                         type="text"
                         name="source"
                         maxLength={120}
                         autoComplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={viaOpen && !sentInfo && filteredViaSuggestions.length > 0}
+                        aria-controls={viaListboxId}
+                        aria-activedescendant={
+                          viaOpen && viaActiveIndex >= 0
+                            ? `${viaListboxId}-opt-${viaActiveIndex}`
+                            : undefined
+                        }
                         readOnly={Boolean(sentInfo)}
                         value={source}
-                        onChange={(e) => setSource(e.target.value)}
+                        onFocus={() => {
+                          if (!sentInfo) {
+                            setViaOpen(true);
+                            setViaActiveIndex(-1);
+                          }
+                        }}
+                        onChange={(e) => {
+                          setSource(e.target.value);
+                          if (!sentInfo) {
+                            setViaOpen(true);
+                            setViaActiveIndex(-1);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (sentInfo) return;
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (!viaOpen) {
+                              setViaOpen(true);
+                              setViaActiveIndex(0);
+                            } else if (filteredViaSuggestions.length > 0) {
+                              setViaActiveIndex((prev) =>
+                                prev < filteredViaSuggestions.length - 1 ? prev + 1 : 0
+                              );
+                            }
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (viaOpen && filteredViaSuggestions.length > 0) {
+                              setViaActiveIndex((prev) =>
+                                prev > 0 ? prev - 1 : filteredViaSuggestions.length - 1
+                              );
+                            }
+                          } else if (
+                            e.key === 'Enter' &&
+                            viaOpen &&
+                            viaActiveIndex >= 0 &&
+                            filteredViaSuggestions[viaActiveIndex]
+                          ) {
+                            e.preventDefault();
+                            setSource(filteredViaSuggestions[viaActiveIndex]);
+                            setViaOpen(false);
+                            setViaActiveIndex(-1);
+                          } else if (e.key === 'Escape' && viaOpen) {
+                            e.preventDefault();
+                            setViaOpen(false);
+                            setViaActiveIndex(-1);
+                          }
+                        }}
                         placeholder="A friend, LinkedIn, Instagram, a search… (optional)"
                         className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
+                      {!sentInfo && (
+                        <button
+                          type="button"
+                          aria-label={viaOpen ? 'Hide referral suggestions' : 'Show referral suggestions'}
+                          aria-expanded={viaOpen}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            if (viaOpen) {
+                              setViaOpen(false);
+                              setViaActiveIndex(-1);
+                            } else {
+                              setViaOpen(true);
+                              setViaActiveIndex(-1);
+                              viaInputRef.current?.focus();
+                            }
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1 text-[10px] tracking-[0.06em] uppercase text-[#737373] dark:text-[#A3A3A3] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                        >
+                          <span>suggestions</span>
+                          <ChevronDown
+                            size={11}
+                            aria-hidden="true"
+                            className={`transition-transform duration-150 ${
+                              viaOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+                      )}
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[#1A1A1A]/20 dark:bg-white/15 group-focus-within/field:bg-[#FF721A] transition-colors duration-200"
                       />
                     </label>
+
+                    <AnimatePresence>
+                      {viaOpen && !sentInfo && filteredViaSuggestions.length > 0 && (
+                        <motion.ul
+                          id={viaListboxId}
+                          role="listbox"
+                          aria-label="Referral source suggestions"
+                          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                          transition={{ duration: prefersReducedMotion ? 0 : 0.14 }}
+                          className="absolute left-0 right-0 top-full mt-1.5 z-30 border border-[#DFDCD4] dark:border-[#2A2A2A] bg-[#F7F7F4] dark:bg-[#181818] shadow-[0_12px_28px_rgba(10,10,10,0.12)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.65)] py-1 max-h-56 overflow-y-auto"
+                        >
+                          {filteredViaSuggestions.map((option, idx) => {
+                            const isSelected =
+                              source.trim().toLowerCase() === option.toLowerCase();
+                            const isHighlighted = idx === viaActiveIndex;
+                            return (
+                              <li
+                                key={option}
+                                id={`${viaListboxId}-opt-${idx}`}
+                                role="option"
+                                aria-selected={isSelected}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setSource(option);
+                                  setViaOpen(false);
+                                  setViaActiveIndex(-1);
+                                }}
+                                onMouseEnter={() => setViaActiveIndex(idx)}
+                                className={`flex items-center justify-between gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+                                  isHighlighted
+                                    ? 'bg-[#C94B00]/10 text-[#C94B00] dark:bg-[#FF721A]/15 dark:text-[#FF721A]'
+                                    : isSelected
+                                      ? 'text-[#C94B00] dark:text-[#FF721A] font-semibold'
+                                      : 'text-[#1A1A1A] dark:text-[#E5E5E5] hover:bg-[#1A1A1A]/[0.04] dark:hover:bg-white/[0.05]'
+                                }`}
+                              >
+                                <span>{option}</span>
+                                {isSelected && (
+                                  <Check size={12} aria-hidden="true" className="shrink-0" />
+                                )}
+                              </li>
+                            );
+                          })}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* Ruled Stationery Letter Body */}
@@ -917,11 +1307,21 @@ export const ContactAndFooter: React.FC = () => {
                         setTouched((prev) => ({ ...prev, body: true }));
                         setErrors((prev) => ({ ...prev, body: getBodyError(body) }));
                       }}
+                      onKeyDown={(e) => {
+                        if (sentInfo) return;
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                          e.preventDefault();
+                          applyBodyFormat('*');
+                        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+                          e.preventDefault();
+                          applyBodyFormat('_');
+                        }
+                      }}
                       placeholder="What are we making?"
                       className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                     />
                   </label>
-                  <div className="mt-1.5 flex items-baseline justify-between gap-3">
+                  <div className="mt-1.5 flex items-center justify-between gap-3">
                     {errors.body ? (
                       <p
                         id="letter-note-body"
@@ -934,10 +1334,38 @@ export const ContactAndFooter: React.FC = () => {
                     ) : (
                       <span />
                     )}
-                    {body.length > 0 && !sentInfo && (
-                      <span className="text-[10px] tabular-nums tracking-[0.04em] text-[#737373] dark:text-[#737373] shrink-0">
-                        {body.length} / 6000
-                      </span>
+                    {!sentInfo && (
+                      <div className="inline-flex items-center gap-2 shrink-0">
+                        <div
+                          role="group"
+                          aria-label="Message text formatting"
+                          className="inline-flex items-center gap-1"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => applyBodyFormat('*')}
+                            title="Bold selection (*text*, Ctrl+B)"
+                            aria-label="Bold selected text"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded border border-[#1A1A1A]/15 dark:border-white/15 text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            <Bold size={11} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyBodyFormat('_')}
+                            title="Italic selection (_text_, Ctrl+I)"
+                            aria-label="Italicize selected text"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded border border-[#1A1A1A]/15 dark:border-white/15 text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+                          >
+                            <Italic size={11} aria-hidden="true" />
+                          </button>
+                        </div>
+                        {body.length > 0 && (
+                          <span className="text-[10px] tabular-nums tracking-[0.04em] text-[#737373] dark:text-[#737373]">
+                            {body.length} / 6000
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -1145,6 +1573,7 @@ export const ContactAndFooter: React.FC = () => {
                       )}
                     </div>
                   </div>
+
                 </div>
               </motion.form>
             </ParallaxLayer>
