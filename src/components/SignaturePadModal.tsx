@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ARTCRAFT_EASE, RfButtonFlickerText } from './MotionPrimitives';
+import { useLanguage } from './LanguageProvider';
 
 export interface SignaturePoint {
   x: number; // normalized [0..1]
@@ -104,6 +105,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
   onClose,
   onDone,
 }) => {
+  const { t } = useLanguage();
   const prefersReducedMotion = Boolean(useReducedMotion());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const doneButtonRef = useRef<HTMLButtonElement>(null);
@@ -209,7 +211,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
           className="fixed inset-0 z-[70] flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Sign your name"
+          aria-label={t.contact.signatureModal.ariaLabel}
         >
           <motion.div
             initial={{ opacity: 0 }}
@@ -236,16 +238,16 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
             className="relative z-10 w-[min(92vw,600px)] rounded-[2px] border border-[#E5E5E5] dark:border-[#2A2A2A] bg-[#F4F3EF] dark:bg-[#141414] text-[#1A1A1A] dark:text-[#F5F5F5] font-mono shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_30px_80px_rgba(0,0,0,0.45)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_30px_80px_rgba(0,0,0,0.75)] p-5 sm:p-7"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 text-[11px] tracking-[0.06em]">
-              <span className="font-semibold">SIGN HERE</span>
+              <span className="font-semibold">{t.contact.signatureModal.signHere}</span>
               <span className="text-[#525252] dark:text-[#A3A3A3]">
-                WITH YOUR FINGER, MOUSE OR PEN
+                {t.contact.signatureModal.instructions}
               </span>
             </div>
 
             <div className="relative mt-3 h-[190px] sm:h-[220px] border-b border-[#1A1A1A]/25 dark:border-white/25 touch-none cursor-crosshair">
               <canvas
                 ref={canvasRef}
-                aria-label="Signature pad"
+                aria-label={t.contact.signatureModal.padAria}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerEnd}
@@ -266,7 +268,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
                 onClick={onClose}
                 className="min-h-[40px] px-2 text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
               >
-                Cancel
+                {t.contact.signatureModal.cancel}
               </button>
 
               <div className="flex items-center gap-4">
@@ -276,7 +278,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
                     onClick={handleClear}
                     className="min-h-[40px] px-2 text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                   >
-                    Clear
+                    {t.contact.signatureModal.clear}
                   </button>
                 )}
 
@@ -286,7 +288,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
                   onClick={handleConfirm}
                   className="rf-btn-flicker min-h-[44px] inline-flex items-center justify-center px-5 py-2 rounded-lg bg-[#0A0A0A] text-white dark:bg-[#FF721A] dark:text-[#0A0A0A] text-xs font-semibold tracking-[0.04em] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                 >
-                  <RfButtonFlickerText text="Done" />
+                  <RfButtonFlickerText text={t.contact.signatureModal.done} />
                 </button>
               </div>
             </div>

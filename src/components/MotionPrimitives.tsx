@@ -42,6 +42,8 @@ interface RfFlickerTextProps {
   style?: React.CSSProperties;
 }
 
+const HAS_COMPLEX_SCRIPT_RE = /[\u0D00-\u0D7F]/;
+
 /**
  * ReFactory-style staggered shuffled-character optical flicker / appear text reveal.
  * Preserves semantic screen-reader phrasing via aria-label while marking split spans aria-hidden.
@@ -112,8 +114,8 @@ export const RfFlickerText: React.FC<RfFlickerTextProps> = ({
   );
 
   const tokenized = useMemo(() => {
-    const rawWords: { word: string; className?: string; leadingSpace: boolean }[] = [];
-    let totalChars = 0;
+    const rawWords: { word: string; className?: string; leadingSpace: boolean; isComplex: boolean }[] = [];
+    let totalUnits = 0;
     let pendingSpace = false;
 
     segments.forEach((seg) => {
@@ -123,26 +125,30 @@ export const RfFlickerText: React.FC<RfFlickerTextProps> = ({
         if (/^\s+$/.test(part)) {
           pendingSpace = true;
         } else {
+          const isComplex = HAS_COMPLEX_SCRIPT_RE.test(part);
           rawWords.push({
             word: part,
             className: seg.className,
             leadingSpace: pendingSpace,
+            isComplex,
           });
-          totalChars += part.length;
+          totalUnits += isComplex ? 1 : part.length;
           pendingSpace = false;
         }
       });
     });
 
-    const shuffled = buildShuffledIndices(totalChars, fullText.length + 17);
+    const shuffled = buildShuffledIndices(totalUnits, fullText.length + 17);
     let cursor = 0;
 
     return rawWords.map((item) => {
-      const chars = Array.from(item.word).map((ch) => ({
-        ch,
-        order: shuffled[cursor++] ?? 0,
-      }));
-      return { ...item, chars };
+      const units = item.isComplex
+        ? [{ ch: item.word, order: shuffled[cursor++] ?? 0 }]
+        : Array.from(item.word).map((ch) => ({
+            ch,
+            order: shuffled[cursor++] ?? 0,
+          }));
+      return { ...item, chars: units };
     });
   }, [segments, fullText.length]);
 
@@ -191,7 +197,21 @@ export const RfButtonFlickerText: React.FC<RfButtonFlickerTextProps> = ({
   text,
   className = '',
 }) => {
-  const chars = useMemo(() => {
+  const isComplex = HAS_COMPLEX_SCRIPT_RE.test(text);
+
+  const tokens = useMemo(() => {
+    if (isComplex) {
+      const parts = text.split(/(\s+)/).filter(Boolean);
+      const wordCount = parts.filter((p) => !/^\s+$/.test(p)).length;
+      const shuffled = buildShuffledIndices(wordCount, text.length + 7);
+      let cursor = 0;
+      return parts.map((part) =>
+        /^\s+$/.test(part)
+          ? { ch: part, order: 0, isSpace: true }
+          : { ch: part, order: shuffled[cursor++] ?? 0, isSpace: false }
+      );
+    }
+
     const nonSpaceCount = text.replace(/\s/g, '').length;
     const shuffled = buildShuffledIndices(nonSpaceCount, text.length + 7);
     let cursor = 0;
@@ -200,12 +220,12 @@ export const RfButtonFlickerText: React.FC<RfButtonFlickerTextProps> = ({
         ? { ch, order: 0, isSpace: true }
         : { ch, order: shuffled[cursor++] ?? 0, isSpace: false }
     );
-  }, [text]);
+  }, [text, isComplex]);
 
   return (
     <span aria-label={text} className={`inline-flex items-baseline ${className}`}>
       <span aria-hidden="true" className="inline-flex">
-        {chars.map((item, idx) =>
+        {tokens.map((item, idx) =>
           item.isSpace ? (
             <span key={idx}>&nbsp;</span>
           ) : (

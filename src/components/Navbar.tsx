@@ -9,10 +9,11 @@ import {
   useMotionValue,
   useReducedMotion,
 } from 'motion/react';
-import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
+import { BRAND_LOGO_URL } from '../data/portfolio';
 import { NavbarLogoParticles } from './NavbarLogoParticles';
 import { ARTCRAFT_EASE, OSMO_EASE, RfButtonFlickerText } from './MotionPrimitives';
-import { playNavSelect } from '../utils/spatialAudio';
+import { useLanguage } from './LanguageProvider';
+import { playFilterTab, playNavSelect } from '../utils/spatialAudio';
 import { smoothScrollToSectionId } from '../utils/smoothScroll';
 
 interface NavbarProps {
@@ -127,6 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     prefersReducedMotion || brandRevealed ? 120 : 0
   );
   const brandMask = useMotionTemplate`linear-gradient(90deg, #000 calc(${revealPct}% - 14%), transparent ${revealPct}%)`;
+  const { lang, setLang, t } = useLanguage();
   const isDark = theme === 'dark';
 
   // Skhiladze-style horizontal mask-wipe brand reveal synchronized with preloader dot landing
@@ -153,11 +155,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [brandRevealed, prefersReducedMotion, revealPct]);
 
   const navLinks = [
-    { label: 'About', href: '#about' },
-    { label: 'Work', href: '#work' },
-    { label: 'Experience', href: '#experience' },
-    { label: 'Contact', href: '#contact' },
+    { label: t.nav.about, href: '#about' },
+    { label: t.nav.work, href: '#work' },
+    { label: t.nav.experience, href: '#experience' },
+    { label: t.nav.contact, href: '#contact' },
   ];
+
+  const handleLanguageSelect = (
+    nextLang: 'en' | 'ml',
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    if (lang === nextLang) return;
+    playFilterTab(nextLang === 'en' ? 0 : 1, 2, event.currentTarget);
+    setLang(nextLang);
+  };
 
   // Track active portfolio section & scroll shadow state
   useEffect(() => {
@@ -302,7 +313,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               setLogoHoverCount((c) => c + 1);
             }
           }}
-          aria-label={PROFILE.name}
+          aria-label={t.portfolio.profile.name}
           whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.02 }}
           whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
           transition={NAV_LINK_SPRING}
@@ -321,7 +332,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <img
               src={BRAND_LOGO_URL}
-              alt={PROFILE.name}
+              alt={t.portfolio.profile.name}
               loading="eager"
               decoding="sync"
               fetchPriority="high"
@@ -345,7 +356,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Zone 2: Clean single-line navigation links with active & hover tracking hairline */}
         <LayoutGroup id="navbar-hover-indicator">
           <motion.nav
-            aria-label="Primary Navigation"
+            aria-label={t.nav.primaryAria}
             onMouseLeave={() => setHoveredHref(null)}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
             animate={
@@ -358,7 +369,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               delay: prefersReducedMotion ? 0 : 0.06,
               ease: OSMO_EASE,
             }}
-            className="hidden md:flex items-center md:gap-6 lg:gap-8 text-sm font-medium text-[#525252] dark:text-[#A3A3A3]"
+            className={`hidden md:flex items-center font-medium text-[#525252] dark:text-[#A3A3A3] ${
+              lang === 'ml'
+                ? 'md:gap-4 lg:gap-7 text-[13px] lg:text-sm'
+                : 'md:gap-6 lg:gap-8 text-sm'
+            }`}
           >
             {navLinks.map((item, idx) => {
               const isHighlighted = indicatorHref === item.href;
@@ -400,7 +415,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </motion.nav>
         </LayoutGroup>
 
-        {/* Zone 3: Animated Morphing Theme Toggle + CTA */}
+        {/* Zone 3: Language Switcher + Animated Morphing Theme Toggle + CTA */}
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
           animate={
@@ -413,23 +428,63 @@ export const Navbar: React.FC<NavbarProps> = ({
             delay: prefersReducedMotion ? 0 : 0.12,
             ease: OSMO_EASE,
           }}
-          className="flex items-center gap-2.5 sm:gap-3 shrink-0"
+          className="flex items-center gap-2 sm:gap-2.5 shrink-0"
         >
+          {/* Compact Editorial EN / മ Segmented Language Switcher */}
+          <div
+            role="group"
+            aria-label={t.nav.languageToggleAria}
+            title={t.nav.languageToggleTitle}
+            className="inline-flex items-center p-0.5 min-h-[40px] rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] shrink-0"
+          >
+            {(['en', 'ml'] as const).map((code) => {
+              const active = lang === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={(e) => handleLanguageSelect(code, e)}
+                  aria-pressed={active}
+                  lang={code}
+                  className={`relative min-h-[34px] px-2.5 sm:px-3 py-1 rounded-md font-mono text-[11px] font-semibold tracking-[0.04em] transition-colors duration-150 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+                    active
+                      ? 'text-[#0A0A0A]'
+                      : 'text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-lang-pill"
+                      aria-hidden="true"
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : { type: 'spring', stiffness: 440, damping: 32 }
+                      }
+                      className="absolute inset-0 rounded-md bg-[#FF721A]"
+                    />
+                  )}
+                  <span className="relative z-10">{code === 'en' ? 'EN' : 'മല'}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <motion.button
             type="button"
             onClick={onToggleTheme}
             whileHover={prefersReducedMotion ? undefined : { y: -1 }}
             whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
             transition={NAV_LINK_SPRING}
-            aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-            title={isDark ? 'Light Mode' : 'Dark Mode'}
+            aria-label={isDark ? t.nav.switchToLightAria : t.nav.switchToDarkAria}
+            title={isDark ? t.nav.lightMode : t.nav.darkMode}
             className="invert-block inline-flex items-center justify-center gap-2 min-h-[40px] min-w-[40px] px-2.5 lg:px-3.5 py-2 text-xs font-medium rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#0A0A0A] dark:text-white hover:bg-[#0A0A0A] hover:text-white dark:hover:bg-white dark:hover:text-[#0A0A0A] hover:border-[#0A0A0A] dark:hover:border-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
           >
             <AnimatedThemeIcon isDark={isDark} />
-            <span className="hidden lg:inline-flex items-center h-4 overflow-hidden">
+            <span className="hidden xl:inline-flex items-center min-h-[1.25rem] leading-normal overflow-hidden">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
-                  key={theme}
+                  key={`${theme}-${lang}`}
                   initial={
                     prefersReducedMotion ? false : { y: 10, opacity: 0 }
                   }
@@ -439,7 +494,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }
                   transition={{ duration: 0.22, ease: ARTCRAFT_EASE }}
                 >
-                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                  {isDark ? t.nav.lightMode : t.nav.darkMode}
                 </motion.span>
               </AnimatePresence>
             </span>
@@ -453,7 +508,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             transition={NAV_LINK_SPRING}
             className="rf-btn-flicker hidden md:inline-flex items-center justify-center min-h-[40px] px-4 lg:px-5 py-2 text-sm font-semibold rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
           >
-            <RfButtonFlickerText text="Get in Touch" />
+            <RfButtonFlickerText text={t.nav.getInTouch} />
           </motion.a>
 
           <motion.button
@@ -463,7 +518,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             transition={NAV_LINK_SPRING}
             aria-expanded={mobileOpen}
             aria-controls="mobile-navigation-drawer"
-            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-label={mobileOpen ? t.nav.closeMenuAria : t.nav.openMenuAria}
             className="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg border border-[#E5E5E5] dark:border-[#262626] text-[#0A0A0A] dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-[#141414] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
           >
             {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
@@ -483,7 +538,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             transition={{ duration: 0.24, ease: ARTCRAFT_EASE }}
             className="md:hidden overflow-hidden border-t border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-black pl-4 pr-8 sm:pl-6 sm:pr-9 shadow-lg"
           >
-            <nav aria-label="Mobile Navigation" className="py-4 flex flex-col gap-1">
+            <nav aria-label={t.nav.mobileAria} className="py-4 flex flex-col gap-1">
               {navLinks.map((item) => {
                 const isActive = activeHref === item.href;
                 return (
@@ -511,6 +566,43 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </motion.a>
                 );
               })}
+
+              <div className="mt-2 pt-3 border-t border-[#E5E5E5]/70 dark:border-[#262626]/70 flex items-center justify-between gap-3">
+                <span className="font-mono text-xs text-[#525252] dark:text-[#A3A3A3]">
+                  {t.nav.languageLabel}
+                </span>
+                <div
+                  role="group"
+                  aria-label={t.nav.languageToggleAria}
+                  className="inline-flex items-center p-0.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => handleLanguageSelect('en', e)}
+                    aria-pressed={lang === 'en'}
+                    className={`min-h-[34px] px-3 py-1 rounded-md font-mono text-xs font-semibold transition-colors ${
+                      lang === 'en'
+                        ? 'bg-[#FF721A] text-[#0A0A0A]'
+                        : 'text-[#525252] dark:text-[#A3A3A3]'
+                    }`}
+                  >
+                    English
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleLanguageSelect('ml', e)}
+                    aria-pressed={lang === 'ml'}
+                    className={`min-h-[34px] px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      lang === 'ml'
+                        ? 'bg-[#FF721A] text-[#0A0A0A]'
+                        : 'text-[#525252] dark:text-[#A3A3A3]'
+                    }`}
+                  >
+                    മലയാളം
+                  </button>
+                </div>
+              </div>
+
               <motion.a
                 href="#contact"
                 onClick={(e) => handleMobileLinkClick(e, '#contact')}
@@ -518,7 +610,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 transition={NAV_LINK_SPRING}
                 className="mt-3 min-h-[44px] inline-flex items-center justify-center py-3 px-4 rounded-lg bg-[#FF721A] text-[#0A0A0A] font-bold text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
               >
-                Get in Touch
+                {t.nav.getInTouch}
               </motion.a>
             </nav>
           </motion.div>

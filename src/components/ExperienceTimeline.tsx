@@ -3,6 +3,7 @@ import { Briefcase, GraduationCap, MapPin } from 'lucide-react';
 import { motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { ExperienceItem } from '../data/portfolio';
 import { ParallaxLayer } from './MotionPrimitives';
+import { useLanguage } from './LanguageProvider';
 import { playFilterTab } from '../utils/spatialAudio';
 
 type TimelineFilter = 'all' | 'role' | 'education';
@@ -19,21 +20,24 @@ interface ExperienceTimelineProps {
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-const FILTER_OPTIONS: { id: TimelineFilter; label: string }[] = [
-  { id: 'all', label: 'All Milestones' },
-  { id: 'role', label: 'Professional Roles' },
-  { id: 'education', label: 'Education' },
-];
+const FILTER_KEYS: TimelineFilter[] = ['all', 'role', 'education'];
 
 export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
   items,
   renderRevealText,
 }) => {
+  const { lang, t } = useLanguage();
   const prefersReducedMotion = useReducedMotion();
   const [filter, setFilter] = useState<TimelineFilter>('all');
   const [chronologicalAsc, setChronologicalAsc] = useState<boolean>(true);
   const railRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const filterLabels: Record<TimelineFilter, string> = {
+    all: t.timeline.all,
+    role: t.timeline.role,
+    education: t.timeline.education,
+  };
 
   const { scrollYProgress } = useScroll({
     target: railRef,
@@ -52,20 +56,20 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
   ) => {
     let nextIdx: number | null = null;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIdx = (idx + 1) % FILTER_OPTIONS.length;
+      nextIdx = (idx + 1) % FILTER_KEYS.length;
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length;
+      nextIdx = (idx - 1 + FILTER_KEYS.length) % FILTER_KEYS.length;
     } else if (e.key === 'Home') {
       nextIdx = 0;
     } else if (e.key === 'End') {
-      nextIdx = FILTER_OPTIONS.length - 1;
+      nextIdx = FILTER_KEYS.length - 1;
     }
 
     if (nextIdx !== null) {
       e.preventDefault();
       const targetEl = tabRefs.current[nextIdx];
-      setFilter(FILTER_OPTIONS[nextIdx].id);
-      playFilterTab(nextIdx, FILTER_OPTIONS.length, targetEl);
+      setFilter(FILTER_KEYS[nextIdx]);
+      playFilterTab(nextIdx, FILTER_KEYS.length, targetEl);
       targetEl?.focus();
     }
   };
@@ -83,14 +87,14 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5E5E5] dark:border-[#262626]">
         <div
           role="tablist"
-          aria-label="Filter career and academic timeline"
+          aria-label={t.timeline.tabsAria}
           className="inline-flex flex-wrap items-center gap-1.5 p-1 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] self-start"
         >
-          {FILTER_OPTIONS.map((opt, idx) => {
-            const isActive = filter === opt.id;
+          {FILTER_KEYS.map((optId, idx) => {
+            const isActive = filter === optId;
             return (
               <button
-                key={opt.id}
+                key={optId}
                 ref={(el) => {
                   tabRefs.current[idx] = el;
                 }}
@@ -99,10 +103,10 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                 tabIndex={isActive ? 0 : -1}
                 aria-selected={isActive}
                 onClick={(e) => {
-                  if (filter !== opt.id) {
-                    playFilterTab(idx, FILTER_OPTIONS.length, e.currentTarget);
+                  if (filter !== optId) {
+                    playFilterTab(idx, FILTER_KEYS.length, e.currentTarget);
                   }
-                  setFilter(opt.id);
+                  setFilter(optId);
                 }}
                 onKeyDown={(e) => handleTabKeyDown(e, idx)}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
@@ -123,7 +127,7 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                     className="absolute inset-0 rounded-lg bg-[#FF721A]"
                   />
                 )}
-                <span className="relative z-10">{opt.label}</span>
+                <span className="relative z-10">{filterLabels[optId]}</span>
               </button>
             );
           })}
@@ -135,11 +139,15 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
             playFilterTab(chronologicalAsc ? 1 : 2, 3, e.currentTarget);
             setChronologicalAsc((prev) => !prev);
           }}
-          aria-label={`Sort order: ${chronologicalAsc ? 'Earliest to Present' : 'Present to Earliest'}`}
+          aria-label={chronologicalAsc ? t.timeline.orderAriaAsc : t.timeline.orderAriaDesc}
           className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] text-xs font-mono text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
         >
-          <span className="text-[#C94B00] dark:text-[#FF721A] font-semibold">Order:</span>
-          <span>{chronologicalAsc ? 'Earliest → Present' : 'Present → Earliest'}</span>
+          <span className="text-[#C94B00] dark:text-[#FF721A] font-semibold">
+            {t.timeline.orderLabel}
+          </span>
+          <span>
+            {chronologicalAsc ? t.timeline.earliestToPresent : t.timeline.presentToEarliest}
+          </span>
         </button>
       </div>
 
@@ -162,7 +170,12 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
         />
 
         {visibleItems.map((item, idx) => {
-          const isCurrent = item.period.toLowerCase() === 'current';
+          const isCurrent = item.period === 'Current';
+          const periodLabel = isCurrent
+            ? lang === 'ml'
+              ? 'നിലവിൽ'
+              : 'Current'
+            : item.period;
           const isEducation = item.kind === 'education';
           const Icon = isEducation ? GraduationCap : Briefcase;
           const stepNumber = String(idx + 1).padStart(2, '0');
@@ -212,13 +225,13 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#E5E5E5] dark:border-[#262626]">
                   <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
                     <span className="font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                      {stepNumber} · {item.period}
+                      {stepNumber} · {periodLabel}
                     </span>
                     <span aria-hidden="true" className="text-[#A3A3A3]">
                       /
                     </span>
                     <span className="text-[#525252] dark:text-[#A3A3A3]">
-                      {isEducation ? 'Education' : 'Professional Role'}
+                      {isEducation ? t.timeline.educationBadge : t.timeline.roleBadge}
                     </span>
                   </div>
 

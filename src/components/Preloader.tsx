@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { PROFILE } from '../data/portfolio';
+import { useLanguage } from './LanguageProvider';
 
 interface PreloaderProps {
   onRevealNavbar?: () => void;
@@ -80,6 +80,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
   onRevealNavbar,
   onComplete,
 }) => {
+  const { t } = useLanguage();
   const prefersReducedMotion = Boolean(useReducedMotion());
   const sourceDotRef = useRef<SVGCircleElement>(null);
   const [phase, setPhase] = useState<'drawing' | 'launching'>('drawing');
@@ -169,7 +170,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
     <motion.div
       role="status"
       aria-live="polite"
-      aria-label={`Loading ${PROFILE.name} portfolio`}
+      aria-label={`${t.portfolio.profile.name} — ${t.preloader.loadingSuffix}`}
       onClick={finishImmediately}
       className="fixed inset-0 z-[70] flex items-center justify-center px-6 text-[#0A0A0A] dark:text-white select-none cursor-pointer overflow-hidden"
     >

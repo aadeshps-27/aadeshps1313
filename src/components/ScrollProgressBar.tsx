@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AnimatePresence,
   motion,
   useReducedMotion,
 } from 'motion/react';
+import { useLanguage } from './LanguageProvider';
 import { smoothScrollToY } from '../utils/smoothScroll';
 
 interface ScrollProgressBarProps {
@@ -37,17 +38,21 @@ const LABEL_SPRING = {
   mass: 0.6,
 };
 
-const SECTION_ANCHORS: SectionAnchor[] = [
-  { id: 'about', label: '01', name: 'Origins & Ethos' },
-  { id: 'work', label: '02', name: 'Selected Works' },
-  { id: 'experience', label: '03', name: 'Journey' },
-  { id: 'contact', label: '04', name: 'Connection' },
-];
-
 export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   isModalOpen = false,
 }) => {
   const prefersReducedMotion = useReducedMotion();
+  const { t } = useLanguage();
+
+  const sectionAnchors = useMemo<SectionAnchor[]>(
+    () => [
+      { id: 'about', label: '01', name: t.scrollRuler.sections.about },
+      { id: 'work', label: '02', name: t.scrollRuler.sections.work },
+      { id: 'experience', label: '03', name: t.scrollRuler.sections.experience },
+      { id: 'contact', label: '04', name: t.scrollRuler.sections.contact },
+    ],
+    [t]
+  );
 
   const [isDesktopRuler, setIsDesktopRuler] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -55,7 +60,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isScrollIdle, setIsScrollIdle] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionAnchor>(
-    SECTION_ANCHORS[0]
+    sectionAnchors[0]
   );
   const [ghostY, setGhostY] = useState<number | null>(null);
   const [ghostPercent, setGhostPercent] = useState<number | null>(null);
@@ -133,9 +138,9 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
     const markers: SectionMarker[] = [];
     const triggerLine = vh * 0.42;
-    let currentSection: SectionAnchor = SECTION_ANCHORS[0];
+    let currentSection: SectionAnchor = sectionAnchors[0];
 
-    for (const anchor of SECTION_ANCHORS) {
+    for (const anchor of sectionAnchors) {
       const el = document.getElementById(anchor.id);
       if (el) {
         const rectTop = el.getBoundingClientRect().top;
@@ -160,9 +165,11 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
     setSectionMarkers(markers);
     setActiveSection((prev) =>
-      prev.id === currentSection.id ? prev : currentSection
+      prev.id === currentSection.id && prev.name === currentSection.name
+        ? prev
+        : currentSection
     );
-  }, []);
+  }, [sectionAnchors]);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -382,7 +389,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-label="Page scroll ruler"
+        aria-label={t.scrollRuler.ariaLabel}
         onPointerEnter={(e) => {
           if (e.pointerType !== 'touch') setIsHovered(true);
         }}

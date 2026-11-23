@@ -4,12 +4,14 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { playNavSelect } from '../utils/spatialAudio';
 import { smoothScrollToY } from '../utils/smoothScroll';
+import { useLanguage } from './LanguageProvider';
 
 interface BackToTopButtonProps {
   inline?: boolean;
 }
 
 export const BackToTopButton: React.FC<BackToTopButtonProps> = ({ inline = false }) => {
+  const { t } = useLanguage();
   const prefersReducedMotion = useReducedMotion();
   const [visible, setVisible] = useState(false);
 
@@ -47,7 +49,7 @@ export const BackToTopButton: React.FC<BackToTopButtonProps> = ({ inline = false
           key="back-to-top"
           type="button"
           onClick={handleScrollTop}
-          aria-label="Back to top"
+          aria-label={t.backToTop.ariaLabel}
           initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 14, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.92 }}

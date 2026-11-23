@@ -14,6 +14,7 @@ import { AiCharacterMotion } from './components/AiCharacterMotion';
 import { InteractiveDotGrid } from './components/InteractiveDotGrid';
 import { SmoothKeyboardNavigation } from './components/SmoothKeyboardNavigation';
 import { DevAnimationHud } from './components/DevAnimationHud';
+import { LanguageProvider, useLanguage } from './components/LanguageProvider';
 import {
   FloatingAudioToggle,
   SpatialAudioProvider,
@@ -36,7 +37,8 @@ type DocumentWithViewTransition = Document & {
   };
 };
 
-export default function App() {
+function AppContent() {
+  const { t } = useLanguage();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof document !== 'undefined') {
       return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -166,7 +168,7 @@ export default function App() {
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#FF721A] focus:text-[#0A0A0A] focus:font-bold focus:text-xs focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-[#0A0A0A] dark:focus:outline-white"
         >
-          Skip to main content
+          {t.skipToMain}
         </a>
 
         <InteractiveDotGrid />
@@ -203,8 +205,8 @@ export default function App() {
 
             <SectionDivider
               index="02"
-              label="Selected Works"
-              descriptor="Case Studies & Research"
+              label={t.dividers.works.label}
+              descriptor={t.dividers.works.descriptor}
             />
 
             <WorksSection
@@ -215,16 +217,16 @@ export default function App() {
 
             <SectionDivider
               index="03"
-              label="Professional Background"
-              descriptor="Roles & Academic Journey"
+              label={t.dividers.experience.label}
+              descriptor={t.dividers.experience.descriptor}
             />
 
             <ExperienceSection />
 
             <SectionDivider
               index="04"
-              label="Direct Connection"
-              descriptor="Collaborations & Inquiries"
+              label={t.dividers.contact.label}
+              descriptor={t.dividers.contact.descriptor}
             />
 
             <ContactAndFooter />
@@ -256,5 +258,13 @@ export default function App() {
         {import.meta.env.DEV && <DevAnimationHud theme={theme} />}
       </div>
     </SpatialAudioProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }

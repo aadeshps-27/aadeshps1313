@@ -11,6 +11,7 @@ import {
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 import { playCompanionCue } from '../utils/spatialAudio';
+import { useLanguage } from './LanguageProvider';
 
 type MoodMode =
   | 'tracking'
@@ -47,26 +48,30 @@ const TRACK_SPRING = { stiffness: 280, damping: 24, mass: 0.45 };
 const ROAM_SPRING = { stiffness: 90, damping: 20, mass: 0.9 };
 const IDLE_SLEEP_MS = 14000;
 
-const SECTION_PROMPTS: Record<string, { line: string; target: string; cta: string }> = {
-  about: { line: 'Electronics meets software', target: '#work', cta: 'Works ↓' },
-  work: { line: 'Inspecting projects & RF craft', target: '#experience', cta: 'Journey ↓' },
-  experience: { line: 'Tracing roles & research', target: '#contact', cta: 'Contact ↓' },
-  contact: { line: 'Ready to collaborate', target: '#top', cta: 'Top ↑' },
+const SECTION_TARGETS: Record<'about' | 'work' | 'experience' | 'contact', string> = {
+  about: '#work',
+  work: '#experience',
+  experience: '#contact',
+  contact: '#top',
 };
 
 const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
 const OVERDRIVE_ANGLES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
 const DANCE_BARS = [0, 1, 2, 3, 4];
-const EMOTION_PRESETS: { id: MoodMode; label: string; glyph: ThoughtGlyph }[] = [
-  { id: 'happy', label: 'Happy', glyph: 'spark' },
-  { id: 'love', label: 'Love', glyph: 'heart' },
-  { id: 'laugh', label: 'Laugh', glyph: 'spark' },
-  { id: 'cool', label: 'Cool', glyph: null },
-  { id: 'shy', label: 'Shy', glyph: null },
-  { id: 'surprised', label: 'Whoa', glyph: 'exclaim' },
+const EMOTION_PRESETS: {
+  id: 'happy' | 'love' | 'laugh' | 'cool' | 'shy' | 'surprised';
+  glyph: ThoughtGlyph;
+}[] = [
+  { id: 'happy', glyph: 'spark' },
+  { id: 'love', glyph: 'heart' },
+  { id: 'laugh', glyph: 'spark' },
+  { id: 'cool', glyph: null },
+  { id: 'shy', glyph: null },
+  { id: 'surprised', glyph: 'exclaim' },
 ];
 
 export const AiCharacterMotion: React.FC = () => {
+  const { t } = useLanguage();
   const prefersReducedMotion = Boolean(useReducedMotion());
   const stageRef = useRef<HTMLDivElement>(null);
   const tapComboRef = useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: 0 });
@@ -80,7 +85,7 @@ export const AiCharacterMotion: React.FC = () => {
   const [isNearPointer, setIsNearPointer] = useState(false);
   const [isFastPointer, setIsFastPointer] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>('about');
+  const [activeSection, setActiveSection] = useState<'about' | 'work' | 'experience' | 'contact'>('about');
   const [mood, setMood] = useState<MoodMode>('tracking');
   const [thought, setThought] = useState<ThoughtGlyph>(null);
   const [pulseKey, setPulseKey] = useState(0);
@@ -157,11 +162,16 @@ export const AiCharacterMotion: React.FC = () => {
   // Track active portfolio section cleanly
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const ids = ['about', 'work', 'experience', 'contact'];
+    const ids: Array<'about' | 'work' | 'experience' | 'contact'> = [
+      'about',
+      'work',
+      'experience',
+      'contact',
+    ];
 
     const detectSection = () => {
       const markerY = window.innerHeight * 0.4;
-      let current = 'about';
+      let current: 'about' | 'work' | 'experience' | 'contact' = 'about';
       for (const id of ids) {
         const el = document.getElementById(id);
         if (!el) continue;
@@ -630,7 +640,8 @@ export const AiCharacterMotion: React.FC = () => {
         : waveActive
           ? 'wave'
           : mood;
-  const promptInfo = SECTION_PROMPTS[activeSection] ?? SECTION_PROMPTS.top;
+  const promptCopy = t.companion.prompts[activeSection] ?? t.companion.prompts.about;
+  const promptTarget = SECTION_TARGETS[activeSection] ?? SECTION_TARGETS.about;
   const controlsVisible = isHovered || showControls;
 
   const handleQuickJump = (targetSelector: string) => {
@@ -672,7 +683,7 @@ export const AiCharacterMotion: React.FC = () => {
       <motion.div
         role="button"
         tabIndex={0}
-        aria-label="Interactive robotic companion — click to react, tap 5x for overdrive, double-click to spin, drag to move, or use arrow keys"
+        aria-label={t.companion.buttonAria}
         onKeyDown={handleKeyDown}
         drag={!prefersReducedMotion}
         dragSnapToOrigin
@@ -1645,7 +1656,7 @@ export const AiCharacterMotion: React.FC = () => {
             className="mb-2 p-2.5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md shadow-xl flex flex-col gap-2 max-w-[275px]"
           >
             <p className="text-[11px] font-medium text-[#525252] dark:text-[#A3A3A3] px-1">
-              {promptInfo.line}
+              {promptCopy.line}
             </p>
             {/* Interactive Emotion Selector Row */}
             <div className="flex flex-wrap items-center gap-1 pb-1.5 border-b border-[#E5E5E5]/80 dark:border-[#262626]/80">
@@ -1663,7 +1674,7 @@ export const AiCharacterMotion: React.FC = () => {
                         : 'bg-[#FAFAFA] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#0A0A0A] dark:hover:text-white'
                     }`}
                   >
-                    {preset.label}
+                    {t.companion.emotions[preset.id]}
                   </button>
                 );
               })}
@@ -1674,28 +1685,28 @@ export const AiCharacterMotion: React.FC = () => {
                 onClick={triggerDance}
                 className="min-h-[34px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
-                Dance
+                {t.companion.actions.dance}
               </button>
               <button
                 type="button"
                 onClick={triggerRadar}
                 className="min-h-[34px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
-                Radar
+                {t.companion.actions.radar}
               </button>
               <button
                 type="button"
                 onClick={triggerWave}
                 className="min-h-[34px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
-                Wave
+                {t.companion.actions.wave}
               </button>
               <button
                 type="button"
                 onClick={triggerSpin}
                 className="min-h-[34px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
-                Spin
+                {t.companion.actions.spin}
               </button>
               <button
                 type="button"
@@ -1707,14 +1718,14 @@ export const AiCharacterMotion: React.FC = () => {
                     : 'bg-[#F5F5F5] dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:bg-[#FF721A] hover:text-[#0A0A0A]'
                 }`}
               >
-                {roamActive ? 'Dock' : 'Roam'}
+                {roamActive ? t.companion.actions.dock : t.companion.actions.roam}
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickJump(promptInfo.target)}
+                onClick={() => handleQuickJump(promptTarget)}
                 className="min-h-[34px] px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#FF721A]"
               >
-                {promptInfo.cta}
+                {promptCopy.cta}
               </button>
             </div>
           </motion.div>

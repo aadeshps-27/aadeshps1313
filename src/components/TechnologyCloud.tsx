@@ -22,6 +22,7 @@ import {
   useSpring,
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
+import { useLanguage } from './LanguageProvider';
 import { playFilterTab, playGlobeNodeSelect } from '../utils/spatialAudio';
 
 type Polarity = 'attract' | 'repel';
@@ -144,11 +145,7 @@ const GEODESIC_EDGES: [number, number][] = (() => {
   return edges;
 })();
 
-const FIELD_MODES: { id: CloudFieldMode; label: string }[] = [
-  { id: 'mixed', label: 'Mixed Field' },
-  { id: 'attract', label: 'Attract' },
-  { id: 'repel', label: 'Repel' },
-];
+const FIELD_MODE_KEYS: CloudFieldMode[] = ['mixed', 'attract', 'repel'];
 
 const FORCE_RADIUS = 180;
 const NODE_SPRING = { stiffness: 220, damping: 18, mass: 0.55 };
@@ -182,6 +179,8 @@ interface GlobeNodeItemProps {
   onSelect: (id: string) => void;
   onRegisterSprings: (index: number, x: MotionValue<number>, y: MotionValue<number>) => void;
   prefersReducedMotion: boolean;
+  attractsTooltip: string;
+  repelsTooltip: string;
 }
 
 const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
@@ -194,6 +193,8 @@ const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
   onSelect,
   onRegisterSprings,
   prefersReducedMotion,
+  attractsTooltip,
+  repelsTooltip,
 }) => {
   const Icon = node.icon;
   const effectivePolarity: Polarity = mode === 'mixed' ? node.polarity : mode;
@@ -263,7 +264,7 @@ const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
             <span className="font-semibold tracking-tight">{node.name}</span>
             <span
               aria-hidden="true"
-              title={isAttractor ? 'Attracts to cursor' : 'Repels from cursor'}
+              title={isAttractor ? attractsTooltip : repelsTooltip}
               className={`w-1.5 h-1.5 shrink-0 ${
                 isAttractor
                   ? 'bg-[#FF721A]'
@@ -707,11 +708,21 @@ export const TechnologyCloud: React.FC = () => {
     cursorRelRef.current = { x: -9999, y: -9999 };
   };
 
+  const { t } = useLanguage();
+  const fieldModeLabels: Record<CloudFieldMode, string> = {
+    mixed: t.techCloud.modes.mixed,
+    attract: t.techCloud.modes.attract,
+    repel: t.techCloud.modes.repel,
+  };
   const selectedNode =
     TECH_SPHERE_NODES.find((item) => item.id === selectedId) ??
     TECH_SPHERE_NODES[0];
   const selectedPolarity: Polarity =
     fieldMode === 'mixed' ? selectedNode.polarity : fieldMode;
+  const selectedPolarityLabel =
+    selectedPolarity === 'attract' ? t.techCloud.attract : t.techCloud.repel;
+  const selectedDisciplineLabel =
+    t.techCloud.nodeDisciplines[selectedNode.id] ?? selectedNode.discipline;
 
   const orbDiameter = stageDims.radius * 2;
   const svgSize = orbDiameter + 44;
@@ -733,29 +744,29 @@ export const TechnologyCloud: React.FC = () => {
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
             <span className="inline-block w-3.5 h-[2px] bg-[#FF721A]" aria-hidden="true" />
-            <span>3D Orbital Stack</span>
+            <span>{t.techCloud.eyebrow}</span>
           </div>
           <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#0A0A0A] dark:text-white">
-            Technology Globe
+            {t.techCloud.title}
           </h3>
         </div>
 
         <div
           role="group"
-          aria-label="Technology globe cursor polarity"
+          aria-label={t.techCloud.fieldGroupAria}
           className="inline-flex items-center p-1 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] self-start sm:self-auto"
         >
-          {FIELD_MODES.map((item, modeIdx) => {
-            const active = fieldMode === item.id;
+          {FIELD_MODE_KEYS.map((modeId, modeIdx) => {
+            const active = fieldMode === modeId;
             return (
               <button
-                key={item.id}
+                key={modeId}
                 type="button"
                 onClick={(e) => {
-                  if (fieldMode !== item.id) {
-                    playFilterTab(modeIdx, FIELD_MODES.length, e.currentTarget);
+                  if (fieldMode !== modeId) {
+                    playFilterTab(modeIdx, FIELD_MODE_KEYS.length, e.currentTarget);
                   }
-                  setFieldMode(item.id);
+                  setFieldMode(modeId);
                 }}
                 aria-pressed={active}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
@@ -771,7 +782,7 @@ export const TechnologyCloud: React.FC = () => {
                     className="absolute inset-0 rounded-lg bg-[#0A0A0A] dark:bg-white"
                   />
                 )}
-                <span className="relative z-10">{item.label}</span>
+                <span className="relative z-10">{fieldModeLabels[modeId]}</span>
               </button>
             );
           })}
@@ -1028,6 +1039,8 @@ export const TechnologyCloud: React.FC = () => {
             onSelect={setSelectedId}
             onRegisterSprings={registerSprings}
             prefersReducedMotion={prefersReducedMotion}
+            attractsTooltip={t.techCloud.attractsTooltip}
+            repelsTooltip={t.techCloud.repelsTooltip}
           />
         ))}
       </div>
@@ -1037,23 +1050,23 @@ export const TechnologyCloud: React.FC = () => {
         <div className="flex flex-wrap items-center gap-4 font-mono">
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2 h-2 bg-[#FF721A] inline-block" aria-hidden="true" />
-            <span>Attract</span>
+            <span>{t.techCloud.attract}</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span
               className="w-2 h-2 border border-[#C94B00] dark:border-[#FF721A] inline-block"
               aria-hidden="true"
             />
-            <span>Repel</span>
+            <span>{t.techCloud.repel}</span>
           </span>
           <span className="text-[#737373] dark:text-[#737373]">
-            · Drag sphere to orbit
+            {t.techCloud.dragHint}
           </span>
         </div>
 
         <AnimatePresence mode="wait">
           <motion.p
-            key={`${selectedNode.id}-${selectedPolarity}`}
+            key={`${selectedNode.id}-${selectedPolarity}-${t.techCloud.title}`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
@@ -1063,7 +1076,7 @@ export const TechnologyCloud: React.FC = () => {
             <span className="text-[#C94B00] dark:text-[#FF721A] font-semibold">
               {selectedNode.name}
             </span>{' '}
-            · {selectedNode.discipline} ({selectedPolarity})
+            · {selectedDisciplineLabel} ({selectedPolarityLabel})
           </motion.p>
         </AnimatePresence>
       </div>

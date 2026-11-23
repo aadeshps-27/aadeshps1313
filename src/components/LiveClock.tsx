@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLanguage } from './LanguageProvider';
 
 interface LiveClockProps {
   className?: string;
@@ -21,6 +22,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
   className = '',
   showZone = true,
 }) => {
+  const { t } = useLanguage();
   const [timeString, setTimeString] = useState<string>(() =>
     formatKeralaTime(new Date())
   );
@@ -34,7 +36,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
 
   return (
     <time
-      aria-label={`Local time in Kerala, India: ${timeString} IST`}
+      aria-label={`${t.liveClock.ariaPrefix}: ${timeString} IST`}
       className={`font-mono tabular-nums whitespace-nowrap ${className}`}
     >
       {timeString}

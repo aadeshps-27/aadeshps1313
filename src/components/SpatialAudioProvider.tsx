@@ -7,6 +7,7 @@ import {
   setAudioEnabled,
   subscribeAudioEnabled,
 } from '../utils/spatialAudio';
+import { useLanguage } from './LanguageProvider';
 
 interface SpatialAudioContextValue {
   enabled: boolean;
@@ -54,6 +55,7 @@ export function useSpatialAudio(): SpatialAudioContextValue {
 
 export const FloatingAudioToggle: React.FC = () => {
   const { enabled, toggleAudio } = useSpatialAudio();
+  const { t } = useLanguage();
   const prefersReducedMotion = Boolean(useReducedMotion());
 
   return (
@@ -64,8 +66,8 @@ export const FloatingAudioToggle: React.FC = () => {
       whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
       transition={{ type: 'spring', stiffness: 420, damping: 24 }}
       aria-pressed={enabled}
-      aria-label={enabled ? 'Mute spatial audio cues' : 'Enable spatial audio cues'}
-      title={enabled ? 'Spatial Audio: On (click to mute)' : 'Spatial Audio: Muted (click to enable)'}
+      aria-label={enabled ? t.audio.muteAria : t.audio.enableAria}
+      title={enabled ? t.audio.floatingOnTitle : t.audio.floatingOffTitle}
       className={`inline-flex items-center justify-center w-11 h-11 rounded-xl border shadow-md transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
         enabled
           ? 'bg-white/95 dark:bg-[#0A0A0A]/95 text-[#0A0A0A] dark:text-white border-[#E5E5E5] dark:border-[#262626] hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A]'
@@ -83,14 +85,15 @@ export const FloatingAudioToggle: React.FC = () => {
 
 export const InlineAudioToggle: React.FC = () => {
   const { enabled, toggleAudio } = useSpatialAudio();
+  const { t } = useLanguage();
 
   return (
     <button
       type="button"
       onClick={(e) => toggleAudio(e.currentTarget)}
       aria-pressed={enabled}
-      aria-label={enabled ? 'Mute spatial audio cues' : 'Enable spatial audio cues'}
-      title={enabled ? 'Spatial Audio: On' : 'Spatial Audio: Muted'}
+      aria-label={enabled ? t.audio.muteAria : t.audio.enableAria}
+      title={enabled ? t.audio.inlineOnTitle : t.audio.inlineOffTitle}
       className={`w-10 h-10 rounded-lg border inline-flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
         enabled
           ? 'border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A]'

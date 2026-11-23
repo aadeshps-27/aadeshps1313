@@ -6,13 +6,7 @@ import {
   useReducedMotion,
   useSpring,
 } from 'motion/react';
-import {
-  DISCIPLINES,
-  EXPERIENCE,
-  PROCESS_PILLARS,
-  PROFILE,
-  ProjectCategory,
-} from '../data/portfolio';
+import { ProjectCategory } from '../data/portfolio';
 import { ExperienceTimeline } from './ExperienceTimeline';
 import { LiveClock } from './LiveClock';
 import { SafeImage } from './SafeImage';
@@ -27,6 +21,7 @@ import {
   RfFlickerText,
   SectionChoreoHeader,
 } from './MotionPrimitives';
+import { useLanguage } from './LanguageProvider';
 import { playFilterTab } from '../utils/spatialAudio';
 
 const EASE_OUT_EXPO = ARTCRAFT_EASE;
@@ -114,6 +109,10 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   entranceReady = true,
   onSelectDisciplineFilter,
 }) => {
+  const { lang, t } = useLanguage();
+  const profile = t.portfolio.profile;
+  const processPillars = t.portfolio.processPillars;
+  const disciplines = t.portfolio.disciplines;
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
   const [portraitHovered, setPortraitHovered] = useState(false);
@@ -135,10 +134,12 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   const rotateY = useSpring(rawRotateY, { stiffness: 220, damping: 24, mass: 0.55 });
 
   useEffect(() => {
-    if (PROFILE.portraitImage) {
-      warmImage(PROFILE.portraitImage);
+    if (profile.portraitImage) {
+      warmImage(profile.portraitImage);
     }
-  }, []);
+  }, [profile.portraitImage]);
+
+  const [bioEndBeforeEdu, bioEndAfterEdu] = t.about.bioEnd.split('{education}');
 
   const handlePortraitMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!allowTilt || !portraitFrameRef.current) return;
@@ -172,12 +173,12 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 delay={0.08}
                 className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]"
               >
-                01. Origins &amp; Ethos
+                {t.about.eyebrow}
               </DrawEyebrow>
               <div className="inline-flex items-center gap-2 text-xs text-[#525252] dark:text-[#A3A3A3]">
                 <RegistrationTick onMount delay={0.22} />
                 <span className="inline-flex items-center gap-1.5 font-mono tabular-nums">
-                  <span>{PROFILE.location}</span>
+                  <span>{profile.location}</span>
                   <span aria-hidden="true" className="text-[#C94B00] dark:text-[#FF721A]">·</span>
                   <LiveClock className="text-[#0A0A0A] dark:text-white" />
                 </span>
@@ -188,22 +189,22 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
           {/* Full-Width Oversized Display Statement with ReFactory character flicker */}
           <div className="max-w-4xl">
             <RfFlickerText
+              key={`hero-h1-${lang}`}
               as="h1"
               mode="heading"
               onMount
               ready={entranceReady}
               mountDelayMs={90}
-              className="font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.25rem,5vw,4.35rem)] leading-[1.04]"
+              className={`font-display font-bold tracking-tight text-[#0A0A0A] dark:text-white text-[clamp(2.1rem,4.7vw,4.35rem)] ${
+                lang === 'ml' ? 'leading-[1.24]' : 'leading-[1.08]'
+              }`}
               style={{ textWrap: 'balance' }}
-              segments={[
-                { text: 'Where applied electronics meets ' },
-                {
-                  text: 'intentional',
-                  className:
-                    'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
-                },
-                { text: ' design.' },
-              ]}
+              segments={t.about.headlineSegments.map((seg) => ({
+                text: seg.text,
+                className: seg.accent
+                  ? 'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]'
+                  : undefined,
+              }))}
             />
           </div>
 
@@ -295,9 +296,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     className="relative z-10 w-full h-full"
                   >
                     <SafeImage
-                      src={PROFILE.portraitImage}
-                      alt={PROFILE.portraitImageAlt}
-                      fallbackLabel={PROFILE.name}
+                      src={profile.portraitImage}
+                      alt={profile.portraitImageAlt}
+                      fallbackLabel={profile.name}
                       priority="high"
                       loading="eager"
                       decoding="async"
@@ -316,10 +317,10 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 <div className="px-5 py-4 border-t border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between gap-3 bg-white dark:bg-[#0A0A0A]">
                   <div className="min-w-0">
                     <p className="font-display text-sm sm:text-base font-bold text-[#0A0A0A] dark:text-white truncate">
-                      {PROFILE.name}
+                      {profile.name}
                     </p>
                     <p className="text-xs text-[#525252] dark:text-[#A3A3A3] truncate">
-                      {PROFILE.education}
+                      {profile.education}
                     </p>
                   </div>
                   <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] whitespace-nowrap shrink-0">
@@ -334,13 +335,15 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
               <div className="space-y-5 sm:space-y-6">
                 <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
                   <ScrollRevealText as="p" delay={0.08}>
-                    I am{' '}
+                    {t.about.bioPrefix}
                     <strong className="font-bold text-[#0A0A0A] dark:text-white">
-                      {PROFILE.name}
+                      {profile.name}
                     </strong>
-                    , a creative developer and visual designer based in {PROFILE.location}. Holding
-                    a {PROFILE.education}, my work lives at the intersection of tactile hardware
-                    systems and human-centered web software.
+                    {t.about.bioMiddle}
+                    {profile.location}
+                    {bioEndBeforeEdu}
+                    {profile.education}
+                    {bioEndAfterEdu ?? ''}
                   </ScrollRevealText>
 
                   <div className="pt-4 pb-1 border-t border-[#E5E5E5] dark:border-[#262626]">
@@ -349,15 +352,12 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                       delay={0.12}
                       className="font-serif italic text-lg sm:text-xl leading-snug text-[#0A0A0A] dark:text-white"
                     >
-                      &ldquo;I don&apos;t just build interfaces; I construct digital architectures
-                      that prioritize human intuition over technical complexity.&rdquo;
+                      {t.about.quote}
                     </ScrollRevealText>
                   </div>
 
                   <ScrollRevealText as="p" delay={0.16}>
-                    Whether calibrating an RF trilateration filter on an ESP32 or refining bezier
-                    curves in Affinity and Illustrator, I bring disciplined engineering clarity to
-                    expressive creative execution.
+                    {t.about.secondPara}
                   </ScrollRevealText>
                 </div>
               </div>
@@ -367,7 +367,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                 data-reveal-group=""
                 className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
               >
-                {PROCESS_PILLARS.map((pillar, idx) => (
+                {processPillars.map((pillar, idx) => (
                   <ParallaxLayer
                     key={pillar.step}
                     speed={idx % 2 === 0 ? 6 : 12}
@@ -423,10 +423,10 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
               delay={0.08}
               className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A]"
             >
-              Core Disciplines
+              {t.about.coreDisciplines}
             </DrawEyebrow>
             <span className="font-mono text-[11px] text-[#525252] dark:text-[#A3A3A3]">
-              Select a discipline to filter Selected Works ↓
+              {t.about.selectDisciplineHint}
             </span>
           </div>
 
@@ -434,7 +434,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
             data-reveal-group=""
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-6"
           >
-            {DISCIPLINES.map((item, idx) => (
+            {disciplines.map((item, idx) => (
               <ParallaxLayer
                 key={item.number}
                 speed={idx % 2 === 0 ? 7 : 15}
@@ -458,7 +458,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     ease: ARTCRAFT_EASE,
                   }}
                   onClick={(e) => {
-                    playFilterTab(idx, DISCIPLINES.length, e.currentTarget);
+                    playFilterTab(idx, disciplines.length, e.currentTarget);
                     onSelectDisciplineFilter?.(item.filter);
                     const el = document.getElementById('work');
                     el?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
@@ -492,6 +492,8 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
 };
 
 export const ExperienceSection: React.FC = () => {
+  const { lang, t } = useLanguage();
+
   return (
     <section
         id="experience"
@@ -500,13 +502,14 @@ export const ExperienceSection: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
             <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-3 sm:space-y-4">
-              <SectionChoreoHeader eyebrow="03. Journey">
+              <SectionChoreoHeader eyebrow={t.about.experienceEyebrow}>
                 <RfFlickerText
+                  key={`exp-h2-${lang}`}
                   as="h2"
                   mode="heading"
                   className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
                   style={{ textWrap: 'balance' }}
-                  segments={[{ text: 'Experience & Academic Foundation' }]}
+                  segments={[{ text: t.about.experienceTitle }]}
                 />
               </SectionChoreoHeader>
               <ScrollRevealText
@@ -514,14 +517,13 @@ export const ExperienceSection: React.FC = () => {
                 delay={0.14}
                 className="text-sm leading-relaxed text-[#525252] dark:text-[#A3A3A3]"
               >
-                Multidisciplinary progression across digital brand strategy, full-stack web
-                engineering, and postgraduate applied electronics research.
+                {t.about.experienceSubtitle}
               </ScrollRevealText>
             </div>
 
             <div className="lg:col-span-8">
               <ExperienceTimeline
-                items={EXPERIENCE}
+                items={t.portfolio.experience}
                 renderRevealText={({ children, className, delay, as }) => (
                   <ScrollRevealText className={className} delay={delay} as={as}>
                     {children}

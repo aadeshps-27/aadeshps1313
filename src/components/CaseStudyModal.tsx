@@ -10,15 +10,11 @@ import {
   useTransform,
 } from 'motion/react';
 import {
-  CREATIVE_CASE_STUDY,
-  GEOLOCATION_CASE_STUDY,
-  PROJECTS,
-  PROJECT_TIMELINE_PHASES,
   ProjectId,
   ProjectTimelinePhase,
-  ROBOT_CASE_STUDY,
-  getProjectReadingTime,
 } from '../data/portfolio';
+import { getLocalizedReadingTime } from '../i18n/translations';
+import { useLanguage } from './LanguageProvider';
 import { SafeImage } from './SafeImage';
 import { InlineAudioToggle } from './SpatialAudioProvider';
 import {
@@ -87,6 +83,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
   phases,
   prefersReducedMotion,
 }) => {
+  const { t } = useLanguage();
   const [activeIndex, setActiveIndex] = useState(0);
   const stepButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -131,24 +128,24 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
 
   return (
     <section
-      aria-label="Project timeline phases"
+      aria-label={t.caseStudy.timelineAria}
       className="p-5 sm:p-6 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-5"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
           <span className="inline-block w-3.5 h-[2px] bg-[#FF721A]" aria-hidden="true" />
-          <span>Project Timeline</span>
+          <span>{t.caseStudy.timelineTitle}</span>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-2">
           <span className="font-mono text-[11px] tabular-nums text-[#525252] dark:text-[#A3A3A3]">
-            Phase {currentPhase.step} / 0{phases.length}
+            {t.caseStudy.phaseWord} {currentPhase.step} / 0{phases.length}
           </span>
           <div className="inline-flex items-center gap-1">
             <button
               type="button"
               onClick={(e) => selectPhase(safeIndex - 1, e.currentTarget)}
               disabled={safeIndex === 0}
-              aria-label="Previous project phase"
+              aria-label={t.caseStudy.prevPhaseAria}
               className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
             >
               <ChevronLeft size={14} aria-hidden="true" />
@@ -157,7 +154,7 @@ const ProjectTimelineStepper: React.FC<ProjectTimelineStepperProps> = ({
               type="button"
               onClick={(e) => selectPhase(safeIndex + 1, e.currentTarget)}
               disabled={safeIndex === phases.length - 1}
-              aria-label="Next project phase"
+              aria-label={t.caseStudy.nextPhaseAria}
               className="w-8 h-8 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white disabled:opacity-35 hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-[#FF721A]"
             >
               <ChevronRight size={14} aria-hidden="true" />
@@ -292,6 +289,12 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
   onClose,
   onSelectProject,
 }) => {
+  const { lang, t } = useLanguage();
+  const projects = t.portfolio.projects;
+  const creativeStudy = t.portfolio.creativeCaseStudy;
+  const robotStudy = t.portfolio.robotCaseStudy;
+  const geoStudy = t.portfolio.geolocationCaseStudy;
+  const timelinePhases = t.portfolio.projectTimelinePhases;
   const prefersReducedMotion = useReducedMotion();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -364,9 +367,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
   useEffect(() => {
     if (!projectId) return;
 
-    const currentIdx = PROJECTS.findIndex((p) => p.id === projectId);
-    const prevProj = PROJECTS[(currentIdx - 1 + PROJECTS.length) % PROJECTS.length];
-    const nextProj = PROJECTS[(currentIdx + 1) % PROJECTS.length];
+    const currentIdx = projects.findIndex((p) => p.id === projectId);
+    const prevProj = projects[(currentIdx - 1 + projects.length) % projects.length];
+    const nextProj = projects[(currentIdx + 1) % projects.length];
 
     const getFocusableElements = () => {
       const container = scrollContainerRef.current;
@@ -438,15 +441,15 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [projectId, onClose, onSelectProject]);
+  }, [projectId, projects, onClose, onSelectProject]);
 
   if (!projectId) return null;
 
-  const currentIndex = PROJECTS.findIndex((p) => p.id === projectId);
-  const project = PROJECTS[currentIndex] ?? PROJECTS[0];
-  const prevProject = PROJECTS[(currentIndex - 1 + PROJECTS.length) % PROJECTS.length];
-  const nextProject = PROJECTS[(currentIndex + 1) % PROJECTS.length];
-  const readingTime = getProjectReadingTime(project.id);
+  const currentIndex = projects.findIndex((p) => p.id === projectId);
+  const project = projects[currentIndex] ?? projects[0];
+  const prevProject = projects[(currentIndex - 1 + projects.length) % projects.length];
+  const nextProject = projects[(currentIndex + 1) % projects.length];
+  const readingTime = getLocalizedReadingTime(project.id, lang);
   const ringProgress = prefersReducedMotion ? scrollYProgress : smoothProgress;
 
   return (
@@ -467,7 +470,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-[#525252] dark:text-[#A3A3A3] min-w-0">
             <span className="font-mono tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] shrink-0">
-              Case Study {project.indexNumber}
+              {t.caseStudy.caseStudyPrefix} {project.indexNumber}
             </span>
             <span aria-hidden="true">·</span>
             <span className="truncate font-semibold text-[#0A0A0A] dark:text-white">
@@ -483,11 +486,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             {/* Circular Reading Depth Indicator */}
             <div
               role="progressbar"
-              aria-label="Case study reading progress"
+              aria-label={t.caseStudy.progressAria}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={readPercent}
-              title={`Reading progress: ${readPercent}%`}
+              title={`${t.caseStudy.progressTitlePrefix}: ${readPercent}%`}
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]"
             >
               <svg
@@ -525,15 +528,15 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             <InlineAudioToggle />
 
-            <div className="hidden sm:inline-flex items-center gap-1" role="group" aria-label="Switch case study">
+            <div className="hidden sm:inline-flex items-center gap-1" role="group" aria-label={t.caseStudy.switchGroupAria}>
               <button
                 type="button"
                 onClick={(e) => {
                   playMonographSwitch('prev', e.currentTarget);
                   onSelectProject(prevProject.id);
                 }}
-                aria-label={`Previous case study: ${prevProject.title}`}
-                title={`Previous (${prevProject.title}) · [`}
+                aria-label={`${t.caseStudy.prevPrefix}: ${prevProject.title}`}
+                title={`${t.caseStudy.previous} (${prevProject.title}) · [`}
                 className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
               >
                 <ChevronLeft size={16} aria-hidden="true" />
@@ -544,8 +547,8 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                   playMonographSwitch('next', e.currentTarget);
                   onSelectProject(nextProject.id);
                 }}
-                aria-label={`Next case study: ${nextProject.title}`}
-                title={`Next (${nextProject.title}) · ]`}
+                aria-label={`${t.caseStudy.nextPrefix}: ${nextProject.title}`}
+                title={`${t.caseStudy.next} (${nextProject.title}) · ]`}
                 className="w-10 h-10 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] inline-flex items-center justify-center text-[#0A0A0A] dark:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
               >
                 <ChevronRight size={16} aria-hidden="true" />
@@ -559,10 +562,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                 playModalClose();
                 onClose();
               }}
-              aria-label="Close case study (Escape)"
+              aria-label={t.caseStudy.closeAria}
               className="inline-flex items-center gap-2 min-h-[40px] px-3.5 sm:px-4 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-xs font-semibold hover:border-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              <span>Close</span>
+              <span>{t.caseStudy.close}</span>
               <X size={15} aria-hidden="true" />
             </button>
           </div>
@@ -643,7 +646,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           {/* Horizontal Project Timeline Stepper */}
           <ProjectTimelineStepper
             projectId={project.id}
-            phases={PROJECT_TIMELINE_PHASES[project.id]}
+            phases={timelinePhases[project.id]}
             prefersReducedMotion={Boolean(prefersReducedMotion)}
           />
         </header>
@@ -653,16 +656,14 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <div className="space-y-14">
             <section className="space-y-6">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-2xl font-bold">01. Creative Methodology</h2>
+                <h2 className="font-display text-2xl font-bold">{t.caseStudy.creative.sec1}</h2>
               </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3] max-w-3xl">
-                Merging the analytical approach of applied electronics engineering with the
-                expressive freedom of visual design. Every project begins on a structural grid
-                before introducing organic typography and motion.
+                {t.caseStudy.creative.sec1Intro}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {CREATIVE_CASE_STUDY.pillars.map((pillar, idx) => (
+                {creativeStudy.pillars.map((pillar, idx) => (
                   <div
                     key={pillar.title}
                     className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3"
@@ -681,27 +682,27 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             <section className="p-8 sm:p-10 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-6">
               <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                02. Core Philosophy
+                {t.caseStudy.creative.sec2}
               </p>
               <ModalTitleParallax containerRef={scrollContainerRef} range={[-6, 10]}>
                 <h2 className="font-display text-3xl font-bold">
-                  {CREATIVE_CASE_STUDY.philosophyTitle}
+                  {creativeStudy.philosophyTitle}
                 </h2>
               </ModalTitleParallax>
               <blockquote className="font-serif italic text-xl sm:text-2xl leading-relaxed text-[#0A0A0A] dark:text-white">
-                &ldquo;{CREATIVE_CASE_STUDY.philosophyStatement}&rdquo;
+                &ldquo;{creativeStudy.philosophyStatement}&rdquo;
               </blockquote>
               <p className="text-xs font-mono text-[#525252] dark:text-[#A3A3A3]">
-                Guiding Pillars: {CREATIVE_CASE_STUDY.values.join(' · ')}
+                {t.caseStudy.creative.guidingPillars} {creativeStudy.values.join(' · ')}
               </p>
             </section>
 
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-2xl font-bold">03. Studio Craft &amp; Toolkit</h2>
+                <h2 className="font-display text-2xl font-bold">{t.caseStudy.creative.sec3}</h2>
               </ModalTitleParallax>
               <div className="divide-y divide-[#E5E5E5] dark:divide-[#262626] border-y border-[#E5E5E5] dark:border-[#262626]">
-                {CREATIVE_CASE_STUDY.craftNotes.map((note) => (
+                {creativeStudy.craftNotes.map((note) => (
                   <div
                     key={note.label}
                     className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
@@ -723,17 +724,17 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <div className="space-y-14">
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-2xl font-bold">01. Abstract &amp; Context</h2>
+                <h2 className="font-display text-2xl font-bold">{t.caseStudy.robot.sec1}</h2>
               </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {ROBOT_CASE_STUDY.abstract}
+                {robotStudy.abstract}
               </p>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {ROBOT_CASE_STUDY.introduction}
+                {robotStudy.introduction}
               </p>
 
               <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {ROBOT_CASE_STUDY.subsystems.map((sub) => (
+                {robotStudy.subsystems.map((sub) => (
                   <div
                     key={sub.name}
                     className="p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]"
@@ -749,10 +750,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-2xl font-bold">02. Mission Objectives</h2>
+                <h2 className="font-display text-2xl font-bold">{t.caseStudy.robot.sec2}</h2>
               </ModalTitleParallax>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {ROBOT_CASE_STUDY.objectives.map((obj, idx) => (
+                {robotStudy.objectives.map((obj, idx) => (
                   <div
                     key={obj}
                     className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] flex items-start gap-3"
@@ -768,9 +769,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
-                <h2 className="font-display text-xl font-bold">03. Hardware Stack</h2>
+                <h2 className="font-display text-xl font-bold">{t.caseStudy.robot.sec3}</h2>
                 <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {ROBOT_CASE_STUDY.hardwareComponents.map((item) => (
+                  {robotStudy.hardwareComponents.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
                       <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
                       <span>{item}</span>
@@ -780,9 +781,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </div>
 
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
-                <h2 className="font-display text-xl font-bold">04. Software &amp; Telemetry</h2>
+                <h2 className="font-display text-xl font-bold">{t.caseStudy.robot.sec4}</h2>
                 <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {ROBOT_CASE_STUDY.softwareComponents.map((item) => (
+                  {robotStudy.softwareComponents.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
                       <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
                       <span>{item}</span>
@@ -794,36 +795,36 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
             {/* Clean Architectural Block Flow */}
             <section className="p-5 sm:p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-6">
-              <h2 className="font-display text-xl sm:text-2xl font-bold">05. System Architecture &amp; Signal Flow</h2>
+              <h2 className="font-display text-xl sm:text-2xl font-bold">{t.caseStudy.robot.sec5}</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center text-center">
                 <div className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
-                  <p className="font-mono text-xs text-[#525252] dark:text-[#A3A3A3]">Operator Console</p>
-                  <p className="mt-1 font-display font-semibold">Remote Controller / Laptop</p>
+                  <p className="font-mono text-xs text-[#525252] dark:text-[#A3A3A3]">{t.caseStudy.robot.operatorConsole}</p>
+                  <p className="mt-1 font-display font-semibold">{t.caseStudy.robot.remoteController}</p>
                 </div>
                 <div className="p-4 rounded-xl border border-[#FF721A] bg-white dark:bg-[#141414]">
-                  <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">Wireless RF / Wi-Fi Link</p>
-                  <p className="mt-1 font-display font-semibold">Microcontroller / Raspberry Pi</p>
+                  <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">{t.caseStudy.robot.wirelessLink}</p>
+                  <p className="mt-1 font-display font-semibold">{t.caseStudy.robot.mcuRpi}</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
-                    <p className="font-display text-xs font-semibold">Motors</p>
+                    <p className="font-display text-xs font-semibold">{t.caseStudy.robot.motors}</p>
                     <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">L298N</p>
                   </div>
                   <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
-                    <p className="font-display text-xs font-semibold">Camera</p>
-                    <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">Stream</p>
+                    <p className="font-display text-xs font-semibold">{t.caseStudy.robot.camera}</p>
+                    <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">{t.caseStudy.robot.cameraDetail}</p>
                   </div>
                   <div className="p-3 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414]">
-                    <p className="font-display text-xs font-semibold">Sensors</p>
+                    <p className="font-display text-xs font-semibold">{t.caseStudy.robot.sensors}</p>
                     <p className="text-[11px] text-[#525252] dark:text-[#A3A3A3]">US / IR</p>
                   </div>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-[#E5E5E5] dark:border-[#262626] space-y-3">
-                <h3 className="font-display text-lg font-semibold">Working Principle</h3>
+                <h3 className="font-display text-lg font-semibold">{t.caseStudy.robot.workingPrinciple}</h3>
                 <ol className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {ROBOT_CASE_STUDY.workingSteps.map((step, i) => (
+                  {robotStudy.workingSteps.map((step, i) => (
                     <li key={step} className="flex items-start gap-3">
                       <span className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] pt-0.5">
                         0{i + 1}.
@@ -836,7 +837,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </section>
 
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {ROBOT_CASE_STUDY.quadrants.map((quad) => (
+              {robotStudy.quadrants.map((quad) => (
                 <div
                   key={quad.title}
                   className="p-5 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3"
@@ -852,9 +853,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </section>
 
             <section className="p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
-              <h2 className="font-display text-xl font-bold">Conclusion</h2>
+              <h2 className="font-display text-xl font-bold">{t.caseStudy.robot.conclusion}</h2>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {ROBOT_CASE_STUDY.conclusion}
+                {robotStudy.conclusion}
               </p>
             </section>
           </div>
@@ -864,21 +865,21 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
           <div className="space-y-14">
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-2xl font-bold">01. Research Abstract</h2>
+                <h2 className="font-display text-2xl font-bold">{t.caseStudy.geo.sec1}</h2>
               </ModalTitleParallax>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {GEOLOCATION_CASE_STUDY.abstract}
+                {geoStudy.abstract}
               </p>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {GEOLOCATION_CASE_STUDY.introduction}
+                {geoStudy.introduction}
               </p>
             </section>
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
-                <h2 className="font-display text-xl font-bold">02. Limitations of Satellite GPS</h2>
+                <h2 className="font-display text-xl font-bold">{t.caseStudy.geo.sec2}</h2>
                 <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {GEOLOCATION_CASE_STUDY.gpsLimitations.map((item) => (
+                  {geoStudy.gpsLimitations.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
                       <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
                       <span>{item}</span>
@@ -888,9 +889,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               </div>
 
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-4">
-                <h2 className="font-display text-xl font-bold">03. Proposed RF Architecture</h2>
+                <h2 className="font-display text-xl font-bold">{t.caseStudy.geo.sec3}</h2>
                 <ul className="space-y-2.5 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {GEOLOCATION_CASE_STUDY.rfCapabilities.map((item) => (
+                  {geoStudy.rfCapabilities.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
                       <span className="font-mono text-[#C94B00] dark:text-[#FF721A]">—</span>
                       <span>{item}</span>
@@ -903,10 +904,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             {/* Operational Flow */}
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-xl sm:text-2xl font-bold">04. Localization Pipeline</h2>
+                <h2 className="font-display text-xl sm:text-2xl font-bold">{t.caseStudy.geo.sec4}</h2>
               </ModalTitleParallax>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {GEOLOCATION_CASE_STUDY.operationalFlow.map((item) => (
+                {geoStudy.operationalFlow.map((item) => (
                   <div
                     key={item.step}
                     className="p-4 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-2"
@@ -927,10 +928,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="font-display text-xl sm:text-2xl font-bold">
-                    05. Logarithmic Path-Loss Model
+                    {t.caseStudy.geo.sec5}
                   </h2>
                   <p className="mt-1 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                    Interactive signal attenuation explorer based on SX1278 LoRa RSSI calibration.
+                    {t.caseStudy.geo.sec5Sub}
                   </p>
                 </div>
                 <div className="px-4 py-2.5 rounded-lg bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] font-mono text-xs sm:text-sm tabular-nums text-[#0A0A0A] dark:text-white self-start md:self-auto">
@@ -942,10 +943,10 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                 <label className="block space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-[#525252] dark:text-[#A3A3A3]">
-                      Anchor Distance (d)
+                      {t.caseStudy.geo.anchorDistance}
                     </span>
                     <span className="font-mono tabular-nums font-semibold">
-                      {distanceMeters} m
+                      {distanceMeters} {t.caseStudy.geo.meterUnit}
                     </span>
                   </div>
                   <input
@@ -966,7 +967,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                 <label className="block space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-[#525252] dark:text-[#A3A3A3]">
-                      Environment Exponent (n)
+                      {t.caseStudy.geo.envExponent}
                     </span>
                     <span className="font-mono tabular-nums font-semibold">
                       {pathLossN.toFixed(1)}
@@ -989,7 +990,7 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
 
                 <div className="p-4 rounded-xl bg-white dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">Predicted RSSI</p>
+                    <p className="text-xs text-[#525252] dark:text-[#A3A3A3]">{t.caseStudy.geo.predictedRssi}</p>
                     <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">
                       RSSI₀ = −42 dBm @ 1 m
                     </p>
@@ -1004,19 +1005,19 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             {/* Hardware Stack Table */}
             <section className="space-y-4">
               <ModalTitleParallax containerRef={scrollContainerRef}>
-                <h2 className="font-display text-xl sm:text-2xl font-bold">06. Hardware &amp; Software Stack</h2>
+                <h2 className="font-display text-xl sm:text-2xl font-bold">{t.caseStudy.geo.sec6}</h2>
               </ModalTitleParallax>
               <div className="overflow-x-auto rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A]">
                 <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <thead>
                     <tr className="border-b border-[#E5E5E5] dark:border-[#262626] text-xs text-[#525252] dark:text-[#A3A3A3]">
-                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">Subsystem</th>
-                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">Component Model</th>
-                      <th className="py-3 px-3.5 sm:px-5 font-semibold">Role in Architecture</th>
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">{t.caseStudy.geo.colSubsystem}</th>
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold whitespace-nowrap">{t.caseStudy.geo.colModel}</th>
+                      <th className="py-3 px-3.5 sm:px-5 font-semibold">{t.caseStudy.geo.colRole}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E5E5] dark:divide-[#262626]">
-                    {GEOLOCATION_CASE_STUDY.hardwareTable.map((row) => (
+                    {geoStudy.hardwareTable.map((row) => (
                       <tr key={row.component}>
                         <td className="py-3 px-3.5 sm:px-5 font-medium whitespace-nowrap">{row.component}</td>
                         <td className="py-3 px-3.5 sm:px-5 font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A] whitespace-nowrap">
@@ -1031,32 +1032,32 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
                 </table>
               </div>
               <p className="text-xs font-mono text-[#525252] dark:text-[#A3A3A3]">
-                Software Toolchain: {GEOLOCATION_CASE_STUDY.softwareTools.join(' · ')}
+                {t.caseStudy.geo.softwareToolchain} {geoStudy.softwareTools.join(' · ')}
               </p>
             </section>
 
             {/* Applications, Advantages & Roadmap */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
-                <h3 className="font-display text-lg font-bold">Applications</h3>
+                <h3 className="font-display text-lg font-bold">{t.caseStudy.geo.applications}</h3>
                 <ul className="space-y-2 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {GEOLOCATION_CASE_STUDY.applications.map((item) => (
+                  {geoStudy.applications.map((item) => (
                     <li key={item}>· {item}</li>
                   ))}
                 </ul>
               </div>
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
-                <h3 className="font-display text-lg font-bold">System Advantages</h3>
+                <h3 className="font-display text-lg font-bold">{t.caseStudy.geo.advantages}</h3>
                 <ul className="space-y-2 text-sm text-[#525252] dark:text-[#A3A3A3]">
-                  {GEOLOCATION_CASE_STUDY.advantages.map((item) => (
+                  {geoStudy.advantages.map((item) => (
                     <li key={item}>· {item}</li>
                   ))}
                 </ul>
               </div>
               <div className="p-6 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
-                <h3 className="font-display text-lg font-bold">Future Roadmap</h3>
+                <h3 className="font-display text-lg font-bold">{t.caseStudy.geo.roadmap}</h3>
                 <div className="space-y-2.5 text-sm">
-                  {GEOLOCATION_CASE_STUDY.roadmap.map((item) => (
+                  {geoStudy.roadmap.map((item) => (
                     <div key={item.title}>
                       <p className="font-semibold text-[#0A0A0A] dark:text-white">
                         {item.title}
@@ -1069,9 +1070,9 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
             </section>
 
             <section className="p-8 rounded-2xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] space-y-3">
-              <h2 className="font-display text-xl font-bold">Conclusion</h2>
+              <h2 className="font-display text-xl font-bold">{t.caseStudy.geo.conclusion}</h2>
               <p className="text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                {GEOLOCATION_CASE_STUDY.conclusion}
+                {geoStudy.conclusion}
               </p>
             </section>
           </div>
@@ -1085,12 +1086,12 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               playMonographSwitch('prev', e.currentTarget);
               onSelectProject(prevProject.id);
             }}
-            aria-label={`Previous case study: ${prevProject.title}`}
+            aria-label={`${t.caseStudy.prevPrefix}: ${prevProject.title}`}
             className="inline-flex items-center gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >
             <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
             <div>
-              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">Previous</p>
+              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">{t.caseStudy.previous}</p>
               <p className="text-sm font-semibold">{prevProject.title}</p>
             </div>
           </button>
@@ -1101,11 +1102,11 @@ export const CaseStudyModal: React.FC<CaseStudyModalProps> = ({
               playMonographSwitch('next', e.currentTarget);
               onSelectProject(nextProject.id);
             }}
-            aria-label={`Next case study: ${nextProject.title}`}
+            aria-label={`${t.caseStudy.nextPrefix}: ${nextProject.title}`}
             className="inline-flex items-center justify-between sm:justify-end gap-3 px-5 py-3 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] transition-colors text-right focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] focus-visible:border-[#FF721A] focus-visible:ring-2 focus-visible:ring-[#FF721A]/25"
           >
             <div>
-              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">Next</p>
+              <p className="text-[11px] font-mono text-[#525252] dark:text-[#A3A3A3]">{t.caseStudy.next}</p>
               <p className="text-sm font-semibold">{nextProject.title}</p>
             </div>
             <ArrowRight size={16} className="shrink-0" aria-hidden="true" />

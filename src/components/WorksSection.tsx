@@ -11,11 +11,9 @@ import {
   useTransform,
 } from 'motion/react';
 import {
-  PROJECTS,
   ProjectCategory,
   ProjectId,
   ProjectSummary,
-  getProjectReadingTime,
 } from '../data/portfolio';
 import { SafeImage } from './SafeImage';
 import {
@@ -27,6 +25,8 @@ import {
   RfButtonFlickerText,
   RfFlickerText,
 } from './MotionPrimitives';
+import { useLanguage } from './LanguageProvider';
+import { getLocalizedReadingTime } from '../i18n/translations';
 import {
   playCardHover,
   playFilterTab,
@@ -39,12 +39,7 @@ interface WorksSectionProps {
   onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
 }
 
-const FILTER_OPTIONS: { id: ProjectCategory; label: string }[] = [
-  { id: 'all', label: 'All Works' },
-  { id: 'design', label: 'Visual Design' },
-  { id: 'robotics', label: 'Robotics & IoT' },
-  { id: 'rf', label: 'RF Systems' },
-];
+const FILTER_KEYS: ProjectCategory[] = ['all', 'design', 'robotics', 'rf'];
 
 const GRID_STAGGER_VARIANTS: Variants = {
   hidden: {},
@@ -111,6 +106,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
   prefersReducedMotion,
   onOpenProject,
 }) => {
+  const { lang, t } = useLanguage();
   const cardRef = useRef<HTMLElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -351,7 +347,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             <span className="font-mono tabular-nums">{project.year}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums text-[#0A0A0A] dark:text-white">
-              {getProjectReadingTime(project.id)}
+              {getLocalizedReadingTime(project.id, lang)}
             </span>
           </div>
 
@@ -385,9 +381,9 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
             <button
               type="button"
               onClick={(e) => onOpenProject(project.id, e.currentTarget)}
-              className="rf-btn-flicker invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+              className="rf-btn-flicker invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              <RfButtonFlickerText text="Read Case Study" />
+              <RfButtonFlickerText text={t.works.readCaseStudy} />
               <ArrowUpRight size={16} aria-hidden="true" />
             </button>
 
@@ -403,13 +399,13 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                   return next;
                 });
               }}
-              className={`w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors duration-200 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+              className={`w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors duration-200 whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                 isExpanded
                   ? 'border-[#FF721A] bg-[#FF721A] text-[#0A0A0A]'
                   : 'border-[#E5E5E5] dark:border-[#262626] bg-white dark:bg-[#141414] text-[#0A0A0A] dark:text-white hover:border-[#FF721A]'
               }`}
             >
-              <span>{isExpanded ? 'Hide Specs' : 'Expand Specs'}</span>
+              <span>{isExpanded ? t.works.hideSpecs : t.works.expandSpecs}</span>
               <motion.span
                 aria-hidden="true"
                 animate={{ rotate: isExpanded ? 180 : 0 }}
@@ -457,10 +453,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                 <div className="lg:col-span-6 space-y-3.5">
                   <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E5E5E5] dark:border-[#262626]">
                     <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                      Technical Specifications
+                      {t.works.technicalSpecs}
                     </p>
                     <span className="font-mono text-[11px] tabular-nums text-[#737373]">
-                      {String(project.specs.length).padStart(2, '0')} Parameters
+                      {String(project.specs.length).padStart(2, '0')} {t.works.parametersSuffix}
                     </span>
                   </div>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -495,10 +491,10 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
                 <div className="lg:col-span-6 space-y-3.5">
                   <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E5E5E5] dark:border-[#262626]">
                     <p className="font-mono text-xs font-semibold text-[#C94B00] dark:text-[#FF721A]">
-                      Project Constraints
+                      {t.works.projectConstraints}
                     </p>
                     <span className="font-mono text-[11px] tabular-nums text-[#737373]">
-                      {String(project.constraints.length).padStart(2, '0')} Boundaries
+                      {String(project.constraints.length).padStart(2, '0')} {t.works.boundariesSuffix}
                     </span>
                   </div>
                   <ul className="divide-y divide-[#E5E5E5] dark:divide-[#262626]">
@@ -544,6 +540,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   onChangeFilter,
   onOpenProject,
 }) => {
+  const { lang, t } = useLanguage();
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
   const [hasSwitchedFilter, setHasSwitchedFilter] = useState(false);
@@ -572,7 +569,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     sourceEl?: HTMLElement | null
   ) => {
     if (nextFilter === activeFilter) return;
-    playFilterTab(tabIndex, FILTER_OPTIONS.length, sourceEl);
+    playFilterTab(tabIndex, FILTER_KEYS.length, sourceEl);
     setHasSwitchedFilter(true);
     onChangeFilter(nextFilter);
   };
@@ -583,28 +580,29 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
   ) => {
     let nextIdx: number | null = null;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIdx = (idx + 1) % FILTER_OPTIONS.length;
+      nextIdx = (idx + 1) % FILTER_KEYS.length;
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIdx = (idx - 1 + FILTER_OPTIONS.length) % FILTER_OPTIONS.length;
+      nextIdx = (idx - 1 + FILTER_KEYS.length) % FILTER_KEYS.length;
     } else if (e.key === 'Home') {
       nextIdx = 0;
     } else if (e.key === 'End') {
-      nextIdx = FILTER_OPTIONS.length - 1;
+      nextIdx = FILTER_KEYS.length - 1;
     }
 
     if (nextIdx !== null) {
       e.preventDefault();
-      const targetOption = FILTER_OPTIONS[nextIdx];
+      const targetFilter = FILTER_KEYS[nextIdx];
       const targetEl = filterTabRefs.current[nextIdx];
-      handleFilterClick(targetOption.id, nextIdx, targetEl);
+      handleFilterClick(targetFilter, nextIdx, targetEl);
       targetEl?.focus();
     }
   };
 
+  const projects = t.portfolio.projects;
   const filteredProjects =
     activeFilter === 'all'
-      ? PROJECTS
-      : PROJECTS.filter((project) => project.filterCategory === activeFilter);
+      ? projects
+      : projects.filter((project) => project.filterCategory === activeFilter);
 
   const allowParallax = pointerFine && !prefersReducedMotion;
 
@@ -623,27 +621,28 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                 delay={0.1}
                 className="font-mono text-xs tabular-nums font-semibold text-[#C94B00] dark:text-[#FF721A] mb-2.5 sm:mb-3"
               >
-                02. Selected Works
+                {t.works.eyebrow}
               </DrawEyebrow>
               <RfFlickerText
+                key={`works-h2-${lang}`}
                 as="h2"
                 mode="heading"
                 className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
                 style={{ textWrap: 'balance' }}
-                segments={[{ text: 'Case Studies & Hardware Research' }]}
+                segments={[{ text: t.works.title }]}
               />
             </div>
 
             <div
               role="tablist"
-              aria-label="Filter projects by discipline"
+              aria-label={t.works.tabsAria}
               className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-[#F5F5F5] dark:bg-[#141414] border border-[#E5E5E5] dark:border-[#262626] self-stretch sm:self-start lg:self-auto w-full sm:w-auto"
             >
-              {FILTER_OPTIONS.map((option, idx) => {
-                const isSelected = activeFilter === option.id;
+              {FILTER_KEYS.map((filterId, idx) => {
+                const isSelected = activeFilter === filterId;
                 return (
                   <button
-                    key={option.id}
+                    key={filterId}
                     ref={(el) => {
                       filterTabRefs.current[idx] = el;
                     }}
@@ -651,9 +650,9 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                     role="tab"
                     tabIndex={isSelected ? 0 : -1}
                     aria-selected={isSelected}
-                    onClick={(e) => handleFilterClick(option.id, idx, e.currentTarget)}
+                    onClick={(e) => handleFilterClick(filterId, idx, e.currentTarget)}
                     onKeyDown={(e) => handleFilterKeyDown(e, idx)}
-                    className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
+                    className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                       isSelected
                         ? 'text-white dark:text-[#0A0A0A]'
                         : 'text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white'
@@ -670,7 +669,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                         className="absolute inset-0 rounded-lg bg-[#0A0A0A] dark:bg-[#FF721A]"
                       />
                     )}
-                    <span className="relative z-10">{option.label}</span>
+                    <span className="relative z-10">{t.works.filters[filterId]}</span>
                   </button>
                 );
               })}

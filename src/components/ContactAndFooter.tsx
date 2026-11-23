@@ -15,8 +15,10 @@ import {
   useReducedMotion,
   useSpring,
 } from 'motion/react';
-import { BRAND_LOGO_URL, PROFILE } from '../data/portfolio';
+import { BRAND_LOGO_URL } from '../data/portfolio';
+import { TranslationBundle } from '../i18n/translations';
 import { ContactGridBackground } from './ContactGridBackground';
+import { useLanguage } from './LanguageProvider';
 import {
   ARTCRAFT_EASE,
   ParallaxLayer,
@@ -64,32 +66,9 @@ const INQUIRY_KINDS: InquiryKind[] = [
   'Just a hello',
 ];
 
-const VIA_SUGGESTIONS = [
-  'LinkedIn',
-  'Instagram',
-  'Friend or Colleague',
-  'Google Search',
-  'Direct Visit',
-];
-
-const MONTHS_SHORT = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-];
-
-function formatLetterDate(date: Date): string {
+function formatLetterDate(date: Date, months: string[]): string {
   const day = String(date.getDate()).padStart(2, '0');
-  const mon = MONTHS_SHORT[date.getMonth()] ?? 'JAN';
+  const mon = months[date.getMonth()] ?? months[0] ?? '';
   const year = date.getFullYear();
   return `${day} ${mon} ${year}`;
 }
@@ -105,36 +84,42 @@ function formatReceivedStampTime(date: Date): string {
 
 const VALID_EMAIL_RE = /^[^\s@]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
-function getEmailError(value: string): string | undefined {
+type ContactErrorCopy = TranslationBundle['contact']['errors'];
+
+function getEmailError(value: string, errCopy: ContactErrorCopy): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) {
-    return 'Please include your reply email address.';
+    return errCopy.emailEmpty;
   }
   if (trimmed.length > 160) {
-    return 'Email address must be 160 characters or fewer.';
+    return errCopy.emailTooLong;
   }
   if (trimmed.includes('..') || !VALID_EMAIL_RE.test(trimmed)) {
-    return 'Enter a valid email address (e.g. you@studio.com).';
+    return errCopy.emailInvalid;
   }
   return undefined;
 }
 
-function getBodyError(value: string): string | undefined {
+function getBodyError(value: string, errCopy: ContactErrorCopy): string | undefined {
   if (!value.trim()) {
-    return 'Write a short note on what you are making.';
+    return errCopy.bodyEmpty;
   }
   if (value.length > 6000) {
-    return 'Message must be 6000 characters or fewer.';
+    return errCopy.bodyTooLong;
   }
   return undefined;
 }
 
-function getSignError(hasDrawn: boolean, typedName: string): string | undefined {
+function getSignError(
+  hasDrawn: boolean,
+  typedName: string,
+  errCopy: ContactErrorCopy
+): string | undefined {
   if (!hasDrawn && !typedName.trim()) {
-    return 'Please sign above or enter your name.';
+    return errCopy.signMissing;
   }
   if (typedName.trim().length > 120) {
-    return 'Name must be 120 characters or fewer.';
+    return errCopy.signTooLong;
   }
   return undefined;
 }
@@ -432,6 +417,9 @@ const MagneticLink: React.FC<MagneticLinkProps> = ({
 };
 
 export const ContactAndFooter: React.FC = () => {
+  const { lang, t } = useLanguage();
+  const profile = t.portfolio.profile;
+  const viaSuggestions = t.contact.viaSuggestions;
   const prefersReducedMotion = Boolean(useReducedMotion());
   const [pointerFine, setPointerFine] = useState(false);
 
@@ -457,9 +445,8 @@ export const ContactAndFooter: React.FC = () => {
   // Intake Ticket / Stamp State
   const [sentInfo, setSentInfo] = useState<{
     jobId: string;
-    receivedAt: string;
-    replyBy: string;
-    viaLabel: 'Email' | 'WhatsApp';
+    timestamp: number;
+    channel: 'Email' | 'WhatsApp';
   } | null>(null);
 
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
@@ -473,7 +460,21 @@ export const ContactAndFooter: React.FC = () => {
   const sigTriggerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const todayStr = useMemo(() => formatLetterDate(new Date()), []);
+  const todayStr = useMemo(
+    () => formatLetterDate(new Date(), t.contact.monthsFull),
+    [t.contact.monthsFull]
+  );
+
+  const sentTicket = useMemo(() => {
+    if (!sentInfo) return null;
+    const sentDate = new Date(sentInfo.timestamp);
+    const replyDate = new Date(sentInfo.timestamp + 24 * 60 * 60 * 1000);
+    return {
+      ...sentInfo,
+      receivedAt: formatReceivedStampTime(sentDate),
+      replyBy: formatLetterDate(replyDate, t.contact.monthsFull),
+    };
+  }, [sentInfo, t.contact.monthsFull]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -537,18 +538,27 @@ export const ContactAndFooter: React.FC = () => {
 
   const hasDrawnSig = signatureStrokes.length > 0;
   const isSigned = hasDrawnSig || name.trim().length > 0;
-  const isEmailValid = !getEmailError(email);
-  const isBodyValid = !getBodyError(body);
-  const isSignValid = !getSignError(hasDrawnSig, name);
+  const isEmailValid = !getEmailError(email, t.contact.errors);
+  const isBodyValid = !getBodyError(body, t.contact.errors);
+  const isSignValid = !getSignError(hasDrawnSig, name, t.contact.errors);
   const isFormValid = isEmailValid && isBodyValid && isSignValid;
+
+  // Keep already-shown validation errors synchronized when language switches
+  useEffect(() => {
+    setErrors((prev) => ({
+      email: prev.email ? getEmailError(email, t.contact.errors) : undefined,
+      body: prev.body ? getBodyError(body, t.contact.errors) : undefined,
+      sign: prev.sign ? getSignError(hasDrawnSig, name, t.contact.errors) : undefined,
+    }));
+  }, [t]);
 
   const filteredViaSuggestions = useMemo(() => {
     const query = source.trim().toLowerCase();
-    if (!query) return VIA_SUGGESTIONS;
-    const exact = VIA_SUGGESTIONS.some((item) => item.toLowerCase() === query);
-    if (exact) return VIA_SUGGESTIONS;
-    return VIA_SUGGESTIONS.filter((item) => item.toLowerCase().includes(query));
-  }, [source]);
+    if (!query) return viaSuggestions;
+    const exact = viaSuggestions.some((item) => item.toLowerCase() === query);
+    if (exact) return viaSuggestions;
+    return viaSuggestions.filter((item) => item.toLowerCase().includes(query));
+  }, [source, viaSuggestions]);
 
   const showToast = (label: string) => {
     if (copyTimerRef.current !== null) {
@@ -628,7 +638,8 @@ export const ContactAndFooter: React.FC = () => {
     const start = el.selectionStart ?? body.length;
     const end = el.selectionEnd ?? body.length;
     const selected = body.slice(start, end);
-    const placeholder = marker === '*' ? 'bold text' : 'italic text';
+    const placeholder =
+      marker === '*' ? t.contact.boldSample : t.contact.italicSample;
 
     let nextBody: string;
     let nextSelStart: number;
@@ -658,8 +669,11 @@ export const ContactAndFooter: React.FC = () => {
 
     setBody(nextBody);
     if (touched.body || hasSubmitted) {
-      setErrors((prev) => ({ ...prev, body: getBodyError(nextBody) }));
-    } else if (errors.body && !getBodyError(nextBody)) {
+      setErrors((prev) => ({
+        ...prev,
+        body: getBodyError(nextBody, t.contact.errors),
+      }));
+    } else if (errors.body && !getBodyError(nextBody, t.contact.errors)) {
       setErrors((prev) => ({ ...prev, body: undefined }));
     }
 
@@ -669,17 +683,24 @@ export const ContactAndFooter: React.FC = () => {
     });
   };
 
+  const inquiryKindLabels: Record<InquiryKind, string> = {
+    'A collaboration': t.contact.inquiryKinds.collab,
+    'Just a hello': t.contact.inquiryKinds.hello,
+  };
+  const activeKindLabel = inquiryKindLabels[kind];
+
   const getSubmissionFields = () => {
+    const d = t.contact.dispatch;
     const cleanEmail = sanitizeLine(email);
-    const cleanName = sanitizeLine(name) || '(Hand-signed)';
-    const cleanSource = sanitizeLine(source) || 'Direct visit';
+    const cleanName = sanitizeLine(name) || d.handSignedFallback;
+    const cleanSource = sanitizeLine(source) || d.directVisitFallback;
     const cleanBody = body.trim();
     const signatureMode =
       hasDrawnSig && sanitizeLine(name)
-        ? 'Hand-drawn + Typed name'
+        ? d.sigBoth
         : hasDrawnSig
-          ? 'Hand-drawn signature'
-          : 'Typed name';
+          ? d.sigDrawn
+          : d.sigTyped;
     return { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode };
   };
 
@@ -687,32 +708,38 @@ export const ContactAndFooter: React.FC = () => {
     channel: 'Email' | 'WhatsApp',
     ticket: { jobId: string; receivedAt: string; replyBy: string }
   ) => {
+    const d = t.contact.dispatch;
     const { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode } =
       getSubmissionFields();
+    const senderHeadingName =
+      lang === 'en' ? profile.name.toUpperCase() : profile.name;
+    const headerTitle = `${d.titlePrefix} — ${senderHeadingName}`;
+    const channelLabel =
+      channel === 'WhatsApp' ? d.channelWhatsapp : d.channelEmail;
 
     if (channel === 'WhatsApp') {
       return [
-        `*PORTFOLIO CORRESPONDENCE — ${PROFILE.name.toUpperCase()}*`,
-        '_Project Inquiry & Collaboration Dispatch_',
+        `*${headerTitle}*`,
+        `_${d.subtitle}_`,
         '────────────────────────',
         '',
-        '*DISPATCH SUMMARY*',
-        `• *Reference ID:* ${ticket.jobId}`,
-        `• *Submitted:* ${todayStr} · ${ticket.receivedAt} IST`,
-        `• *Target Reply:* ${ticket.replyBy}`,
-        `• *Channel:* WhatsApp`,
+        `*${d.summaryHeading}*`,
+        `• *${d.refId}:* ${ticket.jobId}`,
+        `• *${d.submitted}:* ${todayStr} · ${ticket.receivedAt} ${d.timezone}`,
+        `• *${d.targetReply}:* ${ticket.replyBy}`,
+        `• *${d.channel}:* ${channelLabel}`,
         '',
-        '*CORRESPONDENT DETAILS*',
-        `• *Subject (RE):* ${kind}`,
-        `• *Name:* ${cleanName}`,
-        `• *Reply Email:* ${cleanEmail}`,
-        `• *Referral (VIA):* ${cleanSource}`,
-        `• *Signature:* _${signatureMode}_`,
+        `*${d.detailsHeading}*`,
+        `• *${d.subject}:* ${activeKindLabel}`,
+        `• *${d.name}:* ${cleanName}`,
+        `• *${d.replyEmail}:* ${cleanEmail}`,
+        `• *${d.referral}:* ${cleanSource}`,
+        `• *${d.signature}:* _${signatureMode}_`,
         '',
-        '*MESSAGE*',
+        `*${d.messageHeading}*`,
         cleanBody,
         '',
-        '_Sincerely,_',
+        `_${t.contact.sincerely}_`,
         `*${cleanName}*`,
       ].join('\n');
     }
@@ -720,29 +747,29 @@ export const ContactAndFooter: React.FC = () => {
     const formattedMessageBody = formatInlineEmailText(cleanBody);
 
     return [
-      toUnicodeBold(`PORTFOLIO CORRESPONDENCE — ${PROFILE.name.toUpperCase()}`),
-      toUnicodeItalic('Project Inquiry & Collaboration Dispatch'),
+      toUnicodeBold(headerTitle),
+      toUnicodeItalic(d.subtitle),
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '',
-      toUnicodeBold('DISPATCH SUMMARY'),
-      `• ${toUnicodeBold('Reference ID')}   : ${ticket.jobId}`,
-      `• ${toUnicodeBold('Submitted')}      : ${todayStr} · ${ticket.receivedAt} IST`,
-      `• ${toUnicodeBold('Target Reply')}   : ${ticket.replyBy}`,
-      `• ${toUnicodeBold('Channel')}        : ${channel}`,
+      toUnicodeBold(d.summaryHeading),
+      `• ${toUnicodeBold(d.refId)}: ${ticket.jobId}`,
+      `• ${toUnicodeBold(d.submitted)}: ${todayStr} · ${ticket.receivedAt} ${d.timezone}`,
+      `• ${toUnicodeBold(d.targetReply)}: ${ticket.replyBy}`,
+      `• ${toUnicodeBold(d.channel)}: ${channelLabel}`,
       '',
-      toUnicodeBold('CORRESPONDENT DETAILS'),
-      `• ${toUnicodeBold('Subject (RE)')}   : ${kind}`,
-      `• ${toUnicodeBold('Name')}           : ${cleanName}`,
-      `• ${toUnicodeBold('Reply Email')}    : ${cleanEmail}`,
-      `• ${toUnicodeBold('Referral (VIA)')} : ${cleanSource}`,
-      `• ${toUnicodeBold('Signature')}      : ${toUnicodeItalic(signatureMode)}`,
+      toUnicodeBold(d.detailsHeading),
+      `• ${toUnicodeBold(d.subject)}: ${activeKindLabel}`,
+      `• ${toUnicodeBold(d.name)}: ${cleanName}`,
+      `• ${toUnicodeBold(d.replyEmail)}: ${cleanEmail}`,
+      `• ${toUnicodeBold(d.referral)}: ${cleanSource}`,
+      `• ${toUnicodeBold(d.signature)}: ${toUnicodeItalic(signatureMode)}`,
       '',
-      toUnicodeBold('MESSAGE'),
+      toUnicodeBold(d.messageHeading),
       '────────────────────────────────────────────',
       formattedMessageBody,
       '────────────────────────────────────────────',
       '',
-      toUnicodeItalic('Sincerely,'),
+      toUnicodeItalic(t.contact.sincerely),
       toUnicodeBold(cleanName),
       cleanEmail,
     ].join('\r\n');
@@ -752,32 +779,39 @@ export const ContactAndFooter: React.FC = () => {
     channel: 'Email' | 'WhatsApp',
     ticket: { jobId: string; receivedAt: string; replyBy: string }
   ) => {
+    const d = t.contact.dispatch;
     const { cleanEmail, cleanName, cleanSource, cleanBody, signatureMode } =
       getSubmissionFields();
+    const senderHeadingName =
+      lang === 'en' ? profile.name.toUpperCase() : profile.name;
+    const channelLabel =
+      channel === 'WhatsApp' ? d.channelWhatsapp : d.channelEmail;
+    const headingCaseStyle =
+      lang === 'en' ? 'letter-spacing:0.06em;text-transform:uppercase;' : '';
 
     return [
       `<div style="font-family:Inter,Arial,sans-serif;color:#111111;line-height:1.6;max-width:600px;">`,
-      `<p style="margin:0;font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">PORTFOLIO CORRESPONDENCE &mdash; ${escapeHtml(PROFILE.name.toUpperCase())}</p>`,
-      `<p style="margin:2px 0 12px;font-size:12px;color:#525252;"><em>Project Inquiry &amp; Collaboration Dispatch</em></p>`,
+      `<p style="margin:0;font-size:14px;font-weight:700;${headingCaseStyle}">${escapeHtml(d.titlePrefix)} &mdash; ${escapeHtml(senderHeadingName)}</p>`,
+      `<p style="margin:2px 0 12px;font-size:12px;color:#525252;"><em>${escapeHtml(d.subtitle)}</em></p>`,
       `<hr style="border:none;border-top:2px solid #111111;margin:0 0 14px;" />`,
-      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">DISPATCH SUMMARY</p>`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;${headingCaseStyle}">${escapeHtml(d.summaryHeading)}</p>`,
       `<p style="margin:0 0 12px;font-size:13px;">`,
-      `<strong>Reference ID:</strong> ${escapeHtml(ticket.jobId)}<br/>`,
-      `<strong>Submitted:</strong> ${escapeHtml(todayStr)} &middot; ${escapeHtml(ticket.receivedAt)} IST<br/>`,
-      `<strong>Target Reply:</strong> ${escapeHtml(ticket.replyBy)}<br/>`,
-      `<strong>Channel:</strong> ${escapeHtml(channel)}`,
+      `<strong>${escapeHtml(d.refId)}:</strong> ${escapeHtml(ticket.jobId)}<br/>`,
+      `<strong>${escapeHtml(d.submitted)}:</strong> ${escapeHtml(todayStr)} &middot; ${escapeHtml(ticket.receivedAt)} ${escapeHtml(d.timezone)}<br/>`,
+      `<strong>${escapeHtml(d.targetReply)}:</strong> ${escapeHtml(ticket.replyBy)}<br/>`,
+      `<strong>${escapeHtml(d.channel)}:</strong> ${escapeHtml(channelLabel)}`,
       `</p>`,
-      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">CORRESPONDENT DETAILS</p>`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;${headingCaseStyle}">${escapeHtml(d.detailsHeading)}</p>`,
       `<p style="margin:0 0 12px;font-size:13px;">`,
-      `<strong>Subject (RE):</strong> ${escapeHtml(kind)}<br/>`,
-      `<strong>Name:</strong> ${escapeHtml(cleanName)}<br/>`,
-      `<strong>Reply Email:</strong> ${escapeHtml(cleanEmail)}<br/>`,
-      `<strong>Referral (VIA):</strong> ${escapeHtml(cleanSource)}<br/>`,
-      `<strong>Signature:</strong> <em>${escapeHtml(signatureMode)}</em>`,
+      `<strong>${escapeHtml(d.subject)}:</strong> ${escapeHtml(activeKindLabel)}<br/>`,
+      `<strong>${escapeHtml(d.name)}:</strong> ${escapeHtml(cleanName)}<br/>`,
+      `<strong>${escapeHtml(d.replyEmail)}:</strong> ${escapeHtml(cleanEmail)}<br/>`,
+      `<strong>${escapeHtml(d.referral)}:</strong> ${escapeHtml(cleanSource)}<br/>`,
+      `<strong>${escapeHtml(d.signature)}:</strong> <em>${escapeHtml(signatureMode)}</em>`,
       `</p>`,
-      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">MESSAGE</p>`,
+      `<p style="margin:0 0 6px;font-size:12px;font-weight:700;${headingCaseStyle}">${escapeHtml(d.messageHeading)}</p>`,
       `<div style="border-top:1px solid #d4d4d4;border-bottom:1px solid #d4d4d4;padding:10px 0;margin:0 0 14px;font-size:14px;">${formatInlineHtml(cleanBody)}</div>`,
-      `<p style="margin:0;font-size:13px;"><em>Sincerely,</em><br/><strong>${escapeHtml(cleanName)}</strong><br/>${escapeHtml(cleanEmail)}</p>`,
+      `<p style="margin:0;font-size:13px;"><em>${escapeHtml(t.contact.sincerely)}</em><br/><strong>${escapeHtml(cleanName)}</strong><br/>${escapeHtml(cleanEmail)}</p>`,
       `</div>`,
     ].join('');
   };
@@ -786,9 +820,9 @@ export const ContactAndFooter: React.FC = () => {
     setHasSubmitted(true);
     setTouched({ email: true, body: true, sign: true });
 
-    const emailErr = getEmailError(email);
-    const bodyErr = getBodyError(body);
-    const signErr = getSignError(hasDrawnSig, name);
+    const emailErr = getEmailError(email, t.contact.errors);
+    const bodyErr = getBodyError(body, t.contact.errors);
+    const signErr = getSignError(hasDrawnSig, name, t.contact.errors);
 
     const next: FormErrors = {};
     if (emailErr) next.email = emailErr;
@@ -808,18 +842,20 @@ export const ContactAndFooter: React.FC = () => {
     return Object.keys(next).length === 0;
   };
 
-  const stampAndLogTicket = (viaLabel: 'Email' | 'WhatsApp') => {
+  const stampAndLogTicket = (channel: 'Email' | 'WhatsApp') => {
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const timestamp = now.getTime();
+    const tomorrow = new Date(timestamp + 24 * 60 * 60 * 1000);
     const seq = String((now.getMinutes() % 89) + 10);
-    const ticket = {
-      jobId: `AP-${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}-${seq}`,
+    const jobId = `AP-${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}-${seq}`;
+    setSentInfo({ jobId, timestamp, channel });
+    return {
+      jobId,
+      timestamp,
+      channel,
       receivedAt: formatReceivedStampTime(now),
-      replyBy: formatLetterDate(tomorrow),
-      viaLabel,
+      replyBy: formatLetterDate(tomorrow, t.contact.monthsFull),
     };
-    setSentInfo(ticket);
-    return ticket;
   };
 
   const handleSendLetter = (e: React.FormEvent<HTMLFormElement>) => {
@@ -830,11 +866,11 @@ export const ContactAndFooter: React.FC = () => {
     playNavSelect(e.currentTarget);
     const ticket = stampAndLogTicket('Email');
     const senderLabel = sanitizeLine(name) || sanitizeLine(email);
-    const subject = encodeURIComponent(`[${kind}] ${ticket.jobId} — ${senderLabel}`);
+    const subject = encodeURIComponent(`[${activeKindLabel}] ${ticket.jobId} — ${senderLabel}`);
     const mailBody = encodeURIComponent(buildFormattedSubmission('Email', ticket));
 
     const anchor = document.createElement('a');
-    anchor.href = `mailto:${PROFILE.email}?subject=${subject}&body=${mailBody}`;
+    anchor.href = `mailto:${profile.email}?subject=${subject}&body=${mailBody}`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -847,7 +883,7 @@ export const ContactAndFooter: React.FC = () => {
     playNavSelect(e.currentTarget);
     const ticket = stampAndLogTicket('WhatsApp');
     const text = encodeURIComponent(buildFormattedSubmission('WhatsApp', ticket));
-    const waUrl = `${PROFILE.whatsappHref}?text=${text}`;
+    const waUrl = `${profile.whatsappHref}?text=${text}`;
 
     // Open in a new tab via anchor click so iframe/SPA hosts never navigate into blocked frames
     const anchor = document.createElement('a');
@@ -860,13 +896,17 @@ export const ContactAndFooter: React.FC = () => {
   };
 
   const handleKeepCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const activeTicket = sentInfo ?? {
+    const activeTicket = sentTicket ?? {
       jobId: 'DRAFT',
+      timestamp: Date.now(),
+      channel: 'Email' as const,
       receivedAt: formatReceivedStampTime(new Date()),
-      replyBy: formatLetterDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
-      viaLabel: 'Email' as const,
+      replyBy: formatLetterDate(
+        new Date(Date.now() + 24 * 60 * 60 * 1000),
+        t.contact.monthsFull
+      ),
     };
-    const channel = activeTicket.viaLabel === 'WhatsApp' ? 'WhatsApp' : 'Email';
+    const channel = activeTicket.channel;
     const transcript = buildFormattedSubmission(channel, activeTicket);
     const htmlTranscript = buildFormattedHtmlSubmission(channel, activeTicket);
     const ok = await copyFormattedToClipboard(
@@ -874,7 +914,7 @@ export const ContactAndFooter: React.FC = () => {
       htmlTranscript,
       e.currentTarget
     );
-    if (ok) showToast('Formatted copy saved to clipboard');
+    if (ok) showToast(t.contact.toastCopySaved);
   };
 
   const handleResetLetter = () => {
@@ -888,12 +928,12 @@ export const ContactAndFooter: React.FC = () => {
   };
 
   const stubStatus = sentInfo
-    ? 'RECEIVED'
+    ? t.contact.ticket.statuses.received
     : isFormValid
-      ? 'READY TO SEND'
+      ? t.contact.ticket.statuses.ready
       : isSigned
-        ? 'SIGNED · DRAFT'
-        : 'BEING WRITTEN';
+        ? t.contact.ticket.statuses.signedDraft
+        : t.contact.ticket.statuses.writing;
 
   return (
     <>
@@ -906,26 +946,23 @@ export const ContactAndFooter: React.FC = () => {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 space-y-10 sm:space-y-12">
           {/* Editorial Section Header */}
           <div className="max-w-2xl space-y-3">
-            <SectionChoreoHeader eyebrow="04. Connection">
+            <SectionChoreoHeader eyebrow={t.contact.eyebrow}>
               <RfFlickerText
+                key={`contact-h2-${lang}`}
                 as="h2"
                 mode="heading"
                 className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#0A0A0A] dark:text-white"
                 style={{ textWrap: 'balance' }}
-                segments={[
-                  { text: "Let's build something " },
-                  {
-                    text: 'meaningful',
-                    className:
-                      'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]',
-                  },
-                  { text: ' together.' },
-                ]}
+                segments={t.contact.headlineSegments.map((seg) => ({
+                  text: seg.text,
+                  className: seg.accent
+                    ? 'font-serif italic font-medium text-[#C94B00] dark:text-[#FF721A]'
+                    : undefined,
+                }))}
               />
             </SectionChoreoHeader>
             <p className="text-sm sm:text-base leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-              Compose a short note on the desk below, sign it by hand or name, and dispatch it
-              directly via email or WhatsApp.
+              {t.contact.intro}
             </p>
           </div>
 
@@ -936,7 +973,7 @@ export const ContactAndFooter: React.FC = () => {
               <motion.form
                 onSubmit={handleSendLetter}
                 noValidate
-                aria-label="Project inquiry letter"
+                aria-label={t.contact.formAria}
                 initial={
                   prefersReducedMotion
                     ? false
@@ -952,7 +989,7 @@ export const ContactAndFooter: React.FC = () => {
                   aria-hidden="true"
                   className="pointer-events-none absolute -left-[9999px] top-auto w-px h-px overflow-hidden opacity-0"
                 >
-                  <label htmlFor="contact-website-trap">Website</label>
+                  <label htmlFor="contact-website-trap">{t.contact.websiteTrap}</label>
                   <input
                     id="contact-website-trap"
                     type="text"
@@ -970,7 +1007,7 @@ export const ContactAndFooter: React.FC = () => {
                     <div className="shrink-0">
                       <img
                         src={BRAND_LOGO_URL}
-                        alt={PROFILE.name}
+                        alt={profile.name}
                         loading="lazy"
                         decoding="async"
                         referrerPolicy="no-referrer"
@@ -979,20 +1016,20 @@ export const ContactAndFooter: React.FC = () => {
                     </div>
                     <div className="min-w-0 leading-[1.45]">
                       <p className="font-display text-base sm:text-lg font-semibold tracking-tight text-[#0A0A0A] dark:text-white">
-                        {PROFILE.name}
+                        {profile.name}
                       </p>
                       <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
-                        {PROFILE.role}
+                        {profile.role}
                       </p>
                       <p className="text-[11px] uppercase tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] break-words">
                         <a
-                          href={`mailto:${PROFILE.email}`}
+                          href={`mailto:${profile.email}`}
                           className="hover:text-[#C94B00] dark:hover:text-[#FF721A] hover:underline underline-offset-4 transition-colors"
                         >
-                          {PROFILE.email}
+                          {profile.email}
                         </a>
                         {' · '}
-                        {PROFILE.location}
+                        {profile.location}
                       </p>
                     </div>
                   </header>
@@ -1002,17 +1039,17 @@ export const ContactAndFooter: React.FC = () => {
                     {todayStr}
                   </p>
                   <p className="mt-1.5 text-[15px] font-medium text-[#0A0A0A] dark:text-white">
-                    Dear {PROFILE.shortName},
+                    {t.contact.dearPrefix} {profile.shortName},
                   </p>
 
                   {/* RE :: Inquiry Type Radio Selector */}
                   <fieldset className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-2 border-0 p-0">
-                    <legend className="sr-only">Inquiry subject</legend>
+                    <legend className="sr-only">{t.contact.inquirySubjectSrOnly}</legend>
                     <span
                       aria-hidden="true"
                       className="text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] mr-1"
                     >
-                      RE ::
+                      {t.contact.fields.re}
                     </span>
                     {INQUIRY_KINDS.map((option) => {
                       const selected = kind === option;
@@ -1040,7 +1077,9 @@ export const ContactAndFooter: React.FC = () => {
                           >
                             {selected ? '[X]' : '[ ]'}
                           </span>
-                          <span className={selected ? 'font-semibold' : ''}>{option}</span>
+                          <span className={selected ? 'font-semibold' : ''}>
+                            {inquiryKindLabels[option]}
+                          </span>
                         </label>
                       );
                     })}
@@ -1049,8 +1088,12 @@ export const ContactAndFooter: React.FC = () => {
                   {/* FROM :: Email Field */}
                   <div className="mt-3">
                     <label className="group/field relative flex items-baseline gap-3 pb-0.5">
-                      <span className="flex-none min-w-[4.8em] text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
-                        FROM ::
+                      <span
+                        className={`flex-none text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] ${
+                          lang === 'ml' ? 'min-w-[5.8em]' : 'min-w-[4.8em]'
+                        }`}
+                      >
+                        {t.contact.fields.from}
                       </span>
                       <input
                         ref={emailInputRef}
@@ -1065,26 +1108,35 @@ export const ContactAndFooter: React.FC = () => {
                           const nextVal = e.target.value;
                           setEmail(nextVal);
                           if (touched.email || hasSubmitted) {
-                            setErrors((prev) => ({ ...prev, email: getEmailError(nextVal) }));
-                          } else if (errors.email && !getEmailError(nextVal)) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              email: getEmailError(nextVal, t.contact.errors),
+                            }));
+                          } else if (
+                            errors.email &&
+                            !getEmailError(nextVal, t.contact.errors)
+                          ) {
                             setErrors((prev) => ({ ...prev, email: undefined }));
                           }
                         }}
                         onBlur={() => {
                           if (sentInfo) return;
                           setTouched((prev) => ({ ...prev, email: true }));
-                          setErrors((prev) => ({ ...prev, email: getEmailError(email) }));
+                          setErrors((prev) => ({
+                            ...prev,
+                            email: getEmailError(email, t.contact.errors),
+                          }));
                         }}
-                        placeholder="you@studio.com"
+                        placeholder={t.contact.fromPlaceholder}
                         className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
                       {isEmailValid && !errors.email && (
                         <span
-                          aria-label="Valid email"
+                          aria-label={t.contact.validEmailAria}
                           className="shrink-0 inline-flex items-center gap-1 text-[10px] tracking-[0.06em] uppercase text-emerald-700 dark:text-emerald-400"
                         >
                           <Check size={11} aria-hidden="true" />
-                          <span>valid</span>
+                          <span>{t.contact.validBadge}</span>
                         </span>
                       )}
                       <span
@@ -1122,8 +1174,12 @@ export const ContactAndFooter: React.FC = () => {
                     }}
                   >
                     <label className="group/field relative flex items-baseline gap-3 pb-0.5">
-                      <span className="flex-none min-w-[4.8em] text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]">
-                        VIA ::
+                      <span
+                        className={`flex-none text-[11px] tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3] ${
+                          lang === 'ml' ? 'min-w-[5.8em]' : 'min-w-[4.8em]'
+                        }`}
+                      >
+                        {t.contact.fields.via}
                       </span>
                       <input
                         ref={viaInputRef}
@@ -1190,13 +1246,17 @@ export const ContactAndFooter: React.FC = () => {
                             setViaActiveIndex(-1);
                           }
                         }}
-                        placeholder="A friend, LinkedIn, Instagram, a search… (optional)"
+                        placeholder={t.contact.viaPlaceholder}
                         className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                       />
                       {!sentInfo && (
                         <button
                           type="button"
-                          aria-label={viaOpen ? 'Hide referral suggestions' : 'Show referral suggestions'}
+                          aria-label={
+                            viaOpen
+                              ? t.contact.hideSuggestionsAria
+                              : t.contact.showSuggestionsAria
+                          }
                           aria-expanded={viaOpen}
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
@@ -1211,7 +1271,7 @@ export const ContactAndFooter: React.FC = () => {
                           }}
                           className="shrink-0 inline-flex items-center gap-1 text-[10px] tracking-[0.06em] uppercase text-[#737373] dark:text-[#A3A3A3] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                         >
-                          <span>suggestions</span>
+                          <span>{t.contact.suggestions}</span>
                           <ChevronDown
                             size={11}
                             aria-hidden="true"
@@ -1232,7 +1292,7 @@ export const ContactAndFooter: React.FC = () => {
                         <motion.ul
                           id={viaListboxId}
                           role="listbox"
-                          aria-label="Referral source suggestions"
+                          aria-label={t.contact.viaListboxAria}
                           initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
@@ -1282,7 +1342,7 @@ export const ContactAndFooter: React.FC = () => {
                       errors.body ? 'letter-ruled-paper-error' : ''
                     }`}
                   >
-                    <span className="sr-only">The letter</span>
+                    <span className="sr-only">{t.contact.letterSrOnly}</span>
                     <textarea
                       ref={textareaRef}
                       name="body"
@@ -1297,15 +1357,24 @@ export const ContactAndFooter: React.FC = () => {
                         const nextVal = e.target.value;
                         setBody(nextVal);
                         if (touched.body || hasSubmitted) {
-                          setErrors((prev) => ({ ...prev, body: getBodyError(nextVal) }));
-                        } else if (errors.body && !getBodyError(nextVal)) {
+                          setErrors((prev) => ({
+                            ...prev,
+                            body: getBodyError(nextVal, t.contact.errors),
+                          }));
+                        } else if (
+                          errors.body &&
+                          !getBodyError(nextVal, t.contact.errors)
+                        ) {
                           setErrors((prev) => ({ ...prev, body: undefined }));
                         }
                       }}
                       onBlur={() => {
                         if (sentInfo) return;
                         setTouched((prev) => ({ ...prev, body: true }));
-                        setErrors((prev) => ({ ...prev, body: getBodyError(body) }));
+                        setErrors((prev) => ({
+                          ...prev,
+                          body: getBodyError(body, t.contact.errors),
+                        }));
                       }}
                       onKeyDown={(e) => {
                         if (sentInfo) return;
@@ -1317,7 +1386,7 @@ export const ContactAndFooter: React.FC = () => {
                           applyBodyFormat('_');
                         }
                       }}
-                      placeholder="What are we making?"
+                      placeholder={t.contact.bodyPlaceholder}
                       className="block w-full min-h-[180px] resize-none overflow-hidden bg-transparent border-0 outline-none p-0 text-base sm:text-[14px] leading-[30px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373]"
                     />
                   </label>
@@ -1338,14 +1407,14 @@ export const ContactAndFooter: React.FC = () => {
                       <div className="inline-flex items-center gap-2 shrink-0">
                         <div
                           role="group"
-                          aria-label="Message text formatting"
+                          aria-label={t.contact.formattingAria}
                           className="inline-flex items-center gap-1"
                         >
                           <button
                             type="button"
                             onClick={() => applyBodyFormat('*')}
-                            title="Bold selection (*text*, Ctrl+B)"
-                            aria-label="Bold selected text"
+                            title={t.contact.boldTitle}
+                            aria-label={t.contact.boldAria}
                             className="inline-flex items-center justify-center w-6 h-6 rounded border border-[#1A1A1A]/15 dark:border-white/15 text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
                             <Bold size={11} aria-hidden="true" />
@@ -1353,8 +1422,8 @@ export const ContactAndFooter: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => applyBodyFormat('_')}
-                            title="Italic selection (_text_, Ctrl+I)"
-                            aria-label="Italicize selected text"
+                            title={t.contact.italicTitle}
+                            aria-label={t.contact.italicAria}
                             className="inline-flex items-center justify-center w-6 h-6 rounded border border-[#1A1A1A]/15 dark:border-white/15 text-[#525252] dark:text-[#A3A3A3] hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
                             <Italic size={11} aria-hidden="true" />
@@ -1371,14 +1440,14 @@ export const ContactAndFooter: React.FC = () => {
 
                   {/* Closing + Signature Pad Box */}
                   <p className="mt-6 text-[15px] font-medium text-[#0A0A0A] dark:text-white">
-                    Sincerely,
+                    {t.contact.sincerely}
                   </p>
 
                   <div
                     ref={sigTriggerRef}
                     role="button"
                     tabIndex={sentInfo ? -1 : 0}
-                    aria-label="Sign your name"
+                    aria-label={t.contact.signAria}
                     aria-haspopup="dialog"
                     aria-disabled={Boolean(sentInfo)}
                     onClick={() => {
@@ -1407,7 +1476,7 @@ export const ContactAndFooter: React.FC = () => {
                         hasDrawnSig ? 'opacity-0' : 'opacity-80'
                       }`}
                     >
-                      sign here (click or tap)
+                      {t.contact.signHint}
                     </span>
                   </div>
 
@@ -1421,7 +1490,7 @@ export const ContactAndFooter: React.FC = () => {
                       maxLength={120}
                       readOnly={Boolean(sentInfo)}
                       value={name}
-                      aria-label="Your name"
+                      aria-label={t.contact.yourNameAria}
                       aria-invalid={Boolean(errors.sign)}
                       aria-describedby={errors.sign ? 'letter-note-sign' : undefined}
                       onChange={(e) => {
@@ -1430,9 +1499,12 @@ export const ContactAndFooter: React.FC = () => {
                         if (touched.sign || hasSubmitted) {
                           setErrors((prev) => ({
                             ...prev,
-                            sign: getSignError(hasDrawnSig, nextName),
+                            sign: getSignError(hasDrawnSig, nextName, t.contact.errors),
                           }));
-                        } else if (errors.sign && !getSignError(hasDrawnSig, nextName)) {
+                        } else if (
+                          errors.sign &&
+                          !getSignError(hasDrawnSig, nextName, t.contact.errors)
+                        ) {
                           setErrors((prev) => ({ ...prev, sign: undefined }));
                         }
                       }}
@@ -1441,10 +1513,10 @@ export const ContactAndFooter: React.FC = () => {
                         setTouched((prev) => ({ ...prev, sign: true }));
                         setErrors((prev) => ({
                           ...prev,
-                          sign: getSignError(hasDrawnSig, name),
+                          sign: getSignError(hasDrawnSig, name, t.contact.errors),
                         }));
                       }}
-                      placeholder="Your name"
+                      placeholder={t.contact.yourNamePlaceholder}
                       className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0 text-base sm:text-[13px] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#737373] focus:underline decoration-[#FF721A] underline-offset-4"
                     />
 
@@ -1456,13 +1528,13 @@ export const ContactAndFooter: React.FC = () => {
                           if (touched.sign || hasSubmitted) {
                             setErrors((prev) => ({
                               ...prev,
-                              sign: getSignError(false, name),
+                              sign: getSignError(false, name, t.contact.errors),
                             }));
                           }
                         }}
                         className="text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                       >
-                        clear signature
+                        {t.contact.clearSignature}
                       </button>
                     )}
                   </div>
@@ -1479,7 +1551,7 @@ export const ContactAndFooter: React.FC = () => {
 
                   {/* Rubber Stamp / Seal on Dispatch — flows cleanly below signature on mobile, floats right on sm+ */}
                   <AnimatePresence>
-                    {sentInfo && (
+                    {sentTicket && (
                       <motion.div
                         aria-hidden="true"
                         initial={
@@ -1490,16 +1562,25 @@ export const ContactAndFooter: React.FC = () => {
                         animate={{ opacity: 0.94, scale: 1, rotate: -7 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.34, ease: ARTCRAFT_EASE }}
-                        className="pointer-events-none mt-6 ml-auto w-40 sm:mt-0 sm:ml-0 sm:absolute sm:right-10 sm:bottom-28 lg:bottom-32 sm:w-44 select-none z-10"
+                        className={`pointer-events-none mt-6 ml-auto sm:mt-0 sm:ml-0 sm:absolute sm:right-10 sm:bottom-28 lg:bottom-32 select-none z-10 ${
+                          lang === 'ml' ? 'w-44 sm:w-48' : 'w-40 sm:w-44'
+                        }`}
                       >
                         <div className="border-2 border-[#C94B00] dark:border-[#FF721A] bg-[#C94B00]/[0.05] dark:bg-[#FF721A]/[0.08] p-1 text-[#C94B00] dark:text-[#FF721A]">
                           <div className="border border-current/60 px-2.5 py-1.5 text-center tracking-[0.1em]">
-                            <p className="text-[9px] font-bold leading-tight">AADESH PS · PRESS</p>
+                            <p className="text-[9px] font-bold leading-tight">{t.contact.stampBrand}</p>
                             <p className="text-xs sm:text-sm font-extrabold tracking-[0.16em] border-y border-current my-1 py-0.5 leading-tight">
-                              DISPATCHED
+                              {t.contact.stampDispatched}
                             </p>
                             <p className="text-[9px] tabular-nums leading-tight">
-                              {sentInfo.jobId} · {sentInfo.viaLabel.toUpperCase()}
+                              {sentTicket.jobId} ·{' '}
+                              {sentTicket.channel === 'WhatsApp'
+                                ? lang === 'en'
+                                  ? t.contact.dispatch.channelWhatsapp.toUpperCase()
+                                  : t.contact.dispatch.channelWhatsapp
+                                : lang === 'en'
+                                  ? t.contact.dispatch.channelEmail.toUpperCase()
+                                  : t.contact.dispatch.channelEmail}
                             </p>
                           </div>
                         </div>
@@ -1510,7 +1591,7 @@ export const ContactAndFooter: React.FC = () => {
                   {/* Footer Status + Dispatch Buttons */}
                   <div className="mt-8 sm:mt-9 pt-4 border-t border-[#1A1A1A]/15 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <p className="text-[11px] tracking-[0.06em] uppercase leading-relaxed text-[#525252] dark:text-[#A3A3A3]">
-                      ONE REPLY, NO NEWSLETTER ·{' '}
+                      {t.contact.replyPromise} ·{' '}
                       <span
                         aria-live="polite"
                         className={
@@ -1520,12 +1601,12 @@ export const ContactAndFooter: React.FC = () => {
                         }
                       >
                         {sentInfo
-                          ? 'RECEIVED'
+                          ? t.contact.letterStatuses.received
                           : isFormValid
-                            ? 'READY TO SEND'
+                            ? t.contact.letterStatuses.ready
                             : isSigned
-                              ? 'SIGNED'
-                              : 'NOT YET SIGNED'}
+                              ? t.contact.letterStatuses.signed
+                              : t.contact.letterStatuses.unsigned}
                       </span>
                     </p>
 
@@ -1539,7 +1620,7 @@ export const ContactAndFooter: React.FC = () => {
                             className="rf-btn-flicker min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-[#0A0A0A] text-white dark:bg-[#FF721A] dark:text-[#0A0A0A] text-xs font-bold tracking-[0.04em] hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#E56212] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
                             <Mail size={14} aria-hidden="true" />
-                            <RfButtonFlickerText text="Send it" />
+                            <RfButtonFlickerText text={t.contact.sendIt} />
                           </motion.button>
 
                           <motion.button
@@ -1550,7 +1631,7 @@ export const ContactAndFooter: React.FC = () => {
                             className="rf-btn-flicker min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-[#1A1A1A]/25 dark:border-white/20 bg-white/60 dark:bg-[#1A1A1A] text-xs font-semibold text-[#0A0A0A] dark:text-white hover:border-[#FF721A] hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
                             <MessageSquare size={14} aria-hidden="true" />
-                            <RfButtonFlickerText text="WhatsApp" />
+                            <RfButtonFlickerText text={t.contact.whatsapp} />
                           </motion.button>
                         </>
                       ) : (
@@ -1560,14 +1641,14 @@ export const ContactAndFooter: React.FC = () => {
                             onClick={handleKeepCopy}
                             className="min-h-[40px] px-2 text-[11px] tracking-[0.06em] uppercase underline underline-offset-4 text-[#0A0A0A] dark:text-white hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
-                            Keep a copy
+                            {t.contact.keepCopy}
                           </button>
                           <button
                             type="button"
                             onClick={handleResetLetter}
                             className="min-h-[40px] px-4 py-2 rounded-lg border border-[#1A1A1A]/25 dark:border-white/20 text-[11px] tracking-[0.06em] uppercase text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white hover:border-[#FF721A] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
                           >
-                            Write another
+                            {t.contact.writeAnother}
                           </button>
                         </>
                       )}
@@ -1581,7 +1662,7 @@ export const ContactAndFooter: React.FC = () => {
             {/* Right: Thermal Press Job Ticket Stub */}
             <ParallaxLayer speed={18} className="lg:col-span-4 lg:sticky lg:top-24">
               <motion.aside
-                aria-label="Job ticket"
+                aria-label={t.contact.ticket.aria}
                 initial={
                   prefersReducedMotion
                     ? false
@@ -1595,15 +1676,15 @@ export const ContactAndFooter: React.FC = () => {
                 }`}
               >
                 <p className="text-xs font-semibold text-[#0A0A0A] dark:text-white">
-                  AADESH PS :: PRESS
+                  {t.contact.ticket.header}
                 </p>
                 <p className="mt-0.5 pb-2.5 text-[10px] text-[#525252] dark:text-[#A3A3A3] border-b border-dashed border-[#1A1A1A]/25 dark:border-white/20">
-                  INTAKE · COUNTER 01
+                  {t.contact.ticket.counter}
                 </p>
 
                 <dl className="mt-3 text-[11px] leading-[1.6]">
                   <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
-                    <dt className="text-[#525252] dark:text-[#A3A3A3]">JOB</dt>
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">{t.contact.ticket.job}</dt>
                     <dd
                       className={`text-right tabular-nums ${
                         sentInfo
@@ -1611,38 +1692,38 @@ export const ContactAndFooter: React.FC = () => {
                           : 'text-[#737373] dark:text-[#737373]'
                       }`}
                     >
-                      {sentInfo ? sentInfo.jobId : '——'}
+                      {sentTicket ? sentTicket.jobId : '——'}
                     </dd>
                   </div>
 
                   <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
-                    <dt className="text-[#525252] dark:text-[#A3A3A3]">RECEIVED</dt>
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">{t.contact.ticket.received}</dt>
                     <dd
                       className={`text-right tabular-nums ${
-                        sentInfo
+                        sentTicket
                           ? 'text-[#0A0A0A] dark:text-white font-semibold'
                           : 'text-[#737373] dark:text-[#737373]'
                       }`}
                     >
-                      {sentInfo ? sentInfo.receivedAt : '——'}
+                      {sentTicket ? sentTicket.receivedAt : '——'}
                     </dd>
                   </div>
 
                   <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
-                    <dt className="text-[#525252] dark:text-[#A3A3A3]">REPLY BY</dt>
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">{t.contact.ticket.replyBy}</dt>
                     <dd
                       className={`text-right tabular-nums ${
-                        sentInfo
+                        sentTicket
                           ? 'text-[#0A0A0A] dark:text-white font-semibold'
                           : 'text-[#737373] dark:text-[#737373]'
                       }`}
                     >
-                      {sentInfo ? sentInfo.replyBy : '——'}
+                      {sentTicket ? sentTicket.replyBy : '——'}
                     </dd>
                   </div>
 
                   <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
-                    <dt className="text-[#525252] dark:text-[#A3A3A3]">STATUS</dt>
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">{t.contact.ticket.status}</dt>
                     <dd
                       className={`text-right font-semibold ${
                         sentInfo || isSigned
@@ -1655,9 +1736,9 @@ export const ContactAndFooter: React.FC = () => {
                   </div>
 
                   <div className="flex items-baseline justify-between gap-2 py-1.5 border-b border-dotted border-[#1A1A1A]/20 dark:border-white/15">
-                    <dt className="text-[#525252] dark:text-[#A3A3A3]">FILE UNDER</dt>
+                    <dt className="text-[#525252] dark:text-[#A3A3A3]">{t.contact.ticket.fileUnder}</dt>
                     <dd className="text-right font-semibold text-[#0A0A0A] dark:text-white">
-                      {kind.toUpperCase()}
+                      {activeKindLabel.toUpperCase()}
                     </dd>
                   </div>
                 </dl>
@@ -1667,7 +1748,7 @@ export const ContactAndFooter: React.FC = () => {
                   className="letter-stub-bars block h-[26px] mt-4 text-[#1A1A1A] dark:text-[#E5E5E5]"
                 />
                 <p className="mt-2 text-[10px] text-[#525252] dark:text-[#A3A3A3]">
-                  KEEP THIS HALF
+                  {t.contact.ticket.keepHalf}
                 </p>
               </motion.aside>
             </ParallaxLayer>
@@ -1685,7 +1766,11 @@ export const ContactAndFooter: React.FC = () => {
         }}
         onDone={(strokes) => {
           setSignatureStrokes(strokes);
-          const nextSignErr = getSignError(strokes.length > 0, name);
+          const nextSignErr = getSignError(
+            strokes.length > 0,
+            name,
+            t.contact.errors
+          );
           if (strokes.length > 0) {
             setErrors((prev) => ({ ...prev, sign: nextSignErr }));
           } else if (touched.sign || hasSubmitted) {
@@ -1700,10 +1785,10 @@ export const ContactAndFooter: React.FC = () => {
       <footer className="snap-end pt-10 pb-20 sm:pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-center sm:text-left text-[#525252] dark:text-[#A3A3A3]">
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-4">
-            <a href="#top" aria-label={PROFILE.name} className="inline-flex items-center shrink-0">
+            <a href="#top" aria-label={profile.name} className="inline-flex items-center shrink-0">
               <img
                 src={BRAND_LOGO_URL}
-                alt={PROFILE.name}
+                alt={profile.name}
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"
@@ -1713,36 +1798,36 @@ export const ContactAndFooter: React.FC = () => {
             <p>
               © 2026{' '}
               <strong className="font-bold text-[#0A0A0A] dark:text-white">
-                Aadesh PS
+                {profile.name}
               </strong>
-              {' · Crafted with precision'}
+              {` · ${t.contact.footer.craftedWithPrecision}`}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
             <MagneticLink
-              href={PROFILE.linkedinHref}
+              href={profile.linkedinHref}
               allowMagnetic={allowMagnetic}
               prefersReducedMotion={prefersReducedMotion}
               entranceDelay={0.05}
-              tooltip={{ platform: 'LinkedIn', detail: 'in/aadeshps27' }}
+              tooltip={{ platform: t.contact.footer.linkedin, detail: 'in/aadeshps27' }}
               className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              LinkedIn
+              {t.contact.footer.linkedin}
             </MagneticLink>
             <MagneticLink
-              href={PROFILE.instagramHref}
+              href={profile.instagramHref}
               allowMagnetic={allowMagnetic}
               prefersReducedMotion={prefersReducedMotion}
               entranceDelay={0.14}
               tooltip={{
-                platform: 'Instagram',
+                platform: t.contact.footer.instagram,
                 detail: '@_aadeshps',
                 align: 'end',
               }}
               className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
-              Instagram
+              {t.contact.footer.instagram}
             </MagneticLink>
           </div>
         </div>
@@ -1765,7 +1850,7 @@ export const ContactAndFooter: React.FC = () => {
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-[#FF721A] text-[#0A0A0A] shrink-0">
                 <Check size={12} strokeWidth={2.5} aria-hidden="true" />
               </span>
-              <span>Copied!</span>
+              <span>{t.contact.toastCopiedHeading}</span>
               <span className="text-[#A3A3A3] dark:text-[#525252] font-mono font-normal truncate max-w-[200px] sm:max-w-none">
                 {copiedNotice}
               </span>

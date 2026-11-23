@@ -2,10 +2,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Bricolage Grotesque", "Anek Malayalam", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", "Anek Malayalam", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Anek Malayalam", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Anek Malayalam", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-brand-orange: #FF721A;
   --color-brand-orange-deep: #C94B00;
@@ -33,6 +33,22 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
+  }
+
+  /* Prevent CSS letter-spacing from breaking Malayalam conjunct ligatures & stacked vowel signs */
+  html[lang="ml"] * {
+    letter-spacing: 0 !important;
+  }
+
+  html[lang="ml"] body {
+    line-height: 1.65;
+  }
+
+  html[lang="ml"] h1,
+  html[lang="ml"] h2,
+  html[lang="ml"] h3,
+  html[lang="ml"] h4 {
+    line-height: 1.25;
   }
 
   @media (prefers-reduced-motion: reduce) {
