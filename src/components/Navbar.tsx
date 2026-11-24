@@ -13,7 +13,6 @@ import { BRAND_LOGO_URL } from '../data/portfolio';
 import { NavbarLogoParticles } from './NavbarLogoParticles';
 import { ARTCRAFT_EASE, OSMO_EASE, RfButtonFlickerText } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
-import { playFilterTab, playNavSelect } from '../utils/spatialAudio';
 import { smoothScrollToSectionId } from '../utils/smoothScroll';
 
 interface NavbarProps {
@@ -161,12 +160,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: t.nav.contact, href: '#contact' },
   ];
 
-  const handleLanguageSelect = (
-    nextLang: 'en' | 'ml',
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleLanguageSelect = (nextLang: 'en' | 'ml') => {
     if (lang === nextLang) return;
-    playFilterTab(nextLang === 'en' ? 0 : 1, 2, event.currentTarget);
     setLang(nextLang);
   };
 
@@ -251,7 +246,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     href: string
   ) => {
     e.preventDefault();
-    playNavSelect(e.currentTarget);
     scrollToSection(href);
   };
 
@@ -282,7 +276,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     href: string
   ) => {
     e.preventDefault();
-    playNavSelect(e.currentTarget);
     setMobileOpen(false);
     // Defer scroll by one frame so drawer collapse doesn't skew landing offset
     window.requestAnimationFrame(() => {
@@ -443,7 +436,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={code}
                   type="button"
-                  onClick={(e) => handleLanguageSelect(code, e)}
+                  onClick={() => handleLanguageSelect(code)}
                   aria-pressed={active}
                   lang={code}
                   className={`relative min-h-[34px] px-2.5 sm:px-3 py-1 rounded-md font-mono text-[11px] font-semibold tracking-[0.04em] transition-colors duration-150 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
@@ -578,7 +571,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <button
                     type="button"
-                    onClick={(e) => handleLanguageSelect('en', e)}
+                    onClick={() => handleLanguageSelect('en')}
                     aria-pressed={lang === 'en'}
                     className={`min-h-[34px] px-3 py-1 rounded-md font-mono text-xs font-semibold transition-colors ${
                       lang === 'en'
@@ -590,7 +583,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => handleLanguageSelect('ml', e)}
+                    onClick={() => handleLanguageSelect('ml')}
                     aria-pressed={lang === 'ml'}
                     className={`min-h-[34px] px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
                       lang === 'ml'

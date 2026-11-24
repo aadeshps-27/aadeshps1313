@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { ProjectId } from '../data/portfolio';
 import { useLanguage } from './LanguageProvider';
-import { playFilterTab, playGlobeNodeSelect } from '../utils/spatialAudio';
 
 type CompetencyAxisKey =
   | 'systemsArch'
@@ -237,11 +236,8 @@ export const CaseStudyRadarStack: React.FC<CaseStudyRadarStackProps> = ({
     []
   );
 
-  const handleAxisSelect = (axis: CompetencyAxisKey, sourceEl?: HTMLElement | null) => {
+  const handleAxisSelect = (axis: CompetencyAxisKey) => {
     const next = pinnedAxis === axis ? null : axis;
-    const isHardwareAxis =
-      axis === 'embeddedFirmware' || axis === 'rfTelemetry' || axis === 'sensorsDsp';
-    playGlobeNodeSelect(isHardwareAxis ? 'repel' : 'attract', sourceEl);
     setPinnedAxis(next);
   };
 
@@ -267,10 +263,7 @@ export const CaseStudyRadarStack: React.FC<CaseStudyRadarStackProps> = ({
 
         <button
           type="button"
-          onClick={(e) => {
-            playFilterTab(showEnvelope ? 0 : 1, 2, e.currentTarget);
-            setShowEnvelope((prev) => !prev);
-          }}
+          onClick={() => setShowEnvelope((prev) => !prev)}
           aria-pressed={showEnvelope}
           className={`inline-flex items-center gap-2 self-start sm:self-center min-h-[34px] px-3 py-1.5 rounded-lg border font-mono text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
             showEnvelope
@@ -402,7 +395,7 @@ export const CaseStudyRadarStack: React.FC<CaseStudyRadarStackProps> = ({
                   onMouseLeave={() => setHoveredAxis((prev) => (prev === axis ? null : prev))}
                   onFocus={() => setHoveredAxis(axis)}
                   onBlur={() => setHoveredAxis((prev) => (prev === axis ? null : prev))}
-                  onClick={(e) => handleAxisSelect(axis, e.currentTarget as unknown as HTMLElement)}
+                  onClick={() => handleAxisSelect(axis)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -511,11 +504,11 @@ export const CaseStudyRadarStack: React.FC<CaseStudyRadarStackProps> = ({
                   onBlur={() =>
                     setHoveredAxis((prev) => (prev === group.axis ? null : prev))
                   }
-                  onClick={(e) => handleAxisSelect(group.axis, e.currentTarget)}
+                  onClick={() => handleAxisSelect(group.axis)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleAxisSelect(group.axis, e.currentTarget);
+                      handleAxisSelect(group.axis);
                     }
                   }}
                   className={`p-3.5 rounded-xl border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${

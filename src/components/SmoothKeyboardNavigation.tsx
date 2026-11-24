@@ -4,7 +4,6 @@ import {
   smoothScrollToSectionId,
   smoothScrollToY,
 } from '../utils/smoothScroll';
-import { playNavSelect } from '../utils/spatialAudio';
 
 interface SmoothKeyboardNavigationProps {
   disabled?: boolean;
@@ -127,7 +126,6 @@ export const SmoothKeyboardNavigation: React.FC<SmoothKeyboardNavigationProps> =
           const nextIdx = Math.min(SECTION_IDS.length - 1, idx + 1);
           if (nextIdx !== idx) {
             e.preventDefault();
-            playNavSelect(document.getElementById(SECTION_IDS[nextIdx]));
             smoothScrollToSectionId(SECTION_IDS[nextIdx]);
           }
           break;
@@ -138,7 +136,6 @@ export const SmoothKeyboardNavigation: React.FC<SmoothKeyboardNavigationProps> =
           const prevIdx = Math.max(0, idx - 1);
           if (prevIdx !== idx) {
             e.preventDefault();
-            playNavSelect(document.getElementById(SECTION_IDS[prevIdx]));
             smoothScrollToSectionId(SECTION_IDS[prevIdx]);
           } else if (window.scrollY > 40) {
             e.preventDefault();

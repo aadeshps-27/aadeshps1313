@@ -343,14 +343,6 @@ export interface TranslationBundle {
       roam: string;
     };
   };
-  audio: {
-    muteAria: string;
-    enableAria: string;
-    floatingOnTitle: string;
-    floatingOffTitle: string;
-    inlineOnTitle: string;
-    inlineOffTitle: string;
-  };
   backToTop: {
     ariaLabel: string;
   };
@@ -757,14 +749,6 @@ const EN_TRANSLATIONS: TranslationBundle = {
       roam: 'Roam',
     },
   },
-  audio: {
-    muteAria: 'Mute spatial audio cues',
-    enableAria: 'Enable spatial audio cues',
-    floatingOnTitle: 'Spatial Audio: On (click to mute)',
-    floatingOffTitle: 'Spatial Audio: Muted (click to enable)',
-    inlineOnTitle: 'Spatial Audio: On',
-    inlineOffTitle: 'Spatial Audio: Muted',
-  },
   backToTop: {
     ariaLabel: 'Back to top',
   },
@@ -1170,14 +1154,6 @@ const ML_TRANSLATIONS: TranslationBundle = {
       dock: 'നിർത്തുക',
       roam: 'സഞ്ചരിക്കുക',
     },
-  },
-  audio: {
-    muteAria: 'സ്പേഷ്യൽ ഓഡിയോ ശബ്ദങ്ങൾ മ്യൂട്ട് ചെയ്യുക',
-    enableAria: 'സ്പേഷ്യൽ ഓഡിയോ ശബ്ദങ്ങൾ ഓൺ ചെയ്യുക',
-    floatingOnTitle: 'സ്പേഷ്യൽ ഓഡിയോ: ഓൺ (മ്യൂട്ട് ചെയ്യാൻ ക്ലിക്ക് ചെയ്യുക)',
-    floatingOffTitle: 'സ്പേഷ്യൽ ഓഡിയോ: മ്യൂട്ട് (ഓൺ ചെയ്യാൻ ക്ലിക്ക് ചെയ്യുക)',
-    inlineOnTitle: 'സ്പേഷ്യൽ ഓഡിയോ: ഓൺ',
-    inlineOffTitle: 'സ്പേഷ്യൽ ഓഡിയോ: മ്യൂട്ട്',
   },
   backToTop: {
     ariaLabel: 'മുകളിലേക്ക് പോകുക',

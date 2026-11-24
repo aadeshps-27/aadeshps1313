@@ -583,3 +583,4 @@ export function getProjectReadingTime(id: ProjectId): string {
   return `${minutes} min read`;
 }
 
+

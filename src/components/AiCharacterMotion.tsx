@@ -12,11 +12,6 @@ import {
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 import { Robot3DCanvas, RobotMood, RobotSection } from './Robot3DCanvas';
 import { RobotDataStreamCanvas } from './RobotDataStreamCanvas';
-import {
-  playCompanionCue,
-  playRobotIdleMechanical,
-  RobotIdleSoundKind,
-} from '../utils/spatialAudio';
 import { useLanguage } from './LanguageProvider';
 
 type MoodMode = RobotMood;
@@ -462,56 +457,6 @@ export const AiCharacterMotion: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [waveActive]);
 
-  // Subtle randomized mechanical idle sound effects synced softly to active scroll section
-  useEffect(() => {
-    if (prefersReducedMotion || typeof window === 'undefined') return;
-    let cancelled = false;
-    let idleAudioTimer: number | null = null;
-
-    const sectionPool: Record<RobotSection, RobotIdleSoundKind[]> = {
-      about: ['servo-whir', 'relay-tick'],
-      work: ['gimbal-ratchet', 'antenna-ping', 'relay-tick'],
-      experience: ['relay-tick', 'servo-whir', 'gimbal-ratchet'],
-      contact: ['antenna-ping', 'servo-whir'],
-    };
-
-    const scheduleNextIdleSound = () => {
-      if (cancelled) return;
-      const delayMs = 5500 + Math.random() * 6000;
-      idleAudioTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        const canEmit =
-          !document.hidden &&
-          !isDragging &&
-          !danceActive &&
-          !radarActive &&
-          !waveActive &&
-          mood !== 'sleep' &&
-          mood !== 'overdrive';
-        if (canEmit) {
-          const candidates = sectionPool[activeSection] ?? sectionPool.about;
-          const pick = candidates[Math.floor(Math.random() * candidates.length)];
-          playRobotIdleMechanical(pick, stageRef.current);
-        }
-        scheduleNextIdleSound();
-      }, delayMs);
-    };
-
-    scheduleNextIdleSound();
-    return () => {
-      cancelled = true;
-      if (idleAudioTimer !== null) window.clearTimeout(idleAudioTimer);
-    };
-  }, [
-    prefersReducedMotion,
-    activeSection,
-    mood,
-    isDragging,
-    danceActive,
-    radarActive,
-    waveActive,
-  ]);
-
   const spinDizzyTimerRef = useRef<number | null>(null);
 
   const clearDizzyTimer = useCallback(() => {
@@ -529,7 +474,6 @@ export const AiCharacterMotion: React.FC = () => {
 
   const triggerOverdrive = useCallback(() => {
     clearDizzyTimer();
-    playCompanionCue('overdrive', stageRef.current);
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setOverdriveCount((c) => c + 1);
@@ -600,7 +544,6 @@ export const AiCharacterMotion: React.FC = () => {
       flashThought('exclaim', 1100);
     }
 
-    playCompanionCue('tap', stageRef.current);
     setMood(nextMood);
     if (!pointerFine) {
       setShowControls((s) => !s);
@@ -609,7 +552,6 @@ export const AiCharacterMotion: React.FC = () => {
 
   const triggerSpin = () => {
     clearDizzyTimer();
-    playCompanionCue('spin', stageRef.current);
     setPulseKey((k) => k + 1);
     setHopKey((k) => k + 1);
     setDanceActive(false);

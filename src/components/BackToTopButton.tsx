@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-
-import { playNavSelect } from '../utils/spatialAudio';
 import { smoothScrollToY } from '../utils/smoothScroll';
 import { useLanguage } from './LanguageProvider';
 
@@ -37,8 +35,7 @@ export const BackToTopButton: React.FC<BackToTopButtonProps> = ({ inline = false
     };
   }, []);
 
-  const handleScrollTop = (e: React.MouseEvent<HTMLButtonElement>) => {
-    playNavSelect(e.currentTarget);
+  const handleScrollTop = () => {
     smoothScrollToY(0, { immediate: Boolean(prefersReducedMotion) });
   };
 

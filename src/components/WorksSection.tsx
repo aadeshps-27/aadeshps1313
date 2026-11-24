@@ -27,16 +27,11 @@ import {
 } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
 import { getLocalizedReadingTime } from '../i18n/translations';
-import {
-  playCardHover,
-  playFilterTab,
-  playSpecsToggle,
-} from '../utils/spatialAudio';
 
 interface WorksSectionProps {
   activeFilter: ProjectCategory;
   onChangeFilter: (filter: ProjectCategory) => void;
-  onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
+  onOpenProject: (id: ProjectId) => void;
 }
 
 const FILTER_KEYS: ProjectCategory[] = ['all', 'design', 'robotics', 'rf'];
@@ -97,7 +92,7 @@ interface MagneticProjectCardProps {
   hasSwitchedFilter: boolean;
   allowParallax: boolean;
   prefersReducedMotion: boolean;
-  onOpenProject: (id: ProjectId, source?: HTMLElement | null) => void;
+  onOpenProject: (id: ProjectId) => void;
 }
 
 const MAGNETIC_SPRING = { stiffness: 240, damping: 26, mass: 0.55 };
@@ -150,10 +145,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
     pointerY.set(ny);
   };
 
-  const handlePointerEnter = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.pointerType !== 'touch') {
-      playCardHover(cardRef.current, index);
-    }
+  const handlePointerEnter = () => {
     if (!allowParallax) return;
     setIsHovered(true);
   };
@@ -170,18 +162,13 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
 
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onOpenProject(project.id, cardRef.current);
+      onOpenProject(project.id);
       return;
     }
 
     if (e.key === 'e' || e.key === 'E') {
       e.preventDefault();
-      const targetEl = cardRef.current;
-      setIsExpanded((prev) => {
-        const next = !prev;
-        playSpecsToggle(next, targetEl);
-        return next;
-      });
+      setIsExpanded((prev) => !prev);
       return;
     }
 
@@ -257,7 +244,6 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
         onFocus={(e) => {
           if (e.target === e.currentTarget) {
             setIsFocused(true);
-            playCardHover(cardRef.current, index);
           }
         }}
         onBlur={() => setIsFocused(false)}
@@ -400,7 +386,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
           <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
             <button
               type="button"
-              onClick={(e) => onOpenProject(project.id, e.currentTarget)}
+              onClick={() => onOpenProject(project.id)}
               className="rf-btn-flicker invert-block w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#0A0A0A] text-white dark:bg-white dark:text-[#0A0A0A] text-sm font-semibold hover:bg-[#FF721A] hover:text-[#0A0A0A] dark:hover:bg-[#FF721A] dark:hover:text-[#0A0A0A] whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
             >
               <RfButtonFlickerText text={t.works.readCaseStudy} />
@@ -411,14 +397,7 @@ const MagneticProjectCard: React.FC<MagneticProjectCardProps> = ({
               type="button"
               aria-expanded={isExpanded}
               aria-controls={`project-expanded-${project.id}`}
-              onClick={(e) => {
-                const sourceEl = e.currentTarget;
-                setIsExpanded((prev) => {
-                  const next = !prev;
-                  playSpecsToggle(next, sourceEl);
-                  return next;
-                });
-              }}
+              onClick={() => setIsExpanded((prev) => !prev)}
               className={`w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors duration-200 whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                 isExpanded
                   ? 'border-[#FF721A] bg-[#FF721A] text-[#0A0A0A]'
@@ -583,13 +562,8 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
     }
   }, [activeFilter]);
 
-  const handleFilterClick = (
-    nextFilter: ProjectCategory,
-    tabIndex = 0,
-    sourceEl?: HTMLElement | null
-  ) => {
+  const handleFilterClick = (nextFilter: ProjectCategory) => {
     if (nextFilter === activeFilter) return;
-    playFilterTab(tabIndex, FILTER_KEYS.length, sourceEl);
     setHasSwitchedFilter(true);
     onChangeFilter(nextFilter);
   };
@@ -613,7 +587,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
       e.preventDefault();
       const targetFilter = FILTER_KEYS[nextIdx];
       const targetEl = filterTabRefs.current[nextIdx];
-      handleFilterClick(targetFilter, nextIdx, targetEl);
+      handleFilterClick(targetFilter);
       targetEl?.focus();
     }
   };
@@ -670,7 +644,7 @@ export const WorksSection: React.FC<WorksSectionProps> = ({
                     role="tab"
                     tabIndex={isSelected ? 0 : -1}
                     aria-selected={isSelected}
-                    onClick={(e) => handleFilterClick(filterId, idx, e.currentTarget)}
+                    onClick={() => handleFilterClick(filterId)}
                     onKeyDown={(e) => handleFilterKeyDown(e, idx)}
                     className={`relative min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 whitespace-normal sm:whitespace-nowrap text-center leading-snug shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                       isSelected

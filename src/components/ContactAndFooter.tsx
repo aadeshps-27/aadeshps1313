@@ -18,7 +18,6 @@ import {
 import { BRAND_LOGO_URL } from '../data/portfolio';
 import { TranslationBundle } from '../i18n/translations';
 import { ContactGridBackground } from './ContactGridBackground';
-import { MachineStateIndicator } from './MachineStateIndicator';
 import { useLanguage } from './LanguageProvider';
 import {
   ARTCRAFT_EASE,
@@ -32,10 +31,6 @@ import {
   SignaturePadModal,
   SignatureStrokes,
 } from './SignaturePadModal';
-import {
-  playCopyConfirm,
-  playNavSelect,
-} from '../utils/spatialAudio';
 
 type InquiryKind = 'A collaboration' | 'Just a hello';
 
@@ -574,8 +569,7 @@ export const ContactAndFooter: React.FC = () => {
 
   const copyFormattedToClipboard = async (
     plainText: string,
-    htmlText: string,
-    sourceEl?: HTMLElement | null
+    htmlText: string
   ) => {
     let copied = false;
     try {
@@ -623,9 +617,6 @@ export const ContactAndFooter: React.FC = () => {
       }
     }
 
-    if (copied && sourceEl) {
-      playCopyConfirm(sourceEl);
-    }
     return copied;
   };
 
@@ -864,7 +855,6 @@ export const ContactAndFooter: React.FC = () => {
     if (honeypot.trim().length > 0) return;
     if (!validateLetter()) return;
 
-    playNavSelect(e.currentTarget);
     const ticket = stampAndLogTicket('Email');
     const senderLabel = sanitizeLine(name) || sanitizeLine(email);
     const subject = encodeURIComponent(`[${activeKindLabel}] ${ticket.jobId} — ${senderLabel}`);
@@ -877,11 +867,10 @@ export const ContactAndFooter: React.FC = () => {
     document.body.removeChild(anchor);
   };
 
-  const handleSendWhatsApp = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSendWhatsApp = () => {
     if (honeypot.trim().length > 0) return;
     if (!validateLetter()) return;
 
-    playNavSelect(e.currentTarget);
     const ticket = stampAndLogTicket('WhatsApp');
     const text = encodeURIComponent(buildFormattedSubmission('WhatsApp', ticket));
     const waUrl = `${profile.whatsappHref}?text=${text}`;
@@ -896,7 +885,7 @@ export const ContactAndFooter: React.FC = () => {
     document.body.removeChild(anchor);
   };
 
-  const handleKeepCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleKeepCopy = async () => {
     const activeTicket = sentTicket ?? {
       jobId: 'DRAFT',
       timestamp: Date.now(),
@@ -910,11 +899,7 @@ export const ContactAndFooter: React.FC = () => {
     const channel = activeTicket.channel;
     const transcript = buildFormattedSubmission(channel, activeTicket);
     const htmlTranscript = buildFormattedHtmlSubmission(channel, activeTicket);
-    const ok = await copyFormattedToClipboard(
-      transcript,
-      htmlTranscript,
-      e.currentTarget
-    );
+    const ok = await copyFormattedToClipboard(transcript, htmlTranscript);
     if (ok) showToast(t.contact.toastCopySaved);
   };
 
@@ -1805,35 +1790,31 @@ export const ContactAndFooter: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <MachineStateIndicator />
-
-            <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
-              <MagneticLink
-                href={profile.linkedinHref}
-                allowMagnetic={allowMagnetic}
-                prefersReducedMotion={prefersReducedMotion}
-                entranceDelay={0.05}
-                tooltip={{ platform: t.contact.footer.linkedin, detail: 'in/aadeshps27' }}
-                className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-              >
-                {t.contact.footer.linkedin}
-              </MagneticLink>
-              <MagneticLink
-                href={profile.instagramHref}
-                allowMagnetic={allowMagnetic}
-                prefersReducedMotion={prefersReducedMotion}
-                entranceDelay={0.14}
-                tooltip={{
-                  platform: t.contact.footer.instagram,
-                  detail: '@_aadeshps',
-                  align: 'end',
-                }}
-                className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
-              >
-                {t.contact.footer.instagram}
-              </MagneticLink>
-            </div>
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-5 sm:gap-6">
+            <MagneticLink
+              href={profile.linkedinHref}
+              allowMagnetic={allowMagnetic}
+              prefersReducedMotion={prefersReducedMotion}
+              entranceDelay={0.05}
+              tooltip={{ platform: t.contact.footer.linkedin, detail: 'in/aadeshps27' }}
+              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+            >
+              {t.contact.footer.linkedin}
+            </MagneticLink>
+            <MagneticLink
+              href={profile.instagramHref}
+              allowMagnetic={allowMagnetic}
+              prefersReducedMotion={prefersReducedMotion}
+              entranceDelay={0.14}
+              tooltip={{
+                platform: t.contact.footer.instagram,
+                detail: '@_aadeshps',
+                align: 'end',
+              }}
+              className="inline-flex items-center py-1.5 px-2 -mx-2 rounded-md hover:text-[#C94B00] dark:hover:text-[#FF721A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
+            >
+              {t.contact.footer.instagram}
+            </MagneticLink>
           </div>
         </div>
       </footer>

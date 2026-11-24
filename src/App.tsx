@@ -15,10 +15,6 @@ import { InteractiveDotGrid } from './components/InteractiveDotGrid';
 import { SmoothKeyboardNavigation } from './components/SmoothKeyboardNavigation';
 import { DevAnimationHud } from './components/DevAnimationHud';
 import { LanguageProvider, useLanguage } from './components/LanguageProvider';
-import {
-  FloatingAudioToggle,
-  SpatialAudioProvider,
-} from './components/SpatialAudioProvider';
 import { SectionDivider } from './components/SectionDivider';
 import {
   BRAND_LOGO_URL,
@@ -27,7 +23,6 @@ import {
   ProjectCategory,
   ProjectId,
 } from './data/portfolio';
-import { playModalOpen, playThemeSwitch } from './utils/spatialAudio';
 import { warmImagesOnIdle } from './utils/imagePreload';
 
 type DocumentWithViewTransition = Document & {
@@ -80,7 +75,6 @@ function AppContent() {
 
   const toggleTheme = (event?: React.MouseEvent<HTMLButtonElement>) => {
     const nextTheme: 'light' | 'dark' = theme === 'dark' ? 'light' : 'dark';
-    playThemeSwitch(nextTheme, event?.currentTarget);
     const root = document.documentElement;
     const doc = document as DocumentWithViewTransition;
     const reduceMotion =
@@ -152,8 +146,7 @@ function AppContent() {
   }, []);
 
   const handleOpenProject = useCallback(
-    (id: ProjectId, source?: HTMLElement | null) => {
-      playModalOpen(source);
+    (id: ProjectId) => {
       setSelectedProject(id);
     },
     []
@@ -162,8 +155,7 @@ function AppContent() {
   const isOverlayOpen = selectedProject !== null || isPreloading;
 
   return (
-    <SpatialAudioProvider>
-      <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
+    <div className="relative min-h-screen bg-white text-[#0A0A0A] dark:bg-black dark:text-white transition-colors duration-200">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#FF721A] focus:text-[#0A0A0A] focus:font-bold focus:text-xs focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-[#0A0A0A] dark:focus:outline-white"
@@ -233,7 +225,6 @@ function AppContent() {
           </main>
 
           <div className="fixed bottom-4 right-8 sm:bottom-6 sm:right-9 md:right-12 z-30 flex flex-col items-end gap-2.5">
-            <FloatingAudioToggle />
             <BackToTopButton inline />
           </div>
         </div>
@@ -256,8 +247,7 @@ function AppContent() {
         </AnimatePresence>
 
         {import.meta.env.DEV && <DevAnimationHud theme={theme} />}
-      </div>
-    </SpatialAudioProvider>
+    </div>
   );
 }
 

@@ -23,7 +23,6 @@ import {
 } from 'motion/react';
 import { ARTCRAFT_EASE } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
-import { playFilterTab, playGlobeNodeSelect } from '../utils/spatialAudio';
 
 type Polarity = 'attract' | 'repel';
 type CloudFieldMode = 'mixed' | 'attract' | 'repel';
@@ -235,10 +234,7 @@ const GlobeNodeItem: React.FC<GlobeNodeItemProps> = ({
         >
           <motion.button
             type="button"
-            onClick={(e) => {
-              playGlobeNodeSelect(effectivePolarity, e.currentTarget);
-              onSelect(node.id);
-            }}
+            onClick={() => onSelect(node.id)}
             whileHover={prefersReducedMotion ? undefined : { scale: 1.09 }}
             whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
             aria-pressed={isSelected}
@@ -756,18 +752,13 @@ export const TechnologyCloud: React.FC = () => {
           aria-label={t.techCloud.fieldGroupAria}
           className="inline-flex items-center p-1 rounded-xl border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] self-start sm:self-auto"
         >
-          {FIELD_MODE_KEYS.map((modeId, modeIdx) => {
+          {FIELD_MODE_KEYS.map((modeId) => {
             const active = fieldMode === modeId;
             return (
               <button
                 key={modeId}
                 type="button"
-                onClick={(e) => {
-                  if (fieldMode !== modeId) {
-                    playFilterTab(modeIdx, FIELD_MODE_KEYS.length, e.currentTarget);
-                  }
-                  setFieldMode(modeId);
-                }}
+                onClick={() => setFieldMode(modeId)}
                 aria-pressed={active}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                   active

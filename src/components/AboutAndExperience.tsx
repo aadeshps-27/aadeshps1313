@@ -22,7 +22,6 @@ import {
   SectionChoreoHeader,
 } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
-import { playFilterTab } from '../utils/spatialAudio';
 
 const EASE_OUT_EXPO = ARTCRAFT_EASE;
 
@@ -457,8 +456,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
                     delay: prefersReducedMotion ? 0 : idx * 0.065,
                     ease: ARTCRAFT_EASE,
                   }}
-                  onClick={(e) => {
-                    playFilterTab(idx, disciplines.length, e.currentTarget);
+                  onClick={() => {
                     onSelectDisciplineFilter?.(item.filter);
                     const el = document.getElementById('work');
                     el?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
@@ -502,8 +500,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
               whileHover={prefersReducedMotion ? undefined : { y: 2 }}
               whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
               transition={{ duration: 0.5, ease: ARTCRAFT_EASE }}
-              onClick={(e) => {
-                playFilterTab(1, 2, e.currentTarget);
+              onClick={() => {
                 const el = document.getElementById('work');
                 el?.scrollIntoView({
                   behavior: prefersReducedMotion ? 'auto' : 'smooth',

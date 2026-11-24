@@ -4,7 +4,6 @@ import { motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { ExperienceItem } from '../data/portfolio';
 import { ParallaxLayer } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
-import { playFilterTab } from '../utils/spatialAudio';
 
 type TimelineFilter = 'all' | 'role' | 'education';
 
@@ -69,7 +68,6 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
       e.preventDefault();
       const targetEl = tabRefs.current[nextIdx];
       setFilter(FILTER_KEYS[nextIdx]);
-      playFilterTab(nextIdx, FILTER_KEYS.length, targetEl);
       targetEl?.focus();
     }
   };
@@ -102,12 +100,7 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
                 role="tab"
                 tabIndex={isActive ? 0 : -1}
                 aria-selected={isActive}
-                onClick={(e) => {
-                  if (filter !== optId) {
-                    playFilterTab(idx, FILTER_KEYS.length, e.currentTarget);
-                  }
-                  setFilter(optId);
-                }}
+                onClick={() => setFilter(optId)}
                 onKeyDown={(e) => handleTabKeyDown(e, idx)}
                 className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A] ${
                   isActive
@@ -135,10 +128,7 @@ export const ExperienceTimeline: React.FC<ExperienceTimelineProps> = ({
 
         <button
           type="button"
-          onClick={(e) => {
-            playFilterTab(chronologicalAsc ? 1 : 2, 3, e.currentTarget);
-            setChronologicalAsc((prev) => !prev);
-          }}
+          onClick={() => setChronologicalAsc((prev) => !prev)}
           aria-label={chronologicalAsc ? t.timeline.orderAriaAsc : t.timeline.orderAriaDesc}
           className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-[#E5E5E5] dark:border-[#262626] bg-[#FAFAFA] dark:bg-[#0A0A0A] hover:border-[#FF721A] text-xs font-mono text-[#525252] dark:text-[#A3A3A3] hover:text-[#0A0A0A] dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF721A]"
         >
