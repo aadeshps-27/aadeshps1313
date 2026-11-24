@@ -16,6 +16,7 @@ import { SmoothKeyboardNavigation } from './components/SmoothKeyboardNavigation'
 import { DevAnimationHud } from './components/DevAnimationHud';
 import { LanguageProvider, useLanguage } from './components/LanguageProvider';
 import { SectionDivider } from './components/SectionDivider';
+import { SectionExitMotion } from './components/SectionExitMotion';
 import {
   BRAND_LOGO_URL,
   PROFILE,
@@ -190,10 +191,12 @@ function AppContent() {
           />
 
           <main id="main" tabIndex={-1} className="relative z-[1] overflow-x-clip focus:outline-none">
-            <AboutSection
-              entranceReady={!isPreloading}
-              onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
-            />
+            <SectionExitMotion sectionId="about" initialVisible>
+              <AboutSection
+                entranceReady={!isPreloading}
+                onSelectDisciplineFilter={(filter) => setActiveFilter(filter)}
+              />
+            </SectionExitMotion>
 
             <SectionDivider
               index="02"
@@ -201,11 +204,13 @@ function AppContent() {
               descriptor={t.dividers.works.descriptor}
             />
 
-            <WorksSection
-              activeFilter={activeFilter}
-              onChangeFilter={setActiveFilter}
-              onOpenProject={handleOpenProject}
-            />
+            <SectionExitMotion sectionId="work">
+              <WorksSection
+                activeFilter={activeFilter}
+                onChangeFilter={setActiveFilter}
+                onOpenProject={handleOpenProject}
+              />
+            </SectionExitMotion>
 
             <SectionDivider
               index="03"
@@ -213,7 +218,9 @@ function AppContent() {
               descriptor={t.dividers.experience.descriptor}
             />
 
-            <ExperienceSection />
+            <SectionExitMotion sectionId="experience">
+              <ExperienceSection />
+            </SectionExitMotion>
 
             <SectionDivider
               index="04"
@@ -221,7 +228,9 @@ function AppContent() {
               descriptor={t.dividers.contact.descriptor}
             />
 
-            <ContactAndFooter />
+            <SectionExitMotion sectionId="contact">
+              <ContactAndFooter />
+            </SectionExitMotion>
           </main>
 
           <div className="fixed bottom-4 right-8 sm:bottom-6 sm:right-9 md:right-12 z-30 flex flex-col items-end gap-2.5">

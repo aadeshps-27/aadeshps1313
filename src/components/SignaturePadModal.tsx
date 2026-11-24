@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ARTCRAFT_EASE, RfButtonFlickerText } from './MotionPrimitives';
 import { useLanguage } from './LanguageProvider';
@@ -204,7 +205,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
     onDone(strokesRef.current.map((s) => s.map((p) => ({ ...p }))));
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {open && (
         <div
@@ -297,4 +298,7 @@ export const SignaturePadModal: React.FC<SignaturePadModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 };
