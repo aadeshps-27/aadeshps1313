@@ -155,7 +155,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
         holeVmax.set(0);
         setPhase('opening');
 
-        holeControls = animate(holeVmax, 160, {
+        holeControls = animate(holeVmax, 135, {
           duration: IRIS_OPEN_DURATION_MS / 1000,
           ease: IRIS_OPEN_EASE,
         });
@@ -295,13 +295,13 @@ export const Preloader: React.FC<PreloaderProps> = ({
       }
       className="fixed inset-0 z-[70] flex items-center justify-center px-6 bg-white dark:bg-[#050505] text-[#0A0A0A] dark:text-white select-none cursor-pointer overflow-hidden"
     >
-      <div className="relative z-10 w-[min(62vw,300px)] sm:w-[min(62vw,420px)] flex flex-col gap-5 sm:gap-6">
+      <div className="relative z-10 w-[min(76vw,288px)] sm:w-[min(56vw,380px)] lg:w-[min(44vw,420px)] flex flex-col gap-3.5 sm:gap-5">
         {/* Wireframe-to-solid wordmark draw + spring-dropped #FF721A signature dot */}
         <svg
           viewBox="0 0 860 160"
           fill="none"
           aria-hidden="true"
-          className="w-full h-auto overflow-visible"
+          className="w-full aspect-[860/160] h-auto overflow-visible"
         >
           {LOGO_GLYPHS.map((glyph) => {
             const combinedFillPath = glyph.innerPath
@@ -398,9 +398,9 @@ export const Preloader: React.FC<PreloaderProps> = ({
         <motion.div
           animate={{ opacity: isLanding || isOpening ? 0 : 1 }}
           transition={{ duration: 0.28, ease: OSMO_EASE }}
-          className="grid grid-cols-[1fr_auto] items-center gap-4"
+          className="grid grid-cols-[1fr_auto] items-center gap-3 sm:gap-4"
         >
-          <span className="relative h-px w-full overflow-hidden bg-[#E5E5E5] dark:bg-[#262626]">
+          <span className="relative h-[1.5px] sm:h-px w-full overflow-hidden bg-[#E5E5E5] dark:bg-[#262626]">
             <span
               ref={progressFillRef}
               style={{ transform: 'scaleX(0)' }}
@@ -409,7 +409,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
           </span>
           <span
             ref={progressPctRef}
-            className="min-w-[4.6ch] text-right font-mono text-[11px] sm:text-xs font-medium tabular-nums tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]"
+            className="min-w-[4.2ch] sm:min-w-[4.6ch] text-right font-mono text-[10px] sm:text-xs font-medium tabular-nums tracking-[0.06em] text-[#525252] dark:text-[#A3A3A3]"
           >
             0 %
           </span>
